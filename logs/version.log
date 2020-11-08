@@ -1,0 +1,27 @@
+192168top>show version 
+Cisco Internetwork Operating System Software 
+IOS (tm) 3000 Software (IGS-D-L), Version 11.1(13), RELEASE SOFTWARE (fc1)
+Copyright (c) 1986-1997 by cisco Systems, Inc.
+Compiled Tue 15-Jul-97 15:18 by tlane
+Image text-base: 0x03028600, data-base: 0x00001000
+
+ROM: System Bootstrap, Version 11.0(10c), SOFTWARE
+ROM: 3000 Bootstrap Software (IGS-BOOT-R), Version 11.0(10c), RELEASE SOFTWARE (fc1)
+
+192168top uptime is 2 minutes
+System restarted by power-on
+System image file is "flash:igs-d-l", booted via flash
+
+cisco 2500 (68030) processor (revision N) with 2048K/2048K bytes of memory.
+Processor board ID 07003370, with hardware revision 00000001
+Bridging software.
+X.25 software, Version 2.0, NET2, BFE and GOSIP compliant.
+Basic Rate ISDN software, Version 1.0.
+1 Ethernet/IEEE 802.3 interface.
+2 Serial network interfaces.
+1 ISDN Basic Rate interface.
+32K bytes of non-volatile configuration memory.
+8192K bytes of processor board System flash (Read ONLY)
+          
+Configuration register is 0x2102
+
