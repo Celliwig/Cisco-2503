@@ -1,0 +1,46 @@
+>?
+
+$            Toggle cache state
+
+B [filename] [TFTP Server IP address | TFTP Server Name]
+
+             Load and execute system image from ROM or from TFTP server
+
+C [address]  Continue execution [optional address]
+
+D /S M L V   Deposit value V of size S into location L with modifier M
+
+E /S M L     Examine location L with size S with modifier M
+
+G [address]  Begin execution
+
+H            Help for commands
+
+I            Initialize
+
+K            Stack trace
+
+L [filename] [TFTP Server IP address | TFTP Server Name]
+
+             Load system image from ROM or from TFTP server, but do not
+
+             begin execution
+
+O            Show configuration register option settings
+
+P            Set the break point
+
+S            Single step next instruction
+
+T function   Test device (? for help)
+
+
+
+Deposit and Examine sizes may be B (byte), L (long) or S (short).
+
+Modifiers may be R (register) or S (byte swap).
+
+Register names are: D0-D7, A0-A6, SS, US, SR, and PC
+
+>
+
