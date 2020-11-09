@@ -1,0 +1,87 @@
+80 pin Flash Simm (4 x AM29F016B 8MB)
+ 1 - Vss
+ 2 - Vcc
+ 3 - N/C
+ 4 - A3
+ 5 - A2
+ 6 - A1
+ 7 - A0
+ 8 - DQ0 (U1)
+ 9 - DQ1 (U1)
+10 - DQ2 (U1)
+11 - DQ3 (U1)
+12 - Vss
+13 - DQ4 (U1)
+14 - DQ5 (U1)
+15 - DQ6 (U1)
+16 - DQ7 (U1)
+17 - OE# (U1 + U2)
+18 - WE# (U1 + U2)
+19 - A4
+20 - A5
+21 - A6
+22 - A7
+23 - A8
+24 - A9
+25 - Vss
+26 - A10
+27 - DQ7 (U2)
+28 - DQ6 (U2)
+29 - DQ5 (U2)
+30 - DQ4 (U2)
+31 - DQ3 (U2)
+32 - DQ2 (U2)
+33 - DQ1 (U2)
+34 - DQ0 (U2)
+35 - CE#
+36 - Vcc
+37 - Size (Open circuit, other pad grounded)
+38 - A11
+39 - A12
+40 - A13
+	NOTCH
+41 - A14
+42 - A15
+43 - Vss
+44 - DQ0 (U3)
+45 - DQ1 (U3)
+46 - DQ2 (U3)
+47 - DQ3 (U3)
+48 - DQ4 (U3)
+49 - DQ5 (U3)
+50 - DQ6 (U3)
+51 - DQ7 (U3)
+52 - N/C
+53 - A16
+54 - Vss
+55 - A17
+56 - A18
+57 - A19
+58 - A20
+59 - N/C
+60 - WE# (U3 + U4)
+61 - OE# (U3 + U4)
+62 - Vss
+63 - DQ0 (U4)
+64 - DQ1 (U4)
+65 - DQ2 (U4)
+66 - DQ3 (U4)
+67 - DQ4 (U4)
+68 - DQ5 (U4)
+69 - DQ6 (U4)
+70 - DQ7 (U4)
+71 - N/C
+72 - Vcc
+73 - N/C
+74 - N/C
+75 - Mem Ident1
+76 - Mem Ident2
+77 - Mem Ident3 (tied to ground)
+78 - Vss
+79 - N/C
+80 - Vss
+
+
+AM29F016B (48 Pin TSOP)
+14 - Reset# tied to Vcc
+42 - RY/BY# tied 10k Vcc
