@@ -5,8 +5,7 @@
 #include "cisco_2503.h"
 #include "m68k.h"
 //#include "osd.h"
-
-void disassemble_program();
+#include <ncurses.h>
 
 /* Memory-mapped IO ports */
 #define INPUT_ADDRESS 0x800000
@@ -77,6 +76,8 @@ void int_controller_clear(unsigned int value);
 
 void get_user_input(void);
 
+void disassemble_program(unsigned char value);
+
 
 /* Data */
 unsigned int g_quit = 0;                        /* 1 if we want to quit */
@@ -113,7 +114,7 @@ void exit_error(char* fmt, ...)
 	va_end(args);
 	fprintf(stderr, "\n");
 	pc = m68k_get_reg(NULL, M68K_REG_PPC);
-	m68k_disassemble(buff, pc, M68K_CPU_TYPE_68000);
+	m68k_disassemble(buff, pc, C2503_CPU);
 	fprintf(stderr, "At %04x: %s\n", pc, buff);
 
 	exit(EXIT_FAILURE);
@@ -459,13 +460,12 @@ void get_user_input(void)
 	last_ch = ch;
 }
 
-/* Disassembler */
-void make_hex(char* buff, unsigned int pc, unsigned int length)
-{
+// Debugger
+//////////////////////////////////////////////////////////////////////////////////////////////
+void make_hex(char* buff, unsigned int pc, unsigned int length) {
 	char* ptr = buff;
 
-	for(;length>0;length -= 2)
-	{
+	for(; length>0; length -= 2) {
 		sprintf(ptr, "%04x", cpu_read_word_dasm(pc));
 		pc += 2;
 		ptr += 4;
@@ -474,27 +474,119 @@ void make_hex(char* buff, unsigned int pc, unsigned int length)
 	}
 }
 
-void disassemble_program()
-{
+void disassemble_program(unsigned char num_lines) {
 	unsigned int pc;
 	unsigned int instr_size;
+	unsigned char line_count = 0;
 	char buff[100];
 	char buff2[100];
 
-	pc = cpu_read_long_dasm(4);
+	//pc = cpu_read_long_dasm(4);
+	pc = m68k_get_reg(NULL, M68K_REG_PC);
 
-	while(pc <= 0x16e)
-	{
-		instr_size = m68k_disassemble(buff, pc, M68K_CPU_TYPE_68000);
+	while(line_count < num_lines) {
+		instr_size = m68k_disassemble(buff, pc, C2503_CPU);
 		make_hex(buff2, pc, instr_size);
-		printf("%03x: %-20s: %s\n", pc, buff2, buff);
+		printw("%03x: %-20s: %s\n", pc, buff2, buff);
 		pc += instr_size;
+		line_count++;
 	}
 	fflush(stdout);
 }
 
-void cpu_instr_callback(int pc)
-{
+void print_registers() {
+	char* str_cpu_type = "Invalid";
+	switch (m68k_get_reg(NULL, M68K_REG_CPU_TYPE)) {
+		case M68K_CPU_TYPE_68000:
+			str_cpu_type = "68000";
+			break;
+		case M68K_CPU_TYPE_68010:
+			str_cpu_type = "68010";
+			break;
+		case M68K_CPU_TYPE_68EC020:
+			str_cpu_type = "68EC020";
+			break;
+		case M68K_CPU_TYPE_68020:
+			str_cpu_type = "68020";
+			break;
+		case M68K_CPU_TYPE_68EC030:
+			str_cpu_type = "68EC030";
+			break;
+		case M68K_CPU_TYPE_68030:
+			str_cpu_type = "68030";
+			break;
+		case M68K_CPU_TYPE_68EC040:
+			str_cpu_type = "68EC040";
+			break;
+		case M68K_CPU_TYPE_68LC040:
+			str_cpu_type = "68LC040";
+			break;
+		case M68K_CPU_TYPE_68040:
+			str_cpu_type = "68040";
+			break;
+		case M68K_CPU_TYPE_SCC68070:
+			str_cpu_type = "SCC68070";
+			break;
+		default:
+			break;
+	}
+	printw("CPU Registers (%s):\n", str_cpu_type);
+
+	printw("D0: %08x\t", m68k_get_reg(NULL, M68K_REG_D0));
+	printw("D1: %08x\t", m68k_get_reg(NULL, M68K_REG_D1));
+	printw("D2: %08x\t", m68k_get_reg(NULL, M68K_REG_D2));
+	printw("D3: %08x\t", m68k_get_reg(NULL, M68K_REG_D3));
+	printw("D4: %08x\t", m68k_get_reg(NULL, M68K_REG_D4));
+	printw("D5: %08x\t", m68k_get_reg(NULL, M68K_REG_D5));
+	printw("D6: %08x\t", m68k_get_reg(NULL, M68K_REG_D6));
+	printw("D7: %08x", m68k_get_reg(NULL, M68K_REG_D7));
+	printw("\n");
+
+	printw("A0: %08x\t", m68k_get_reg(NULL, M68K_REG_A0));
+	printw("A1: %08x\t", m68k_get_reg(NULL, M68K_REG_A1));
+	printw("A2: %08x\t", m68k_get_reg(NULL, M68K_REG_A2));
+	printw("A3: %08x\t", m68k_get_reg(NULL, M68K_REG_A3));
+	printw("A4: %08x\t", m68k_get_reg(NULL, M68K_REG_A4));
+	printw("A5: %08x\t", m68k_get_reg(NULL, M68K_REG_A5));
+	printw("A6: %08x\t", m68k_get_reg(NULL, M68K_REG_A6));
+	printw("A7: %08x", m68k_get_reg(NULL, M68K_REG_A7));
+	printw("\n");
+
+	printw("SR: %08x\t", m68k_get_reg(NULL, M68K_REG_SR));
+	printw("PC: %08x\t", m68k_get_reg(NULL, M68K_REG_PC));
+	printw("\n");
+
+//        M68K_REG_SP,            /* The current Stack Pointer (located in A7) */
+//        M68K_REG_USP,           /* User Stack Pointer */
+//        M68K_REG_ISP,           /* Interrupt Stack Pointer */
+//        M68K_REG_MSP,           /* Master Stack Pointer */
+//        M68K_REG_SFC,           /* Source Function Code */
+//        M68K_REG_DFC,           /* Destination Function Code */
+//        M68K_REG_VBR,           /* Vector Base Register */
+//        M68K_REG_CACR,          /* Cache Control Register */
+//        M68K_REG_CAAR,          /* Cache Address Register */
+//
+//        /* Assumed registers */
+//        /* These are cheat registers which emulate the 1-longword prefetch
+//         * present in the 68000 and 68010.
+//         */
+//        M68K_REG_PREF_ADDR,     /* Last prefetch address */
+//        M68K_REG_PREF_DATA,     /* Last prefetch data */
+//
+//        /* Convenience registers */
+//        M68K_REG_PPC,           /* Previous value in the program counter */
+//        M68K_REG_IR,            /* Instruction register */
+//        M68K_REG_CPU_TYPE       /* Type of CPU being run */
+
+}
+
+void print_dbg_actions() {
+	printw("Q - Quit\t");
+	printw("R - Reset\t");
+	printw("s - Step\t");
+}
+
+void cpu_instr_callback(int pc) {
 	(void)pc;
 /* The following code would print out instructions as they are executed */
 /*
@@ -504,22 +596,21 @@ void cpu_instr_callback(int pc)
 	static unsigned int instr_size;
 
 	pc = m68k_get_reg(NULL, M68K_REG_PC);
-	instr_size = m68k_disassemble(buff, pc, M68K_CPU_TYPE_68000);
+	instr_size = m68k_disassemble(buff, pc, C2503_CPU);
 	make_hex(buff2, pc, instr_size);
 	printf("E %03x: %-20s: %s\n", pc, buff2, buff);
 	fflush(stdout);
 */
 }
 
-
-
-/* The main loop */
+// Main loop
+//////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[])
 {
-	FILE* fhandle;
+	FILE*	fhandle;
+	int	key_press;
 
-	if(argc != 2)
-	{
+	if (argc != 2) {
 		printf("Usage: cisco_2503 <ROM file>\n");
 		exit(-1);
 	}
@@ -530,34 +621,56 @@ int main(int argc, char* argv[])
 	if(fread(g_rom, 1, MAX_ROM+1, fhandle) <= 0)
 		exit_error("Error reading %s", argv[1]);
 
-	disassemble_program();
+	// Init ncurses
+	initscr();
+	raw();				/* Line buffering disabled	*/
+	keypad(stdscr, TRUE);		/* We get F1, F2 etc..		*/
+	noecho();			/* Don't echo() while we do getch */
 
+	// Init 68k core
 	m68k_init();
-	m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+	m68k_set_cpu_type(C2503_CPU);
 	m68k_pulse_reset();
 	input_device_reset();
 	output_device_reset();
 	nmi_device_reset();
 
 	g_quit = 0;
-	while(!g_quit)
-	{
-		// Our loop requires some interleaving to allow us to update the
-		// input, output, and nmi devices.
+	while (!g_quit) {
+		// Clear window
+		erase();
 
-		get_user_input();
+		disassemble_program(8);
+		printw("\n");
+		print_registers();
+		printw("\n");
+		print_dbg_actions();
 
-		// Values to execute determine the interleave rate.
-		// Smaller values allow for more accurate interleaving with multiple
-		// devices/CPUs but is more processor intensive.
-		// 100000 is usually a good value to start at, then work from there.
+		// Draw screen
+		refresh();
 
-		// Note that I am not emulating the correct clock speed!
-		m68k_execute(100000);
-		output_device_update();
-		input_device_update();
-		nmi_device_update();
+		// Get action
+		key_press = getch();
+		if (key_press == 'Q') {
+			g_quit = 1;
+		} else if (key_press == 'R') {
+			m68k_pulse_reset();
+		} else if (key_press == 's') {
+			// Values to execute determine the interleave rate.
+			// Smaller values allow for more accurate interleaving with multiple
+			// devices/CPUs but is more processor intensive.
+			// 100000 is usually a good value to start at, then work from there.
+
+			// Note that I am not emulating the correct clock speed!
+			m68k_execute(1);
+//			output_device_update();
+//			input_device_update();
+//			nmi_device_update();
+		}
 	}
+
+	// Destroy ncurses
+	endwin();
 
 	return 0;
 }
