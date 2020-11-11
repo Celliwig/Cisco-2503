@@ -7,23 +7,6 @@
 //#include "osd.h"
 #include <ncurses.h>
 
-/* Memory-mapped IO ports */
-#define INPUT_ADDRESS 0x800000
-#define OUTPUT_ADDRESS 0x400000
-
-/* IRQ connections */
-#define IRQ_NMI_DEVICE 7
-#define IRQ_INPUT_DEVICE 2
-#define IRQ_OUTPUT_DEVICE 1
-
-/* Time between characters sent to output device (seconds) */
-#define OUTPUT_DEVICE_PERIOD 1
-
-/* ROM and RAM sizes */
-#define MAX_ROM 0xfff
-#define MAX_RAM 0xff
-
-
 /* Read/write macros */
 #define READ_BYTE(BASE, ADDR) (BASE)[ADDR]
 #define READ_WORD(BASE, ADDR) (((BASE)[ADDR]<<8) |			\
@@ -80,20 +63,20 @@ void disassemble_program(unsigned char value);
 
 
 /* Data */
-unsigned int g_quit = 0;                        /* 1 if we want to quit */
-unsigned int g_nmi = 0;                         /* 1 if nmi pending */
+unsigned int g_quit = 0;				/* 1 if we want to quit */
+unsigned int g_nmi = 0;					/* 1 if nmi pending */
 
-int          g_input_device_value = -1;         /* Current value in input device */
+int          g_input_device_value = -1;			/* Current value in input device */
 
-unsigned int g_output_device_ready = 0;         /* 1 if output device is ready */
-time_t       g_output_device_last_output;       /* Time of last char output */
+unsigned int g_output_device_ready = 0;			/* 1 if output device is ready */
+time_t       g_output_device_last_output;		/* Time of last char output */
 
-unsigned int g_int_controller_pending = 0;      /* list of pending interrupts */
-unsigned int g_int_controller_highest_int = 0;  /* Highest pending interrupt */
+unsigned int g_int_controller_pending = 0;		/* list of pending interrupts */
+unsigned int g_int_controller_highest_int = 0;		/* Highest pending interrupt */
 
-unsigned char g_rom[MAX_ROM+1];                 /* ROM */
-unsigned char g_ram[MAX_RAM+1];                 /* RAM */
-unsigned int  g_fc;                             /* Current function code from CPU */
+unsigned char g_bootrom[C2503_BOOTROM_SIZE + 1];	/* Boot ROM */
+unsigned char g_ram[MAX_RAM + 1];			/* RAM */
+unsigned int  g_fc;					/* Current function code from CPU */
 
 
 /* Exit with an error message.  Use printf syntax. */
@@ -104,10 +87,13 @@ void exit_error(char* fmt, ...)
 	unsigned int pc;
 	va_list args;
 
-	if(guard_val)
+	if (guard_val)
 		return;
 	else
 		guard_val = 1;
+
+	// Destroy ncurses
+	endwin();
 
 	va_start(args, fmt);
 	vfprintf(stderr, fmt, args);
@@ -120,162 +106,6 @@ void exit_error(char* fmt, ...)
 	exit(EXIT_FAILURE);
 }
 
-
-/* Read data from RAM, ROM, or a device */
-unsigned int cpu_read_byte(unsigned int address)
-{
-	if(g_fc & 2)	/* Program */
-	{
-		if(address > MAX_ROM)
-			exit_error("Attempted to read byte from ROM address %08x", address);
-		return READ_BYTE(g_rom, address);
-	}
-
-	/* Otherwise it's data space */
-	switch(address)
-	{
-		case INPUT_ADDRESS:
-			return input_device_read();
-		case OUTPUT_ADDRESS:
-			return output_device_read();
-		default:
-			break;
-	}
-	if(address > MAX_RAM)
-		exit_error("Attempted to read byte from RAM address %08x", address);
-	return READ_BYTE(g_ram, address);
-}
-
-unsigned int cpu_read_word(unsigned int address)
-{
-	if(g_fc & 2)	/* Program */
-	{
-		if(address > MAX_ROM)
-			exit_error("Attempted to read word from ROM address %08x", address);
-		return READ_WORD(g_rom, address);
-	}
-
-	/* Otherwise it's data space */
-	switch(address)
-	{
-		case INPUT_ADDRESS:
-			return input_device_read();
-		case OUTPUT_ADDRESS:
-			return output_device_read();
-		default:
-			break;
-	}
-	if(address > MAX_RAM)
-		exit_error("Attempted to read word from RAM address %08x", address);
-	return READ_WORD(g_ram, address);
-}
-
-unsigned int cpu_read_long(unsigned int address)
-{
-	if(g_fc & 2)	/* Program */
-	{
-		if(address > MAX_ROM)
-			exit_error("Attempted to read long from ROM address %08x", address);
-		return READ_LONG(g_rom, address);
-	}
-
-	/* Otherwise it's data space */
-	switch(address)
-	{
-		case INPUT_ADDRESS:
-			return input_device_read();
-		case OUTPUT_ADDRESS:
-			return output_device_read();
-		default:
-			break;
-	}
-	if(address > MAX_RAM)
-		exit_error("Attempted to read long from RAM address %08x", address);
-	return READ_LONG(g_ram, address);
-}
-
-
-unsigned int cpu_read_word_dasm(unsigned int address)
-{
-	if(address > MAX_ROM)
-		exit_error("Disassembler attempted to read word from ROM address %08x", address);
-	return READ_WORD(g_rom, address);
-}
-
-unsigned int cpu_read_long_dasm(unsigned int address)
-{
-	if(address > MAX_ROM)
-		exit_error("Dasm attempted to read long from ROM address %08x", address);
-	return READ_LONG(g_rom, address);
-}
-
-
-/* Write data to RAM or a device */
-void cpu_write_byte(unsigned int address, unsigned int value)
-{
-	if(g_fc & 2)	/* Program */
-		exit_error("Attempted to write %02x to ROM address %08x", value&0xff, address);
-
-	/* Otherwise it's data space */
-	switch(address)
-	{
-		case INPUT_ADDRESS:
-			input_device_write(value&0xff);
-			return;
-		case OUTPUT_ADDRESS:
-			output_device_write(value&0xff);
-			return;
-		default:
-			break;
-	}
-	if(address > MAX_RAM)
-		exit_error("Attempted to write %02x to RAM address %08x", value&0xff, address);
-	WRITE_BYTE(g_ram, address, value);
-}
-
-void cpu_write_word(unsigned int address, unsigned int value)
-{
-	if(g_fc & 2)	/* Program */
-		exit_error("Attempted to write %04x to ROM address %08x", value&0xffff, address);
-
-	/* Otherwise it's data space */
-	switch(address)
-	{
-		case INPUT_ADDRESS:
-			input_device_write(value&0xffff);
-			return;
-		case OUTPUT_ADDRESS:
-			output_device_write(value&0xffff);
-			return;
-		default:
-			break;
-	}
-	if(address > MAX_RAM)
-		exit_error("Attempted to write %04x to RAM address %08x", value&0xffff, address);
-	WRITE_WORD(g_ram, address, value);
-}
-
-void cpu_write_long(unsigned int address, unsigned int value)
-{
-	if(g_fc & 2)	/* Program */
-		exit_error("Attempted to write %08x to ROM address %08x", value, address);
-
-	/* Otherwise it's data space */
-	switch(address)
-	{
-		case INPUT_ADDRESS:
-			input_device_write(value);
-			return;
-		case OUTPUT_ADDRESS:
-			output_device_write(value);
-			return;
-		default:
-			break;
-	}
-	if(address > MAX_RAM)
-		exit_error("Attempted to write %08x to RAM address %08x", value, address);
-	WRITE_LONG(g_ram, address, value);
-}
 
 /* Called when the CPU pulses the RESET line */
 void cpu_pulse_reset(void)
@@ -460,6 +290,199 @@ void get_user_input(void)
 	last_ch = ch;
 }
 
+// Memory
+//////////////////////////////////////////////////////////////////////////////////////////////
+/* Read data from RAM, ROM, or a device */
+unsigned int cpu_read_byte(unsigned int address)
+{
+	// Program
+	if(g_fc & 2) {
+		// Boot ROM Address 1
+		if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
+			return READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR1);
+		}
+		// Boot ROM Address 2
+		if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+			return READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR2);
+		}
+
+		// No valid data, error
+		exit_error("Attempted to read byte from ROM address %08x", address);
+	}
+
+	/* Otherwise it's data space */
+	switch(address) {
+		case INPUT_ADDRESS:
+			return input_device_read();
+		case OUTPUT_ADDRESS:
+			return output_device_read();
+		default:
+			break;
+	}
+	if(address > MAX_RAM)
+		exit_error("Attempted to read byte from RAM address %08x", address);
+	return READ_BYTE(g_ram, address);
+}
+
+unsigned int cpu_read_word(unsigned int address)
+{
+	// Program
+	if(g_fc & 2) {
+		// Boot ROM Address 1
+		if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
+			return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR1);
+		}
+		// Boot ROM Address 2
+		if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+			return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR2);
+		}
+
+		// No valid data, error
+		exit_error("Attempted to read byte from ROM address %08x", address);
+	}
+
+	/* Otherwise it's data space */
+	switch(address)
+	{
+		case INPUT_ADDRESS:
+			return input_device_read();
+		case OUTPUT_ADDRESS:
+			return output_device_read();
+		default:
+			break;
+	}
+	if(address > MAX_RAM)
+		exit_error("Attempted to read word from RAM address %08x", address);
+	return READ_WORD(g_ram, address);
+}
+
+unsigned int cpu_read_long(unsigned int address)
+{
+	// Program
+	if(g_fc & 2) {
+		// Boot ROM Address 1
+		if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
+			return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR1);
+		}
+		// Boot ROM Address 2
+		if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+			return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR2);
+		}
+
+		// No valid data, error
+		exit_error("Attempted to read byte from ROM address %08x", address);
+	}
+
+	/* Otherwise it's data space */
+	switch(address)
+	{
+		case INPUT_ADDRESS:
+			return input_device_read();
+		case OUTPUT_ADDRESS:
+			return output_device_read();
+		default:
+			break;
+	}
+	if(address > MAX_RAM)
+		exit_error("Attempted to read long from RAM address %08x", address);
+	return READ_LONG(g_ram, address);
+}
+
+
+unsigned int cpu_read_word_dasm(unsigned int address)
+{
+	// Boot ROM Address 1
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
+		return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR1);
+	}
+	// Boot ROM Address 2
+	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+		return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR2);
+	}
+	exit_error("Disassembler attempted to read word from ROM address %08x", address);
+}
+
+unsigned int cpu_read_long_dasm(unsigned int address)
+{
+	// Boot ROM Address 1
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
+		return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR1);
+	}
+	// Boot ROM Address 2
+	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+		return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR2);
+	}
+	exit_error("Dasm attempted to read long from ROM address %08x", address);
+}
+
+
+/* Write data to RAM or a device */
+void cpu_write_byte(unsigned int address, unsigned int value)
+{
+	if(g_fc & 2)	/* Program */
+		exit_error("Attempted to write %02x to ROM address %08x", value&0xff, address);
+
+	/* Otherwise it's data space */
+	switch(address)
+	{
+		case INPUT_ADDRESS:
+			input_device_write(value&0xff);
+			return;
+		case OUTPUT_ADDRESS:
+			output_device_write(value&0xff);
+			return;
+		default:
+			break;
+	}
+	if(address > MAX_RAM)
+		exit_error("Attempted to write %02x to RAM address %08x", value&0xff, address);
+	WRITE_BYTE(g_ram, address, value);
+}
+
+void cpu_write_word(unsigned int address, unsigned int value)
+{
+	if(g_fc & 2)	/* Program */
+		exit_error("Attempted to write %04x to ROM address %08x", value&0xffff, address);
+
+	/* Otherwise it's data space */
+	switch(address)
+	{
+		case INPUT_ADDRESS:
+			input_device_write(value&0xffff);
+			return;
+		case OUTPUT_ADDRESS:
+			output_device_write(value&0xffff);
+			return;
+		default:
+			break;
+	}
+	if(address > MAX_RAM)
+		exit_error("Attempted to write %04x to RAM address %08x", value&0xffff, address);
+	WRITE_WORD(g_ram, address, value);
+}
+
+void cpu_write_long(unsigned int address, unsigned int value)
+{
+	if(g_fc & 2)	/* Program */
+		exit_error("Attempted to write %08x to ROM address %08x", value, address);
+
+	/* Otherwise it's data space */
+	switch(address)
+	{
+		case INPUT_ADDRESS:
+			input_device_write(value);
+			return;
+		case OUTPUT_ADDRESS:
+			output_device_write(value);
+			return;
+		default:
+			break;
+	}
+	if(address > MAX_RAM)
+		exit_error("Attempted to write %08x to RAM address %08x", value, address);
+	WRITE_LONG(g_ram, address, value);
+}
+
 // Debugger
 //////////////////////////////////////////////////////////////////////////////////////////////
 void make_hex(char* buff, unsigned int pc, unsigned int length) {
@@ -605,8 +628,7 @@ void cpu_instr_callback(int pc) {
 
 // Main loop
 //////////////////////////////////////////////////////////////////////////////////////////////
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	FILE*	fhandle;
 	int	key_press;
 
@@ -615,11 +637,15 @@ int main(int argc, char* argv[])
 		exit(-1);
 	}
 
-	if((fhandle = fopen(argv[1], "rb")) == NULL)
-		exit_error("Unable to open %s", argv[1]);
+	if((fhandle = fopen(argv[1], "rb")) == NULL) {
+		printf("Unable to open %s", argv[1]);
+		exit(-1);
+	}
 
-	if(fread(g_rom, 1, MAX_ROM+1, fhandle) <= 0)
-		exit_error("Error reading %s", argv[1]);
+	if(fread(g_bootrom, 1, C2503_BOOTROM_SIZE + 1, fhandle) <= 0) {
+		printf("Error reading %s", argv[1]);
+		exit(-1);
+	}
 
 	// Init ncurses
 	initscr();
@@ -634,6 +660,8 @@ int main(int argc, char* argv[])
 	input_device_reset();
 	output_device_reset();
 	nmi_device_reset();
+
+	exit_error("CPU type: %d -> %d\n", C2503_CPU, m68k_get_reg(NULL, M68K_REG_CPU_TYPE));
 
 	g_quit = 0;
 	while (!g_quit) {
