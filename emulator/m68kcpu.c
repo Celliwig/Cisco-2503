@@ -663,8 +663,10 @@ unsigned int m68k_get_reg(void* context, m68k_register_t regnum)
 			{
 				case CPU_TYPE_000:		return (unsigned int)M68K_CPU_TYPE_68000;
 				case CPU_TYPE_010:		return (unsigned int)M68K_CPU_TYPE_68010;
-				case CPU_TYPE_EC020:	return (unsigned int)M68K_CPU_TYPE_68EC020;
+				case CPU_TYPE_EC020:		return (unsigned int)M68K_CPU_TYPE_68EC020;
 				case CPU_TYPE_020:		return (unsigned int)M68K_CPU_TYPE_68020;
+				case CPU_TYPE_EC030:		return (unsigned int)M68K_CPU_TYPE_68EC030;
+				case CPU_TYPE_030:		return (unsigned int)M68K_CPU_TYPE_68030;
 				case CPU_TYPE_040:		return (unsigned int)M68K_CPU_TYPE_68040;
 			}
 			return M68K_CPU_TYPE_INVALID;
