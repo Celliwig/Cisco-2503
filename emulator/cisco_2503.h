@@ -2,7 +2,6 @@
 #define C2503__HEADER
 
 // Cisco hardware defines
-//#define	C2503_CPU		M68K_CPU_TYPE_68EC030
 #define	C2503_CPU		M68K_CPU_TYPE_68EC030
 
 // Boot ROM (PLCC32 FW1/FW2)

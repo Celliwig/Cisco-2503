@@ -661,8 +661,6 @@ int main(int argc, char* argv[]) {
 	output_device_reset();
 	nmi_device_reset();
 
-	exit_error("CPU type: %d -> %d\n", C2503_CPU, m68k_get_reg(NULL, M68K_REG_CPU_TYPE));
-
 	g_quit = 0;
 	while (!g_quit) {
 		// Clear window
