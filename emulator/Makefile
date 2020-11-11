@@ -1,6 +1,7 @@
 # Just a basic makefile to quickly test that everyting is working, it just
 # compiles the .o and the generator
 
+MAINFILES        = cisco_2503.c
 MUSASHIFILES     = m68kcpu.c m68kdasm.c softfloat/softfloat.c
 MUSASHIGENCFILES = m68kops.c
 MUSASHIGENHFILES = m68kops.h
@@ -14,18 +15,20 @@ EXEPATH = ./
 
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
-CFLAGS    = $(WARNINGS)
+CFLAGS    = $(WARNINGS) -DMUSASHI_CNF=\"m68kconf_c2503.h\"
 LFLAGS    = $(WARNINGS)
 
+TARGET = cisco_2503
 DELETEFILES = $(MUSASHIGENCFILES) $(MUSASHIGENHFILES) $(.OFILES) $(TARGET) $(MUSASHIGENERATOR)$(EXE)
 
 
-all: $(.OFILES)
+all: $(TARGET)
 
 clean:
 	rm -f $(DELETEFILES)
 
-m68kcpu.o: $(MUSASHIGENHFILES) m68kfpu.c m68kmmu.h softfloat/softfloat.c softfloat/softfloat.h
+$(TARGET): $(MUSASHIGENHFILES) $(.OFILES) Makefile
+	$(CC) -o $@ $(.OFILES) $(CFLAGS) -lm
 
 $(MUSASHIGENCFILES) $(MUSASHIGENHFILES): $(MUSASHIGENERATOR)$(EXE)
 	$(EXEPATH)$(MUSASHIGENERATOR)$(EXE)
