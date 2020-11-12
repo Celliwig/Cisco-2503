@@ -59,25 +59,35 @@ void int_controller_clear(unsigned int value);
 
 void get_user_input(void);
 
+void emu_win_destroy();
+
 void disassemble_program(unsigned char value);
 
 
 /* Data */
-unsigned int g_quit = 0;				/* 1 if we want to quit */
-unsigned int g_nmi = 0;					/* 1 if nmi pending */
+unsigned int g_quit = 0;				// 1 if we want to quit
+unsigned int g_nmi = 0;					// 1 if nmi pending
 
-int          g_input_device_value = -1;			/* Current value in input device */
+int          g_input_device_value = -1;			// Current value in input device
 
-unsigned int g_output_device_ready = 0;			/* 1 if output device is ready */
-time_t       g_output_device_last_output;		/* Time of last char output */
+unsigned int g_output_device_ready = 0;			// 1 if output device is ready
+time_t       g_output_device_last_output;		// Time of last char output
 
-unsigned int g_int_controller_pending = 0;		/* list of pending interrupts */
-unsigned int g_int_controller_highest_int = 0;		/* Highest pending interrupt */
+unsigned int g_int_controller_pending = 0;		// list of pending interrupts
+unsigned int g_int_controller_highest_int = 0;		// Highest pending interrupt
 
-unsigned char g_bootrom[C2503_BOOTROM_SIZE + 1];	/* Boot ROM */
-unsigned char g_ram[MAX_RAM + 1];			/* RAM */
-unsigned int  g_fc;					/* Current function code from CPU */
+unsigned char g_bootrom[C2503_BOOTROM_SIZE + 1];	// Boot ROM
+unsigned char g_ram[MAX_RAM + 1];			// RAM
+unsigned int  g_fc;					// Current function code from CPU
 
+// NCurses
+char	str_tmp_buf[512];				// Temporary string buffer
+WINDOW	*emu_win_dialog, *emu_win_code, *emu_win_mem, *emu_win_reg;
+unsigned int xterm_cols, xterm_rows;
+volatile unsigned int emu_win_dialog_cols, emu_win_dialog_rows, emu_win_dialog_y, emu_win_dialog_x;
+volatile unsigned int emu_win_code_cols, emu_win_code_rows, emu_win_code_y, emu_win_code_x;
+volatile unsigned int emu_win_mem_cols, emu_win_mem_rows, emu_win_mem_y, emu_win_mem_x;
+volatile unsigned int emu_win_reg_cols, emu_win_reg_rows, emu_win_reg_y, emu_win_reg_x;
 
 /* Exit with an error message.  Use printf syntax. */
 void exit_error(char* fmt, ...)
@@ -93,6 +103,7 @@ void exit_error(char* fmt, ...)
 		guard_val = 1;
 
 	// Destroy ncurses
+	emu_win_destroy();
 	endwin();
 
 	va_start(args, fmt);
@@ -517,7 +528,7 @@ void disassemble_program(unsigned char num_lines) {
 	fflush(stdout);
 }
 
-void print_registers() {
+void update_register_display() {
 	char* str_cpu_type = "Invalid";
 	switch (m68k_get_reg(NULL, M68K_REG_CPU_TYPE)) {
 		case M68K_CPU_TYPE_68000:
@@ -553,31 +564,21 @@ void print_registers() {
 		default:
 			break;
 	}
-	printw("CPU Registers (%s):\n", str_cpu_type);
+	mvwprintw(emu_win_reg, 1, 2, "CPU Registers (%s):", str_cpu_type);
+	sprintf(str_tmp_buf, "D0: %08x   D1: %08x   D2: %08x   D3: %08x   D4: %08x   D5: %08x   D6: %08x   D7: %08x", \
+				m68k_get_reg(NULL, M68K_REG_D0), m68k_get_reg(NULL, M68K_REG_D1), m68k_get_reg(NULL, M68K_REG_D2), m68k_get_reg(NULL, M68K_REG_D3), \
+				m68k_get_reg(NULL, M68K_REG_D4), m68k_get_reg(NULL, M68K_REG_D5), m68k_get_reg(NULL, M68K_REG_D6), m68k_get_reg(NULL, M68K_REG_D7));
+	mvwprintw(emu_win_reg, 2, 2, "%.*s", (emu_win_reg_cols - 4), str_tmp_buf);
 
-	printw("D0: %08x\t", m68k_get_reg(NULL, M68K_REG_D0));
-	printw("D1: %08x\t", m68k_get_reg(NULL, M68K_REG_D1));
-	printw("D2: %08x\t", m68k_get_reg(NULL, M68K_REG_D2));
-	printw("D3: %08x\t", m68k_get_reg(NULL, M68K_REG_D3));
-	printw("D4: %08x\t", m68k_get_reg(NULL, M68K_REG_D4));
-	printw("D5: %08x\t", m68k_get_reg(NULL, M68K_REG_D5));
-	printw("D6: %08x\t", m68k_get_reg(NULL, M68K_REG_D6));
-	printw("D7: %08x", m68k_get_reg(NULL, M68K_REG_D7));
-	printw("\n");
+	sprintf(str_tmp_buf, "A0: %08x   A1: %08x   A2: %08x   A3: %08x   A4: %08x   A5: %08x   A6: %08x   A7: %08x", \
+				m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
+				m68k_get_reg(NULL, M68K_REG_A4), m68k_get_reg(NULL, M68K_REG_A5), m68k_get_reg(NULL, M68K_REG_A6), m68k_get_reg(NULL, M68K_REG_A7));
+	mvwprintw(emu_win_reg, 3, 2, "%.*s", (emu_win_reg_cols - 4), str_tmp_buf);
 
-	printw("A0: %08x\t", m68k_get_reg(NULL, M68K_REG_A0));
-	printw("A1: %08x\t", m68k_get_reg(NULL, M68K_REG_A1));
-	printw("A2: %08x\t", m68k_get_reg(NULL, M68K_REG_A2));
-	printw("A3: %08x\t", m68k_get_reg(NULL, M68K_REG_A3));
-	printw("A4: %08x\t", m68k_get_reg(NULL, M68K_REG_A4));
-	printw("A5: %08x\t", m68k_get_reg(NULL, M68K_REG_A5));
-	printw("A6: %08x\t", m68k_get_reg(NULL, M68K_REG_A6));
-	printw("A7: %08x", m68k_get_reg(NULL, M68K_REG_A7));
-	printw("\n");
+	sprintf(str_tmp_buf, "SR: %08x   PC: %08x", m68k_get_reg(NULL, M68K_REG_SR), m68k_get_reg(NULL, M68K_REG_PC));
+	mvwprintw(emu_win_reg, 4, 2, "%.*s", (emu_win_reg_cols - 4), str_tmp_buf);
 
-	printw("SR: %08x\t", m68k_get_reg(NULL, M68K_REG_SR));
-	printw("PC: %08x\t", m68k_get_reg(NULL, M68K_REG_PC));
-	printw("\n");
+	wrefresh(emu_win_reg);
 
 //        M68K_REG_SP,            /* The current Stack Pointer (located in A7) */
 //        M68K_REG_USP,           /* User Stack Pointer */
@@ -626,6 +627,40 @@ void cpu_instr_callback(int pc) {
 */
 }
 
+// NCurses
+//////////////////////////////////////////////////////////////////////////////////////////////
+void emu_win_resize() {
+	endwin();
+	clear();
+	refresh();
+
+	// Get terminal size
+	getmaxyx(stdscr, xterm_rows, xterm_cols);
+
+	// Register Panel
+	// Make this the domminant panel when screen height is reduced
+	if (xterm_rows <= EMU_WIN_REG_ROWS_MAX) {
+		emu_win_reg_rows = xterm_rows;
+	} else {
+		emu_win_reg_rows = EMU_WIN_REG_ROWS_MAX;
+	}
+	emu_win_reg_y = xterm_rows - emu_win_reg_rows;
+	emu_win_reg_cols = xterm_cols;			// Full screen width
+	emu_win_reg_x = 0;				// So starts at the begining
+
+	delwin(emu_win_reg);
+	emu_win_reg = newwin(emu_win_reg_rows, emu_win_reg_cols, emu_win_reg_y, emu_win_reg_x);
+	box(emu_win_reg, 0 , 0);
+	wrefresh(emu_win_reg);
+}
+
+void emu_win_destroy() {
+	delwin(emu_win_code);
+	delwin(emu_win_dialog);
+	delwin(emu_win_mem);
+	delwin(emu_win_reg);
+}
+
 // Main loop
 //////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
@@ -652,6 +687,7 @@ int main(int argc, char* argv[]) {
 	raw();				/* Line buffering disabled	*/
 	keypad(stdscr, TRUE);		/* We get F1, F2 etc..		*/
 	noecho();			/* Don't echo() while we do getch */
+	emu_win_resize();
 
 	// Init 68k core
 	m68k_init();
@@ -663,21 +699,16 @@ int main(int argc, char* argv[]) {
 
 	g_quit = 0;
 	while (!g_quit) {
-		// Clear window
-		erase();
+//		disassemble_program(8);
 
-		disassemble_program(8);
-		printw("\n");
-		print_registers();
-		printw("\n");
-		print_dbg_actions();
-
-		// Draw screen
-		refresh();
+		update_register_display();
 
 		// Get action
-		key_press = getch();
-		if (key_press == 'Q') {
+		key_press = wgetch(stdscr);
+		if (key_press == KEY_RESIZE) {
+			// Handle terminal resize
+			emu_win_resize();
+		} else if (key_press == 'Q') {
 			g_quit = 1;
 		} else if (key_press == 'R') {
 			m68k_pulse_reset();
@@ -696,6 +727,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Destroy ncurses
+	emu_win_destroy();
 	endwin();
 
 	return 0;

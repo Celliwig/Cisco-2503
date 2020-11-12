@@ -9,19 +9,23 @@
 #define C2503_BOOTROM_ADDR1	0x00000000			// Starting location of boot ROM
 #define C2503_BOOTROM_ADDR2	0x01000000			// Alternate location of boot ROM
 
-#define MAX_RAM 0xff
+#define MAX_RAM			0xff
 
 /* Old Memory-mapped IO ports */
-#define INPUT_ADDRESS 0x800000
-#define OUTPUT_ADDRESS 0x400000
+#define INPUT_ADDRESS		0x800000
+#define OUTPUT_ADDRESS		0x400000
 
 /* IRQ connections */
-#define IRQ_NMI_DEVICE 7
-#define IRQ_INPUT_DEVICE 2
-#define IRQ_OUTPUT_DEVICE 1
+#define IRQ_NMI_DEVICE		7
+#define IRQ_INPUT_DEVICE	2
+#define IRQ_OUTPUT_DEVICE	1
 
 /* Time between characters sent to output device (seconds) */
-#define OUTPUT_DEVICE_PERIOD 1
+#define OUTPUT_DEVICE_PERIOD	1
+
+// NCurses definitions
+#define EMU_WIN_REG_ROWS_MAX	7				// Maximum number of rows to use for registers window
+
 
 // Macros
 //////////////////////////////////////////////////////////////////////////////////////////////
