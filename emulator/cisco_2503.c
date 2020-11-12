@@ -61,8 +61,6 @@ void get_user_input(void);
 
 void emu_win_destroy();
 
-void disassemble_program(unsigned char value);
-
 
 /* Data */
 unsigned int g_quit = 0;				// 1 if we want to quit
@@ -82,12 +80,12 @@ unsigned int  g_fc;					// Current function code from CPU
 
 // NCurses
 char	str_tmp_buf[512];				// Temporary string buffer
-WINDOW	*emu_win_dialog, *emu_win_code, *emu_win_mem, *emu_win_reg;
-unsigned int xterm_cols, xterm_rows;
-volatile unsigned int emu_win_dialog_cols, emu_win_dialog_rows, emu_win_dialog_y, emu_win_dialog_x;
-volatile unsigned int emu_win_code_cols, emu_win_code_rows, emu_win_code_y, emu_win_code_x;
-volatile unsigned int emu_win_mem_cols, emu_win_mem_rows, emu_win_mem_y, emu_win_mem_x;
-volatile unsigned int emu_win_reg_cols, emu_win_reg_rows, emu_win_reg_y, emu_win_reg_x;
+WINDOW	*emu_win_dialog = NULL, *emu_win_code = NULL, *emu_win_mem = NULL, *emu_win_reg = NULL;
+unsigned short int xterm_cols, xterm_rows;
+unsigned short int emu_win_dialog_cols, emu_win_dialog_rows, emu_win_dialog_y, emu_win_dialog_x;
+unsigned short int emu_win_code_cols, emu_win_code_rows, emu_win_code_y, emu_win_code_x;
+unsigned short int emu_win_mem_cols, emu_win_mem_rows, emu_win_mem_y, emu_win_mem_x;
+unsigned short int emu_win_reg_cols, emu_win_reg_rows, emu_win_reg_y, emu_win_reg_x;
 
 /* Exit with an error message.  Use printf syntax. */
 void exit_error(char* fmt, ...)
@@ -508,24 +506,29 @@ void make_hex(char* buff, unsigned int pc, unsigned int length) {
 	}
 }
 
-void disassemble_program(unsigned char num_lines) {
+void update_code_display() {
 	unsigned int pc;
 	unsigned int instr_size;
 	unsigned char line_count = 0;
 	char buff[100];
 	char buff2[100];
 
+	// Check if there's any room to display anything
+	if (emu_win_code_rows <= 2) return;
+
 	//pc = cpu_read_long_dasm(4);
 	pc = m68k_get_reg(NULL, M68K_REG_PC);
 
-	while(line_count < num_lines) {
+	// Disassemble to code window
+	while (line_count < (emu_win_code_rows - 2)) {
 		instr_size = m68k_disassemble(buff, pc, C2503_CPU);
 		make_hex(buff2, pc, instr_size);
-		printw("%03x: %-20s: %s\n", pc, buff2, buff);
+		sprintf(str_tmp_buf, "%03x: %-20s: %s", pc, buff2, buff);
+		mvwprintw(emu_win_code, (line_count + 1), 2, "%.*s", (emu_win_code_cols - 4), str_tmp_buf);
 		pc += instr_size;
 		line_count++;
 	}
-	fflush(stdout);
+	wrefresh(emu_win_code);
 }
 
 void update_register_display() {
@@ -647,11 +650,31 @@ void emu_win_resize() {
 	emu_win_reg_y = xterm_rows - emu_win_reg_rows;
 	emu_win_reg_cols = xterm_cols;			// Full screen width
 	emu_win_reg_x = 0;				// So starts at the begining
-
 	delwin(emu_win_reg);
 	emu_win_reg = newwin(emu_win_reg_rows, emu_win_reg_cols, emu_win_reg_y, emu_win_reg_x);
 	box(emu_win_reg, 0 , 0);
 	wrefresh(emu_win_reg);
+
+	// Code Panel
+	// Use the remaining vertical portion of the screen
+	if ((xterm_rows - emu_win_reg_rows) > 0) {
+		emu_win_code_rows = xterm_rows - emu_win_reg_rows;
+	} else {
+		emu_win_code_rows = 0;
+	}
+	if (xterm_cols <= EMU_WIN_CODE_COLS_MAX) {
+		emu_win_code_cols = xterm_cols;
+	} else {
+		emu_win_code_cols = EMU_WIN_CODE_COLS_MAX;
+	}
+	emu_win_reg_y = 0;
+	emu_win_reg_x = 0;
+	delwin(emu_win_code);
+	if (emu_win_code_rows > 0) {
+		emu_win_code = newwin(emu_win_code_rows, emu_win_code_cols, emu_win_code_y, emu_win_code_x);
+		box(emu_win_code, 0 , 0);
+		wrefresh(emu_win_code);
+	}
 }
 
 void emu_win_destroy() {
@@ -699,8 +722,7 @@ int main(int argc, char* argv[]) {
 
 	g_quit = 0;
 	while (!g_quit) {
-//		disassemble_program(8);
-
+		update_code_display();
 		update_register_display();
 
 		// Get action
