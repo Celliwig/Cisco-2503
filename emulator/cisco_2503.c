@@ -82,6 +82,7 @@ unsigned int  g_fc;					// Current function code from CPU
 
 // NCurses interface
 unsigned int	emu_mem_dump_start = 0x00000000;	// Address to start memory dump from
+unsigned int	emu_breakpoint = 0x00000000;		// Breakpoint address
 unsigned char	emu_mem_dump_type = 0;			// Address space to dump (0 = Data / 1 = Program)
 char	str_tmp_buf[512];				// Temporary string buffer
 WINDOW	*emu_win_dialog = NULL, *emu_win_code = NULL, *emu_win_mem = NULL, *emu_win_reg = NULL, *emu_win_status = NULL;
@@ -666,18 +667,6 @@ void update_register_display() {
 //        M68K_REG_CPU_TYPE       /* Type of CPU being run */
 }
 
-void show_status_message(char *message) {
-	werase(emu_win_status);
-	wprintw(emu_win_status, " %-*s", (emu_win_status_cols - 2), message);
-	wrefresh(emu_win_status);
-}
-
-void print_dbg_actions() {
-	printw("Q - Quit\t");
-	printw("R - Reset\t");
-	printw("s - Step\t");
-}
-
 void cpu_instr_callback(int pc) {
 	(void)pc;
 /* The following code would print out instructions as they are executed */
@@ -697,6 +686,24 @@ void cpu_instr_callback(int pc) {
 
 // NCurses
 //////////////////////////////////////////////////////////////////////////////////////////////
+// Checks whether a given ASCII character is a valid hexdecimal input
+bool is_hex_char(char value) {
+	if ((value >= '0') && (value <= '9')) return true;
+	if ((value >= 'A') && (value <= 'F')) return true;
+	if ((value >= 'a') && (value <= 'f')) return true;
+	return false;
+}
+
+// Converts an ASCII hex character to it's equivalent value
+unsigned char ascii_2_hex(char value) {
+	if ((value >= '0') && (value <= '9')) return (value - '0');
+	if ((value >= 'A') && (value <= 'F')) return (10 + (value - 'A'));
+	if ((value >= 'a') && (value <= 'f')) return (10 + (value - 'a'));
+	return -1;
+}
+
+// Draws, with borders, the various windows
+// Window creation and size is determined by the overall size of the terminal screen
 void emu_win_resize() {
 	endwin();
 	clear();
@@ -716,8 +723,8 @@ void emu_win_resize() {
 	}
 	xterm_rows_remain = xterm_rows_remain - emu_win_status_rows;
 	emu_win_status_y = xterm_rows_remain;
-	emu_win_status_cols = xterm_cols_remain;	// Full screen width
-	emu_win_status_x = 0;				// So starts at the begining
+	emu_win_status_cols = xterm_cols_remain;				// Full screen width
+	emu_win_status_x = 0;							// So starts at the begining
 	delwin(emu_win_status);
 	emu_win_status = newwin(emu_win_status_rows, emu_win_status_cols, emu_win_status_y, emu_win_status_x);
 	wrefresh(emu_win_status);
@@ -731,8 +738,8 @@ void emu_win_resize() {
 	}
 	xterm_rows_remain = xterm_rows_remain - emu_win_reg_rows;
 	emu_win_reg_y = xterm_rows_remain;
-	emu_win_reg_cols = xterm_cols_remain;		// Full screen width
-	emu_win_reg_x = 0;				// So starts at the begining
+	emu_win_reg_cols = xterm_cols_remain;					// Full screen width
+	emu_win_reg_x = 0;							// So starts at the begining
 	delwin(emu_win_reg);
 	emu_win_reg = newwin(emu_win_reg_rows, emu_win_reg_cols, emu_win_reg_y, emu_win_reg_x);
 	box(emu_win_reg, 0 , 0);
@@ -770,6 +777,79 @@ void emu_win_resize() {
 	}
 }
 
+// Prints a message in the status window
+void emu_status_message(char *message) {
+	werase(emu_win_status);
+	wprintw(emu_win_status, " %-*s", (emu_win_status_cols - 2), message);
+	wrefresh(emu_win_status);
+}
+
+// Uses the status window to accept an address to set as a breakpoint
+void emu_set_breakpoint() {
+	bool		input_loop = true;
+	char		hex_addr[8];
+	unsigned char	hex_digit_index, i;
+	int		key_press;
+	unsigned int	breakpoint_addr = 0;
+
+	werase(emu_win_status);							// Clear status window
+	nodelay(stdscr, false);							// Temporarily make key scanning blocking
+
+	// Clear digit store
+	for (i = 0; i < 8; i++) {
+		hex_addr[i] = ' ';
+	}
+	hex_digit_index = 0;							// Reset index
+
+	while (input_loop) {
+		werase(emu_win_status);
+		wprintw(emu_win_status, " Breakpoint Addr: 0x%-*.8s", (emu_win_status_cols - 14), hex_addr);
+		wrefresh(emu_win_status);
+
+		key_press = wgetch(stdscr);
+		if (key_press == KEY_RESIZE) {
+			emu_win_resize();					// Handle terminal resize
+		} else if ((key_press == KEY_ENTER) || (key_press == '\n')) {
+			if (hex_digit_index > 0) {
+				// Convert characters to integer address
+				for (i = 0; i < hex_digit_index; i++) {
+					if (i > 0) breakpoint_addr = breakpoint_addr<<4;
+					breakpoint_addr += ascii_2_hex(hex_addr[i]);
+				}
+				emu_breakpoint = breakpoint_addr;
+				sprintf(str_tmp_buf, "Breakpoint set: 0x%x", emu_breakpoint);
+				emu_status_message(str_tmp_buf);
+				input_loop = false;
+			}
+		} else if (key_press == 0x1b) {					// Escape
+			emu_status_message("Breakpoint canceled");
+			input_loop = false;
+		} else if (key_press == KEY_BACKSPACE) {
+			// Decrement index if not first digit
+			// Or unset last digit
+			if (hex_digit_index > 0) {
+				hex_digit_index--;
+			}
+			hex_addr[hex_digit_index] = ' ';
+		} else if (is_hex_char(key_press)) {
+			if (hex_digit_index < 8) {				// Check that there's room
+				hex_addr[hex_digit_index] = key_press;		// Save hex character in store
+				hex_digit_index++;				// Increment index
+			}
+		}
+	}
+
+	nodelay(stdscr, true);							// Make key scanning non-blocking again
+}
+
+// Help screen
+//void emu_dbg_actions() {
+//	printw("Q - Quit\t");
+//	printw("R - Reset\t");
+//	printw("s - Step\t");
+//}
+
+// Destroys all created windows
 void emu_win_destroy() {
 	delwin(emu_win_code);
 	delwin(emu_win_dialog);
@@ -802,13 +882,13 @@ int main(int argc, char* argv[]) {
 
 	// Init ncurses
 	initscr();
-	raw();				// Line buffering disabled
-	keypad(stdscr, TRUE);		// We get F1, F2 etc..
-	noecho();			// Don't echo() while we do getch
-	nodelay(stdscr, true);		// Make character reads non-blocking
-	curs_set(0);			// Disable cursor
+	raw();									// Line buffering disabled
+	keypad(stdscr, TRUE);							// We get F1, F2 etc..
+	noecho();								// Don't echo() while we do getch
+	nodelay(stdscr, true);							// Make character reads non-blocking
+	curs_set(0);								// Disable cursor
 	emu_win_resize();
-	show_status_message("Cisco 2503 Simulator");
+	emu_status_message("Cisco 2503 Emulator");
 
 	// Init 68k core
 	m68k_init();
@@ -824,25 +904,33 @@ int main(int argc, char* argv[]) {
 		update_memory_display();
 		update_register_display();
 
+		// Check if breakpoint reached
+		if (emu_breakpoint == m68k_get_reg(NULL, M68K_REG_PC)) {
+			emu_status_message("Breakpoint Reached");
+			emu_step = 0;						// Stop execution
+		}
+
 		// Get action
 		key_press = wgetch(stdscr);
 		if (key_press == KEY_RESIZE) {
 			// Handle terminal resize
 			emu_win_resize();
+		} else if (key_press == 'b') {
+			emu_set_breakpoint();
 		} else if (key_press == 'Q') {
 			g_quit = 1;
 		} else if (key_press == 'r') {
-			show_status_message("Running");
-			emu_step = -1;					// Start execution (run)
+			emu_status_message("Running");
+			emu_step = -1;						// Start execution (run)
 		} else if (key_press == 'R') {
-			show_status_message("Reset");
+			emu_status_message("Reset");
 			m68k_pulse_reset();
 		} else if (key_press == 's') {
-			show_status_message("Stepped");
-			emu_step = 1;					// Execute one instruction
+			emu_status_message("Stepped");
+			emu_step = 1;						// Execute one instruction
 		} else if (key_press == 'S') {
-			show_status_message("Stopped");
-			emu_step = 0;					// Stop execution
+			emu_status_message("Stopped");
+			emu_step = 0;						// Stop execution
 		}
 
 		if (emu_step != 0) {
