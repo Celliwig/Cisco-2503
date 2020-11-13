@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <time.h>
+#include <unistd.h>
 #include "cisco_2503.h"
 #include "m68k.h"
 //#include "osd.h"
@@ -521,14 +522,11 @@ void update_code_display() {
 	//pc = mem_pgrm_read_long(4);
 	pc = m68k_get_reg(NULL, M68K_REG_PC);
 
-	// Clear window
-	werase(emu_win_code);
-
 	// Disassemble to code window
 	while (line_count < (emu_win_code_rows - 2)) {
 		instr_size = m68k_disassemble(buff, pc, C2503_CPU);
 		make_hex(buff2, pc, instr_size);
-		sprintf(str_tmp_buf, "%03x: %-20s: %s", pc, buff2, buff);
+		sprintf(str_tmp_buf, "%08x: %-20s: %-*s", pc, buff2, (EMU_WIN_CODE_COLS_MAX - 32), buff);
 		mvwprintw(emu_win_code, (line_count + 1), 2, "%.*s", (emu_win_code_cols - 4), str_tmp_buf);
 		pc += instr_size;
 		line_count++;
@@ -770,6 +768,7 @@ void emu_win_destroy() {
 int main(int argc, char* argv[]) {
 	FILE*	fhandle;
 	int	key_press;
+	char	emu_step = 0;
 
 	if (argc != 2) {
 		printf("Usage: cisco_2503 <ROM file>\n");
@@ -788,9 +787,11 @@ int main(int argc, char* argv[]) {
 
 	// Init ncurses
 	initscr();
-	raw();				/* Line buffering disabled	*/
-	keypad(stdscr, TRUE);		/* We get F1, F2 etc..		*/
-	noecho();			/* Don't echo() while we do getch */
+	raw();				// Line buffering disabled
+	keypad(stdscr, TRUE);		// We get F1, F2 etc..
+	noecho();			// Don't echo() while we do getch
+	nodelay(stdscr, true);		// Make character reads non-blocking
+	curs_set(0);			// Disable cursor
 	emu_win_resize();
 
 	// Init 68k core
@@ -814,9 +815,17 @@ int main(int argc, char* argv[]) {
 			emu_win_resize();
 		} else if (key_press == 'Q') {
 			g_quit = 1;
+		} else if (key_press == 'r') {
+			emu_step = -1;					// Start execution (run)
 		} else if (key_press == 'R') {
 			m68k_pulse_reset();
 		} else if (key_press == 's') {
+			emu_step = 1;					// Execute one instruction
+		} else if (key_press == 'S') {
+			emu_step = 0;					// Stop execution
+		}
+
+		if (emu_step != 0) {
 			// Values to execute determine the interleave rate.
 			// Smaller values allow for more accurate interleaving with multiple
 			// devices/CPUs but is more processor intensive.
@@ -827,7 +836,11 @@ int main(int argc, char* argv[]) {
 //			output_device_update();
 //			input_device_update();
 //			nmi_device_update();
+
+			if (emu_step > 0) emu_step--;
 		}
+
+		usleep(2000);
 	}
 
 	// Destroy ncurses
