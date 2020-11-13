@@ -619,18 +619,38 @@ void update_register_display() {
 				m68k_get_reg(NULL, M68K_REG_A4), m68k_get_reg(NULL, M68K_REG_A5), m68k_get_reg(NULL, M68K_REG_A6), m68k_get_reg(NULL, M68K_REG_A7));
 	mvwprintw(emu_win_reg, 3, 2, "%.*s", (emu_win_reg_cols - 4), str_tmp_buf);
 
-	sprintf(str_tmp_buf, "SR: %08x   PC: %08x", m68k_get_reg(NULL, M68K_REG_SR), m68k_get_reg(NULL, M68K_REG_PC));
+	sprintf(str_tmp_buf, "PC: %08x   SR: %08x [%s|%s|%s|%s|0|%s|%s|%s|0|0|0|%s|%s|%s|%s|%s]", m68k_get_reg(NULL, M68K_REG_PC), m68k_get_reg(NULL, M68K_REG_SR), \
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<15) ? "T1" : "  ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<14) ? "T0" : "  ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<13) ? "S" : " ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<12) ? "M" : " ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<10) ? "I2" : "  ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<9) ? "I1" : "  ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<8) ? "I0" : "  ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<4) ? "X" : " ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<3) ? "N" : " ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<2) ? "Z" : " ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<1) ? "V" : " ",
+							(m68k_get_reg(NULL, M68K_REG_SR) & 1<<0) ? "C" : " ");
 	mvwprintw(emu_win_reg, 4, 2, "%.*s", (emu_win_reg_cols - 4), str_tmp_buf);
+
+	sprintf(str_tmp_buf, "SP: %08x", m68k_get_reg(NULL, M68K_REG_SP));
+	if (m68k_get_reg(NULL, M68K_REG_CPU_TYPE) > M68K_CPU_TYPE_68000) {
+		sprintf(str_tmp_buf, "%s   USP: %08x", str_tmp_buf, m68k_get_reg(NULL, M68K_REG_USP));
+	}
+	if (m68k_get_reg(NULL, M68K_REG_CPU_TYPE) > M68K_CPU_TYPE_68010) {
+		sprintf(str_tmp_buf, "%s   MSP: %08x   ISP: %08x", str_tmp_buf, m68k_get_reg(NULL, M68K_REG_MSP), m68k_get_reg(NULL, M68K_REG_ISP));
+	}
+	if (m68k_get_reg(NULL, M68K_REG_CPU_TYPE) > M68K_CPU_TYPE_68000) {
+		sprintf(str_tmp_buf, "%s   VBR: %08x", str_tmp_buf, m68k_get_reg(NULL, M68K_REG_VBR));
+	}
+	mvwprintw(emu_win_reg, 5, 2, "%.*s", (emu_win_reg_cols - 4), str_tmp_buf);
 
 	wrefresh(emu_win_reg);
 
-//        M68K_REG_SP,            /* The current Stack Pointer (located in A7) */
-//        M68K_REG_USP,           /* User Stack Pointer */
-//        M68K_REG_ISP,           /* Interrupt Stack Pointer */
-//        M68K_REG_MSP,           /* Master Stack Pointer */
+
 //        M68K_REG_SFC,           /* Source Function Code */
 //        M68K_REG_DFC,           /* Destination Function Code */
-//        M68K_REG_VBR,           /* Vector Base Register */
 //        M68K_REG_CACR,          /* Cache Control Register */
 //        M68K_REG_CAAR,          /* Cache Address Register */
 //
@@ -645,7 +665,6 @@ void update_register_display() {
 //        M68K_REG_PPC,           /* Previous value in the program counter */
 //        M68K_REG_IR,            /* Instruction register */
 //        M68K_REG_CPU_TYPE       /* Type of CPU being run */
-
 }
 
 void print_dbg_actions() {
