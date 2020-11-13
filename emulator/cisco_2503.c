@@ -521,6 +521,9 @@ void update_code_display() {
 	//pc = mem_pgrm_read_long(4);
 	pc = m68k_get_reg(NULL, M68K_REG_PC);
 
+	// Clear window
+	werase(emu_win_code);
+
 	// Disassemble to code window
 	while (line_count < (emu_win_code_rows - 2)) {
 		instr_size = m68k_disassemble(buff, pc, C2503_CPU);
