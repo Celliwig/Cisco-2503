@@ -84,12 +84,13 @@ unsigned int  g_fc;					// Current function code from CPU
 unsigned int	emu_mem_dump_start = 0x00000000;	// Address to start memory dump from
 unsigned char	emu_mem_dump_type = 0;			// Address space to dump (0 = Data / 1 = Program)
 char	str_tmp_buf[512];				// Temporary string buffer
-WINDOW	*emu_win_dialog = NULL, *emu_win_code = NULL, *emu_win_mem = NULL, *emu_win_reg = NULL;
-unsigned short int xterm_cols, xterm_rows;
+WINDOW	*emu_win_dialog = NULL, *emu_win_code = NULL, *emu_win_mem = NULL, *emu_win_reg = NULL, *emu_win_status = NULL;
+unsigned short int xterm_cols, xterm_cols_remain, xterm_rows, xterm_rows_remain;
 unsigned short int emu_win_dialog_cols, emu_win_dialog_rows, emu_win_dialog_y, emu_win_dialog_x;
 unsigned short int emu_win_code_cols, emu_win_code_rows, emu_win_code_y, emu_win_code_x;
 unsigned short int emu_win_mem_cols, emu_win_mem_rows, emu_win_mem_y, emu_win_mem_x;
 unsigned short int emu_win_reg_cols, emu_win_reg_rows, emu_win_reg_y, emu_win_reg_x;
+unsigned short int emu_win_status_cols, emu_win_status_rows, emu_win_status_y, emu_win_status_x;
 
 /* Exit with an error message.  Use printf syntax. */
 void exit_error(char* fmt, ...)
@@ -665,6 +666,12 @@ void update_register_display() {
 //        M68K_REG_CPU_TYPE       /* Type of CPU being run */
 }
 
+void show_status_message(char *message) {
+	werase(emu_win_status);
+	wprintw(emu_win_status, " %-*s", (emu_win_status_cols - 2), message);
+	wrefresh(emu_win_status);
+}
+
 void print_dbg_actions() {
 	printw("Q - Quit\t");
 	printw("R - Reset\t");
@@ -697,16 +704,34 @@ void emu_win_resize() {
 
 	// Get terminal size
 	getmaxyx(stdscr, xterm_rows, xterm_cols);
+	xterm_rows_remain = xterm_rows;
+	xterm_cols_remain = xterm_cols;
+
+	// Status Panel
+	// 1 row at the bottom
+	if (xterm_rows <= EMU_WIN_STATUS_ROWS_MAX) {
+		emu_win_status_rows = xterm_rows_remain;
+	} else {
+		emu_win_status_rows = EMU_WIN_STATUS_ROWS_MAX;
+	}
+	xterm_rows_remain = xterm_rows_remain - emu_win_status_rows;
+	emu_win_status_y = xterm_rows_remain;
+	emu_win_status_cols = xterm_cols_remain;	// Full screen width
+	emu_win_status_x = 0;				// So starts at the begining
+	delwin(emu_win_status);
+	emu_win_status = newwin(emu_win_status_rows, emu_win_status_cols, emu_win_status_y, emu_win_status_x);
+	wrefresh(emu_win_status);
 
 	// Register Panel
 	// Make this the domminant panel when screen height is reduced
-	if (xterm_rows <= EMU_WIN_REG_ROWS_MAX) {
-		emu_win_reg_rows = xterm_rows;
+	if (xterm_rows_remain <= EMU_WIN_REG_ROWS_MAX) {
+		emu_win_reg_rows = xterm_rows_remain;
 	} else {
 		emu_win_reg_rows = EMU_WIN_REG_ROWS_MAX;
 	}
-	emu_win_reg_y = xterm_rows - emu_win_reg_rows;
-	emu_win_reg_cols = xterm_cols;			// Full screen width
+	xterm_rows_remain = xterm_rows_remain - emu_win_reg_rows;
+	emu_win_reg_y = xterm_rows_remain;
+	emu_win_reg_cols = xterm_cols_remain;		// Full screen width
 	emu_win_reg_x = 0;				// So starts at the begining
 	delwin(emu_win_reg);
 	emu_win_reg = newwin(emu_win_reg_rows, emu_win_reg_cols, emu_win_reg_y, emu_win_reg_x);
@@ -715,16 +740,13 @@ void emu_win_resize() {
 
 	// Code Panel
 	// Use the remaining vertical portion of the screen
-	if ((xterm_rows - emu_win_reg_rows) > 0) {
-		emu_win_code_rows = xterm_rows - emu_win_reg_rows;
-	} else {
-		emu_win_code_rows = 0;
-	}
-	if (xterm_cols <= EMU_WIN_CODE_COLS_MAX) {
-		emu_win_code_cols = xterm_cols;
+	emu_win_code_rows = xterm_rows_remain;
+	if (xterm_cols_remain <= EMU_WIN_CODE_COLS_MAX) {
+		emu_win_code_cols = xterm_cols_remain;
 	} else {
 		emu_win_code_cols = EMU_WIN_CODE_COLS_MAX;
 	}
+	xterm_cols_remain = xterm_cols_remain - emu_win_code_cols;
 	emu_win_code_y = 0;
 	emu_win_code_x = 0;
 	delwin(emu_win_code);
@@ -736,16 +758,8 @@ void emu_win_resize() {
 
 	// Memory Panel
 	// Use whatevers left
-	if ((xterm_rows - emu_win_reg_rows) > 0) {
-		emu_win_mem_rows = xterm_rows - emu_win_reg_rows;
-	} else {
-		emu_win_mem_rows = 0;
-	}
-	if ((xterm_cols - emu_win_code_cols) > 0) {
-		emu_win_mem_cols = xterm_cols - emu_win_code_cols;
-	} else {
-		emu_win_mem_cols = 0;
-	}
+	emu_win_mem_rows = xterm_rows_remain;
+	emu_win_mem_cols = xterm_cols_remain;
 	emu_win_mem_y = 0;
 	emu_win_mem_x = emu_win_code_cols;
 	delwin(emu_win_mem);
@@ -761,6 +775,7 @@ void emu_win_destroy() {
 	delwin(emu_win_dialog);
 	delwin(emu_win_mem);
 	delwin(emu_win_reg);
+	delwin(emu_win_status);
 }
 
 // Main loop
@@ -793,6 +808,7 @@ int main(int argc, char* argv[]) {
 	nodelay(stdscr, true);		// Make character reads non-blocking
 	curs_set(0);			// Disable cursor
 	emu_win_resize();
+	show_status_message("Cisco 2503 Simulator");
 
 	// Init 68k core
 	m68k_init();
@@ -816,12 +832,16 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 'Q') {
 			g_quit = 1;
 		} else if (key_press == 'r') {
+			show_status_message("Running");
 			emu_step = -1;					// Start execution (run)
 		} else if (key_press == 'R') {
+			show_status_message("Reset");
 			m68k_pulse_reset();
 		} else if (key_press == 's') {
+			show_status_message("Stepped");
 			emu_step = 1;					// Execute one instruction
 		} else if (key_press == 'S') {
+			show_status_message("Stopped");
 			emu_step = 0;					// Stop execution
 		}
 
