@@ -9,7 +9,8 @@
 #define C2503_BOOTROM_ADDR1	0x00000000			// Starting location of boot ROM
 #define C2503_BOOTROM_ADDR2	0x01000000			// Alternate location of boot ROM
 
-#define MAX_RAM			0xff
+#define C2503_RAM_SIZE		0x100				// 256 bytes of RAM
+#define C2503_RAM_ADDR1		0x00000000			// Starting location of RAM
 
 /* Old Memory-mapped IO ports */
 #define INPUT_ADDRESS		0x800000
@@ -26,6 +27,10 @@
 // NCurses definitions
 #define EMU_WIN_REG_ROWS_MAX	7				// Maximum number of rows to allocate to the registers window
 #define EMU_WIN_CODE_COLS_MAX	75				// Maximum number of columns to allocate to the code window
+
+// Disassembler
+#define cpu_read_word_dasm	mem_pgrm_read_word
+#define cpu_read_long_dasm	mem_pgrm_read_long
 
 // Macros
 //////////////////////////////////////////////////////////////////////////////////////////////

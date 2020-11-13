@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <time.h>
 #include "cisco_2503.h"
 #include "m68k.h"
@@ -75,10 +76,12 @@ unsigned int g_int_controller_pending = 0;		// list of pending interrupts
 unsigned int g_int_controller_highest_int = 0;		// Highest pending interrupt
 
 unsigned char g_bootrom[C2503_BOOTROM_SIZE + 1];	// Boot ROM
-unsigned char g_ram[MAX_RAM + 1];			// RAM
+unsigned char g_ram[C2503_RAM_SIZE + 1];		// RAM
 unsigned int  g_fc;					// Current function code from CPU
 
-// NCurses
+// NCurses interface
+unsigned int	emu_mem_dump_start = 0x00000000;	// Address to start memory dump from
+unsigned char	emu_mem_dump_type = 0;			// Address space to dump (0 = Data / 1 = Program)
 char	str_tmp_buf[512];				// Temporary string buffer
 WINDOW	*emu_win_dialog = NULL, *emu_win_code = NULL, *emu_win_mem = NULL, *emu_win_reg = NULL;
 unsigned short int xterm_cols, xterm_rows;
@@ -301,105 +304,24 @@ void get_user_input(void)
 
 // Memory
 //////////////////////////////////////////////////////////////////////////////////////////////
-/* Read data from RAM, ROM, or a device */
-unsigned int cpu_read_byte(unsigned int address)
-{
-	// Program
-	if(g_fc & 2) {
-		// Boot ROM Address 1
-		if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
-			return READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR1);
-		}
-		// Boot ROM Address 2
-		if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-			return READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR2);
-		}
-
-		// No valid data, error
-		exit_error("Attempted to read byte from ROM address %08x", address);
+// Program
+////////////////////////////////////////////////////////
+unsigned int mem_pgrm_read_byte(unsigned int address, bool exit_on_error) {
+	// Boot ROM Address 1
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
+		return READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR1);
 	}
-
-	/* Otherwise it's data space */
-	switch(address) {
-		case INPUT_ADDRESS:
-			return input_device_read();
-		case OUTPUT_ADDRESS:
-			return output_device_read();
-		default:
-			break;
+	// Boot ROM Address 2
+	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+		return READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR2);
 	}
-	if(address > MAX_RAM)
-		exit_error("Attempted to read byte from RAM address %08x", address);
-	return READ_BYTE(g_ram, address);
+	if (exit_on_error) {
+		exit_error("Disassembler attempted to read word from ROM address %08x", address);
+	}
+	return -1;
 }
 
-unsigned int cpu_read_word(unsigned int address)
-{
-	// Program
-	if(g_fc & 2) {
-		// Boot ROM Address 1
-		if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
-			return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR1);
-		}
-		// Boot ROM Address 2
-		if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-			return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR2);
-		}
-
-		// No valid data, error
-		exit_error("Attempted to read byte from ROM address %08x", address);
-	}
-
-	/* Otherwise it's data space */
-	switch(address)
-	{
-		case INPUT_ADDRESS:
-			return input_device_read();
-		case OUTPUT_ADDRESS:
-			return output_device_read();
-		default:
-			break;
-	}
-	if(address > MAX_RAM)
-		exit_error("Attempted to read word from RAM address %08x", address);
-	return READ_WORD(g_ram, address);
-}
-
-unsigned int cpu_read_long(unsigned int address)
-{
-	// Program
-	if(g_fc & 2) {
-		// Boot ROM Address 1
-		if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
-			return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR1);
-		}
-		// Boot ROM Address 2
-		if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-			return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR2);
-		}
-
-		// No valid data, error
-		exit_error("Attempted to read byte from ROM address %08x", address);
-	}
-
-	/* Otherwise it's data space */
-	switch(address)
-	{
-		case INPUT_ADDRESS:
-			return input_device_read();
-		case OUTPUT_ADDRESS:
-			return output_device_read();
-		default:
-			break;
-	}
-	if(address > MAX_RAM)
-		exit_error("Attempted to read long from RAM address %08x", address);
-	return READ_LONG(g_ram, address);
-}
-
-
-unsigned int cpu_read_word_dasm(unsigned int address)
-{
+unsigned int mem_pgrm_read_word(unsigned int address) {
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
 		return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR1);
@@ -411,8 +333,7 @@ unsigned int cpu_read_word_dasm(unsigned int address)
 	exit_error("Disassembler attempted to read word from ROM address %08x", address);
 }
 
-unsigned int cpu_read_long_dasm(unsigned int address)
-{
+unsigned int mem_pgrm_read_long(unsigned int address) {
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
 		return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR1);
@@ -424,16 +345,99 @@ unsigned int cpu_read_long_dasm(unsigned int address)
 	exit_error("Dasm attempted to read long from ROM address %08x", address);
 }
 
+// Data
+////////////////////////////////////////////////////////
+unsigned int mem_data_read_byte(unsigned int address, bool exit_on_error) {
+	if ((address >= C2503_RAM_ADDR1) && (address < (C2503_RAM_ADDR1 + C2503_RAM_SIZE))) {
+		return READ_BYTE(g_ram, address);
+	}
+	if (exit_on_error) {
+		exit_error("Attempted to read byte from RAM address %08x", address);
+	}
+	return -1;
+}
 
-/* Write data to RAM or a device */
-void cpu_write_byte(unsigned int address, unsigned int value)
+unsigned int mem_data_read_word(unsigned int address) {
+	if ((address >= C2503_RAM_ADDR1) && (address < (C2503_RAM_ADDR1 + C2503_RAM_SIZE))) {
+		return READ_WORD(g_ram, address);
+	}
+	exit_error("Disassembler attempted to read word from RAM address %08x", address);
+}
+
+unsigned int mem_data_read_long(unsigned int address) {
+	if ((address >= C2503_RAM_ADDR1) && (address < (C2503_RAM_ADDR1 + C2503_RAM_SIZE))) {
+		return READ_LONG(g_ram, address);
+	}
+	exit_error("Dasm attempted to read long from RAM address %08x", address);
+}
+
+// Emulator
+////////////////////////////////////////////////////////
+// Read
+////////////////////////////
+unsigned int cpu_read_byte(unsigned int address) {
+	// Program
+	if(g_fc & 2) {
+		return mem_pgrm_read_byte(address, true);
+	}
+
+	/* Otherwise it's data space */
+	switch(address) {
+		case INPUT_ADDRESS:
+			return input_device_read();
+		case OUTPUT_ADDRESS:
+			return output_device_read();
+		default:
+			break;
+	}
+	return mem_data_read_byte(address, true);
+}
+
+unsigned int cpu_read_word(unsigned int address)
 {
+	// Program
+	if(g_fc & 2) {
+		return mem_pgrm_read_word(address);
+	}
+
+	/* Otherwise it's data space */
+	switch(address) {
+		case INPUT_ADDRESS:
+			return input_device_read();
+		case OUTPUT_ADDRESS:
+			return output_device_read();
+		default:
+			break;
+	}
+	return mem_data_read_word(address);
+}
+
+unsigned int cpu_read_long(unsigned int address) {
+	// Program
+	if(g_fc & 2) {
+		return mem_pgrm_read_long(address);
+	}
+
+	/* Otherwise it's data space */
+	switch(address) {
+		case INPUT_ADDRESS:
+			return input_device_read();
+		case OUTPUT_ADDRESS:
+			return output_device_read();
+		default:
+			break;
+	}
+	return mem_data_read_long(address);
+}
+
+// Write
+////////////////////////////
+void cpu_write_byte(unsigned int address, unsigned int value) {
 	if(g_fc & 2)	/* Program */
 		exit_error("Attempted to write %02x to ROM address %08x", value&0xff, address);
 
 	/* Otherwise it's data space */
-	switch(address)
-	{
+	switch(address) {
 		case INPUT_ADDRESS:
 			input_device_write(value&0xff);
 			return;
@@ -443,19 +447,17 @@ void cpu_write_byte(unsigned int address, unsigned int value)
 		default:
 			break;
 	}
-	if(address > MAX_RAM)
+	if(address > C2503_RAM_SIZE)
 		exit_error("Attempted to write %02x to RAM address %08x", value&0xff, address);
 	WRITE_BYTE(g_ram, address, value);
 }
 
-void cpu_write_word(unsigned int address, unsigned int value)
-{
+void cpu_write_word(unsigned int address, unsigned int value) {
 	if(g_fc & 2)	/* Program */
 		exit_error("Attempted to write %04x to ROM address %08x", value&0xffff, address);
 
 	/* Otherwise it's data space */
-	switch(address)
-	{
+	switch(address) {
 		case INPUT_ADDRESS:
 			input_device_write(value&0xffff);
 			return;
@@ -465,19 +467,17 @@ void cpu_write_word(unsigned int address, unsigned int value)
 		default:
 			break;
 	}
-	if(address > MAX_RAM)
+	if(address > C2503_RAM_SIZE)
 		exit_error("Attempted to write %04x to RAM address %08x", value&0xffff, address);
 	WRITE_WORD(g_ram, address, value);
 }
 
-void cpu_write_long(unsigned int address, unsigned int value)
-{
+void cpu_write_long(unsigned int address, unsigned int value) {
 	if(g_fc & 2)	/* Program */
 		exit_error("Attempted to write %08x to ROM address %08x", value, address);
 
 	/* Otherwise it's data space */
-	switch(address)
-	{
+	switch(address) {
 		case INPUT_ADDRESS:
 			input_device_write(value);
 			return;
@@ -487,7 +487,7 @@ void cpu_write_long(unsigned int address, unsigned int value)
 		default:
 			break;
 	}
-	if(address > MAX_RAM)
+	if(address > C2503_RAM_SIZE)
 		exit_error("Attempted to write %08x to RAM address %08x", value, address);
 	WRITE_LONG(g_ram, address, value);
 }
@@ -498,7 +498,7 @@ void make_hex(char* buff, unsigned int pc, unsigned int length) {
 	char* ptr = buff;
 
 	for(; length>0; length -= 2) {
-		sprintf(ptr, "%04x", cpu_read_word_dasm(pc));
+		sprintf(ptr, "%04x", mem_pgrm_read_word(pc));
 		pc += 2;
 		ptr += 4;
 		if(length > 2)
@@ -506,6 +506,8 @@ void make_hex(char* buff, unsigned int pc, unsigned int length) {
 	}
 }
 
+// Disassembles x lines of code starting from the PC
+// x is dependent on the size of the code window
 void update_code_display() {
 	unsigned int pc;
 	unsigned int instr_size;
@@ -516,7 +518,7 @@ void update_code_display() {
 	// Check if there's any room to display anything
 	if (emu_win_code_rows <= 2) return;
 
-	//pc = cpu_read_long_dasm(4);
+	//pc = mem_pgrm_read_long(4);
 	pc = m68k_get_reg(NULL, M68K_REG_PC);
 
 	// Disassemble to code window
@@ -531,6 +533,42 @@ void update_code_display() {
 	wrefresh(emu_win_code);
 }
 
+// Helper function for the memory display
+unsigned char filter_character_byte(unsigned char value) {
+	if ((value >= 0x20) && (value <= 0x7e)) return value;
+	return '.';
+}
+
+// Produces a hex/ascii listing of the data/program space
+void update_memory_display() {
+	unsigned char byte_count = 0, line_count = 0, tmp_byte;
+	unsigned int tmp_mem_addr = emu_mem_dump_start;
+	char buff_hex[48], buff_ascii[16];
+
+	// Check if there's any room to display anything
+	if ((emu_win_mem_rows <= 2) || (emu_win_mem_cols <= 2)) return;
+
+	while (line_count < (emu_win_mem_rows - 2)) {
+		for (byte_count = 0; byte_count < 0x10; byte_count++) {
+			if (emu_mem_dump_type) {
+				tmp_byte = mem_pgrm_read_byte(tmp_mem_addr, false);
+			} else {
+				tmp_byte = mem_data_read_byte(tmp_mem_addr, false);
+			}
+			sprintf(&buff_hex[byte_count * 3], "%02x ", tmp_byte);
+			buff_ascii[byte_count] = filter_character_byte(tmp_byte);
+			tmp_mem_addr++;
+		}
+
+		sprintf(str_tmp_buf, "%08x:   %.48s      %.16s", tmp_mem_addr, buff_hex, buff_ascii);
+		mvwprintw(emu_win_mem, (line_count + 1), 2, "%.*s", (emu_win_mem_cols - 4), str_tmp_buf);
+		tmp_mem_addr += 0x10;
+		line_count++;
+	}
+	wrefresh(emu_win_mem);
+}
+
+// Displays the state of the CPU registers
 void update_register_display() {
 	char* str_cpu_type = "Invalid";
 	switch (m68k_get_reg(NULL, M68K_REG_CPU_TYPE)) {
@@ -667,13 +705,34 @@ void emu_win_resize() {
 	} else {
 		emu_win_code_cols = EMU_WIN_CODE_COLS_MAX;
 	}
-	emu_win_reg_y = 0;
-	emu_win_reg_x = 0;
+	emu_win_code_y = 0;
+	emu_win_code_x = 0;
 	delwin(emu_win_code);
 	if (emu_win_code_rows > 0) {
 		emu_win_code = newwin(emu_win_code_rows, emu_win_code_cols, emu_win_code_y, emu_win_code_x);
 		box(emu_win_code, 0 , 0);
 		wrefresh(emu_win_code);
+	}
+
+	// Memory Panel
+	// Use whatevers left
+	if ((xterm_rows - emu_win_reg_rows) > 0) {
+		emu_win_mem_rows = xterm_rows - emu_win_reg_rows;
+	} else {
+		emu_win_mem_rows = 0;
+	}
+	if ((xterm_cols - emu_win_code_cols) > 0) {
+		emu_win_mem_cols = xterm_cols - emu_win_code_cols;
+	} else {
+		emu_win_mem_cols = 0;
+	}
+	emu_win_mem_y = 0;
+	emu_win_mem_x = emu_win_code_cols;
+	delwin(emu_win_mem);
+	if ((emu_win_mem_rows > 0) && (emu_win_mem_cols > 0)) {
+		emu_win_mem = newwin(emu_win_mem_rows, emu_win_mem_cols, emu_win_mem_y, emu_win_mem_x);
+		box(emu_win_mem, 0 , 0);
+		wrefresh(emu_win_mem);
 	}
 }
 
@@ -723,6 +782,7 @@ int main(int argc, char* argv[]) {
 	g_quit = 0;
 	while (!g_quit) {
 		update_code_display();
+		update_memory_display();
 		update_register_display();
 
 		// Get action
