@@ -1304,15 +1304,14 @@ void emu_status_message(char *message) {
 	wrefresh(emu_win_status);
 }
 
-// Uses the status window to accept an address to set as a breakpoint
-void emu_set_breakpoint() {
+// Uses the status window to display a message and input an address
+unsigned char emu_win_status_ask_4_address(char *msg, unsigned int *store) {
 	bool		input_loop = true;
 	char		hex_addr[8];
-	unsigned char	hex_digit_index, i;
+	unsigned char	hex_digit_index, i, rtn = 0;
 	int		key_press;
-	unsigned int	breakpoint_addr = 0;
+	unsigned int	tmp_addr = 0;
 
-	werase(emu_win_status);							// Clear status window
 	nodelay(stdscr, false);							// Temporarily make key scanning blocking
 
 	// Clear digit store
@@ -1323,7 +1322,7 @@ void emu_set_breakpoint() {
 
 	while (input_loop) {
 		werase(emu_win_status);
-		wprintw(emu_win_status, " Breakpoint Addr: 0x%-*.8s", (emu_win_status_cols - 14), hex_addr);
+		wprintw(emu_win_status, " %s: 0x%-*.8s", msg, (emu_win_status_cols - 14), hex_addr);
 		wrefresh(emu_win_status);
 
 		key_press = wgetch(stdscr);
@@ -1333,16 +1332,15 @@ void emu_set_breakpoint() {
 			if (hex_digit_index > 0) {
 				// Convert characters to integer address
 				for (i = 0; i < hex_digit_index; i++) {
-					if (i > 0) breakpoint_addr = breakpoint_addr<<4;
-					breakpoint_addr += ascii_2_hex(hex_addr[i]);
+					if (i > 0) tmp_addr = tmp_addr << 4;
+					tmp_addr += ascii_2_hex(hex_addr[i]);
 				}
-				emu_breakpoint = breakpoint_addr;
-				sprintf(str_tmp_buf, "Breakpoint set: 0x%x", emu_breakpoint);
-				emu_status_message(str_tmp_buf);
+				rtn = 1;
+				*store = tmp_addr;
 				input_loop = false;
 			}
 		} else if (key_press == 0x1b) {					// Escape
-			emu_status_message("Breakpoint canceled");
+			rtn = 0;
 			input_loop = false;
 		} else if (key_press == KEY_BACKSPACE) {
 			// Decrement index if not first digit
@@ -1360,6 +1358,26 @@ void emu_set_breakpoint() {
 	}
 
 	nodelay(stdscr, true);							// Make key scanning non-blocking again
+	return rtn;
+}
+
+// Uses the status window to accept an address to set as a breakpoint
+void emu_set_breakpoint() {
+	if (emu_win_status_ask_4_address("Breakpoint Addr", &emu_breakpoint)) {
+		sprintf(str_tmp_buf, "Breakpoint set: 0x%x", emu_breakpoint);
+		emu_status_message(str_tmp_buf);
+	} else {
+		emu_status_message("Canceled");
+	}
+}
+
+// Uses the status window to accept an address for the memory window
+void emu_set_memory_dump_addr() {
+	if (emu_win_status_ask_4_address("Memory Addr", &emu_mem_dump_start)) {
+		emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_SELECTED;
+	} else {
+		emu_status_message("Canceled");
+	}
 }
 
 // Help screen
@@ -1457,6 +1475,8 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 'p') {
 			// Memory window displays program
 			emu_mem_dump_type = emu_mem_dump_type | EMU_WIN_MEM_DISP_SPACE;
+		} else if (key_press == 'm') {
+			emu_set_memory_dump_addr();
 		} else if (key_press == '0') {
 			// Memory window displays address from A0
 			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_A0;
