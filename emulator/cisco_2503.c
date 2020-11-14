@@ -4,28 +4,10 @@
 #include <stdbool.h>
 #include <time.h>
 #include <unistd.h>
-#include "cisco_2503.h"
 #include "m68k.h"
-//#include "osd.h"
+#include "cisco_2503.h"
+#include "cisco_2503_peripherals.h"
 #include <ncurses.h>
-
-/* Read/write macros */
-#define READ_BYTE(BASE, ADDR) (BASE)[ADDR]
-#define READ_WORD(BASE, ADDR) (((BASE)[ADDR]<<8) |			\
-							  (BASE)[(ADDR)+1])
-#define READ_LONG(BASE, ADDR) (((BASE)[ADDR]<<24) |			\
-							  ((BASE)[(ADDR)+1]<<16) |		\
-							  ((BASE)[(ADDR)+2]<<8) |		\
-							  (BASE)[(ADDR)+3])
-
-#define WRITE_BYTE(BASE, ADDR, VAL) (BASE)[ADDR] = (VAL)&0xff
-#define WRITE_WORD(BASE, ADDR, VAL) (BASE)[ADDR] = ((VAL)>>8) & 0xff;		\
-									(BASE)[(ADDR)+1] = (VAL)&0xff
-#define WRITE_LONG(BASE, ADDR, VAL) (BASE)[ADDR] = ((VAL)>>24) & 0xff;		\
-									(BASE)[(ADDR)+1] = ((VAL)>>16)&0xff;	\
-									(BASE)[(ADDR)+2] = ((VAL)>>8)&0xff;		\
-									(BASE)[(ADDR)+3] = (VAL)&0xff
-
 
 /* Prototypes */
 void exit_error(char* fmt, ...);
@@ -65,42 +47,25 @@ void emu_win_destroy();
 
 
 /* Data */
-unsigned int g_quit = 0;				// 1 if we want to quit
-unsigned int g_nmi = 0;					// 1 if nmi pending
+unsigned int	g_quit = 0;						// 1 if we want to quit
+unsigned int	g_nmi = 0;						// 1 if nmi pending
 
-int          g_input_device_value = -1;			// Current value in input device
+int		g_input_device_value = -1;				// Current value in input device
 
-unsigned int g_output_device_ready = 0;			// 1 if output device is ready
-time_t       g_output_device_last_output;		// Time of last char output
+unsigned int	g_output_device_ready = 0;				// 1 if output device is ready
+time_t		g_output_device_last_output;				// Time of last char output
 
-unsigned int g_int_controller_pending = 0;		// list of pending interrupts
-unsigned int g_int_controller_highest_int = 0;		// Highest pending interrupt
-
-unsigned char g_bootrom[C2503_BOOTROM_SIZE];		// Boot ROM
-unsigned char g_ram[C2503_RAM_SIZE];			// RAM
-unsigned char g_nvram[C2503_NVRAM_SIZE];		// NVRAM
-unsigned int  g_fc;					// Current function code from CPU
-
-// Peripherals
-unsigned char g_io_68302_reg[C2503_IO_68302_REG_SIZE];		// 68302 registers
-unsigned char g_io_68302_mem[C2503_IO_68302_RAM_SIZE];		// 68302 memory
-unsigned char g_io_sys_cntl1[C2503_IO_SYS_CONTROL1_SIZE];	// System control register 1
-unsigned char g_io_sys_cntl2[C2503_IO_SYS_CONTROL2_SIZE];	// System control register 2
-unsigned char g_io_sys_status[C2503_IO_SYS_STATUS_SIZE];	// System status register
-unsigned char g_io_sysid_cookie[C2503_IO_SYS_ID_COOKIE_SIZE];	// System ID cookie
-unsigned char g_io_counter[C2503_IO_COUNTER_TIMER_SIZE];	// Counter/Timer register
-unsigned char g_io_counter_cntl[C2503_IO_COUNTER_CONTROL_SIZE];	// Counter/Timer control register
-unsigned char g_io_duart[C2503_IO_DUART_SIZE];			// Dual UART
-unsigned char g_io_chnla_lance[C2503_IO_CHANNELA_LANCE_SIZE];	// Channel A: LANCE
-unsigned char g_io_chnlb_lance[C2503_IO_CHANNELB_LANCE_SIZE];	// Channel B: LANCE/serial
-unsigned char g_io_chnlb_serial[C2503_IO_CHANNELB_SERIAL_SIZE];	// Channel B: serial DTR
+unsigned int	g_int_controller_pending = 0;				// list of pending interrupts
+unsigned int	g_int_controller_highest_int = 0;			// Highest pending interrupt
+unsigned int	g_fc;							// Current function code from CPU
 
 // NCurses interface
-unsigned int	emu_mem_dump_start = 0x00000000;	// Address to start memory dump from
-unsigned int	emu_breakpoint = 0x00000000;		// Breakpoint address
-unsigned char	emu_mem_dump_type = 0;			// Address space to dump
-char	str_tmp_buf[512];				// Temporary string buffer
-WINDOW	*emu_win_dialog = NULL, *emu_win_code = NULL, *emu_win_mem = NULL, *emu_win_reg = NULL, *emu_win_status = NULL;
+unsigned int	emu_mem_dump_start = 0x00000000;			// Address to start memory dump from
+unsigned int	emu_breakpoint = 0x00000000;				// Breakpoint address
+unsigned char	emu_mem_dump_type = 0;					// Address space to dump
+char		str_tmp_buf[512];					// Temporary string buffer
+WINDOW		*emu_win_dialog = NULL, *emu_win_code = NULL, \
+		*emu_win_mem = NULL, *emu_win_reg = NULL, *emu_win_status = NULL;
 unsigned short int xterm_cols, xterm_cols_remain, xterm_rows, xterm_rows_remain;
 unsigned short int emu_win_dialog_cols, emu_win_dialog_rows, emu_win_dialog_y, emu_win_dialog_x;
 unsigned short int emu_win_code_cols, emu_win_code_rows, emu_win_code_y, emu_win_code_x;
@@ -320,645 +285,123 @@ void get_user_input(void)
 	last_ch = ch;
 }
 
-// I/O
-//////////////////////////////////////////////////////////////////////////////////////////////
-// Read
-////////////////////////////
-unsigned int io_read_byte(unsigned int address, bool exit_on_error) {
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		return READ_BYTE(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
-	}
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		return READ_BYTE(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR);
-	}
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		return READ_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
-	}
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		return READ_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
-	}
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		return READ_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
-	}
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		return READ_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
-	}
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		return READ_BYTE(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
-	}
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		return READ_BYTE(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR);
-	}
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		return READ_BYTE(g_io_duart, address - C2503_IO_DUART_ADDR);
-	}
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		return READ_BYTE(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
-	}
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		return READ_BYTE(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
-	}
-	// Channel B: serial DTR
-	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
-		return READ_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
-	}
-
-	if (exit_on_error) {
-		exit_error("Attempted to read byte from IO address %08x", address);
-	}
-	return -1;
-}
-
-unsigned int io_read_word(unsigned int address) {
-#if C2503_IO_68302_REG_SIZE >= 2
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		return READ_WORD(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
-	}
-#endif
-#if C2503_IO_68302_RAM_SIZE >= 2
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		return READ_WORD(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR);
-	}
-#endif
-#if C2503_IO_SYS_CONTROL1_SIZE >= 2
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		return READ_WORD(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
-	}
-#endif
-#if C2503_IO_SYS_CONTROL2_SIZE >= 2
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		return READ_WORD(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
-	}
-#endif
-#if C2503_IO_SYS_STATUS_SIZE >= 2
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		return READ_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
-	}
-#endif
-#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		return READ_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
-	}
-#endif
-#if C2503_IO_COUNTER_TIMER_SIZE >= 2
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		return READ_WORD(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
-	}
-#endif
-#if C2503_IO_COUNTER_CONTROL_SIZE >= 2
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		return READ_WORD(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR);
-	}
-#endif
-#if C2503_IO_DUART_SIZE >= 2
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		return READ_WORD(g_io_duart, address - C2503_IO_DUART_ADDR);
-	}
-#endif
-#if C2503_IO_CHANNELA_LANCE_SIZE >= 2
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		return READ_WORD(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
-	}
-#endif
-#if C2503_IO_CHANNELB_LANCE_SIZE >= 2
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		return READ_WORD(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
-	}
-#endif
-#if C2503_IO_CHANNELB_SERIAL_SIZE >= 2
-	// Channel B: serial DTR
-	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
-		return READ_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
-	}
-#endif
-
-	exit_error("Attempted to read word from IO address %08x", address);
-}
-
-unsigned int io_read_long(unsigned int address) {
-#if C2503_IO_68302_REG_SIZE >= 4
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		return READ_LONG(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
-	}
-#endif
-#if C2503_IO_68302_RAM_SIZE >= 4
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		return READ_LONG(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR);
-	}
-#endif
-#if C2503_IO_SYS_CONTROL1_SIZE >= 4
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		return READ_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
-	}
-#endif
-#if C2503_IO_SYS_CONTROL2_SIZE >= 4
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		return READ_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
-	}
-#endif
-#if C2503_IO_SYS_STATUS_SIZE >= 4
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		return READ_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
-	}
-#endif
-#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		return READ_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
-	}
-#endif
-#if C2503_IO_COUNTER_TIMER_SIZE >= 4
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		return READ_LONG(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
-	}
-#endif
-#if C2503_IO_COUNTER_CONTROL_SIZE >= 4
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		return READ_LONG(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR);
-	}
-#endif
-#if C2503_IO_DUART_SIZE >= 4
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		return READ_LONG(g_io_duart, address - C2503_IO_DUART_ADDR);
-	}
-#endif
-#if C2503_IO_CHANNELA_LANCE_SIZE >= 4
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		return READ_LONG(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
-	}
-#endif
-#if C2503_IO_CHANNELB_LANCE_SIZE >= 4
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		return READ_LONG(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
-	}
-#endif
-#if C2503_IO_CHANNELB_SERIAL_SIZE >= 4
-	// Channel B: serial DTR
-	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
-		return READ_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
-	}
-#endif
-
-	exit_error("Attempted to read long from IO address %08x", address);
-}
-
-// Write
-////////////////////////////
-void io_write_byte(unsigned int address, unsigned int value) {
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		WRITE_BYTE(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
-		return;
-	}
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		WRITE_BYTE(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
-		return;
-	}
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		WRITE_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
-		return;
-	}
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		WRITE_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
-		return;
-	}
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		WRITE_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-		return;
-	}
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		WRITE_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
-		return;
-	}
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		WRITE_BYTE(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
-		return;
-	}
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		WRITE_BYTE(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR, value);
-		return;
-	}
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		WRITE_BYTE(g_io_duart, address - C2503_IO_DUART_ADDR, value);
-		return;
-	}
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		WRITE_BYTE(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
-		return;
-	}
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		WRITE_BYTE(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
-		return;
-	}
-	// Channel B: serial DTR
-	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
-		WRITE_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
-		return;
-	}
-
-	exit_error("Attempted to write byte to IO address %08x", address);
-}
-
-void io_write_word(unsigned int address, unsigned int value) {
-#if C2503_IO_68302_REG_SIZE >= 2
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		WRITE_WORD(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_68302_RAM_SIZE >= 2
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		WRITE_WORD(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_SYS_CONTROL1_SIZE >= 2
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		WRITE_WORD(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_SYS_CONTROL2_SIZE >= 2
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		WRITE_WORD(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_SYS_STATUS_SIZE >= 2
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		WRITE_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		WRITE_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_COUNTER_TIMER_SIZE >= 2
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		WRITE_WORD(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_COUNTER_CONTROL_SIZE >= 2
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		WRITE_WORD(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_DUART_SIZE >= 2
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		WRITE_WORD(g_io_duart, address - C2503_IO_DUART_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_CHANNELA_LANCE_SIZE >= 2
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		WRITE_WORD(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_CHANNELB_LANCE_SIZE >= 2
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		WRITE_WORD(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_CHANNELB_SERIAL_SIZE >= 2
-	// Channel B: serial DTR
-	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
-		WRITE_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
-		return;
-	}
-#endif
-
-	exit_error("Attempted to write word to IO address %08x", address);
-}
-
-void io_write_long(unsigned int address, unsigned int value) {
-#if C2503_IO_68302_REG_SIZE >= 4
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		WRITE_LONG(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_68302_RAM_SIZE >= 4
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		WRITE_LONG(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_SYS_CONTROL1_SIZE >= 4
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		WRITE_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_SYS_CONTROL2_SIZE >= 4
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		WRITE_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_SYS_STATUS_SIZE >= 4
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		WRITE_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		WRITE_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_COUNTER_TIMER_SIZE >= 4
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		WRITE_LONG(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_COUNTER_CONTROL_SIZE >= 4
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		WRITE_LONG(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_DUART_SIZE >= 4
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		WRITE_LONG(g_io_duart, address - C2503_IO_DUART_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_CHANNELA_LANCE_SIZE >= 4
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		WRITE_LONG(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_CHANNELB_LANCE_SIZE >= 4
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		WRITE_LONG(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
-		return;
-	}
-#endif
-#if C2503_IO_CHANNELB_SERIAL_SIZE >= 4
-	// Channel B: serial DTR
-	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
-		WRITE_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
-		return;
-	}
-#endif
-
-	exit_error("Attempted to write long to IO address %08x", address);
-}
-
-// Memory
-//////////////////////////////////////////////////////////////////////////////////////////////
-// Program
+// Emulator memory access
 ////////////////////////////////////////////////////////
-unsigned int mem_pgrm_read_byte(unsigned int address, bool exit_on_error) {
-	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
-		return READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR1);
-	}
-	// Boot ROM Address 2
-	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-		return READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR2);
-	}
-	if (exit_on_error) {
-		exit_error("Attempted to read word from ROM address %08x", address);
-	}
-	return -1;
+bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int) {
+//	// Program
+//	if(g_fc & 2) {
+//		return mem_pgrm_read_byte(address, true);
+//	}
+
+	if (mem_bootrom_read_byte(address, tmp_int)) return true;
+	if (mem_nvram_read_byte(address, tmp_int)) return true;
+	if (io_68302_read_byte(address, tmp_int)) return true;
+	if (io_system_read_byte(address, tmp_int)) return true;
+	if (io_counter_read_byte(address, tmp_int)) return true;
+	if (io_duart_read_byte(address, tmp_int)) return true;
+	if (io_channela_read_byte(address, tmp_int)) return true;
+	if (io_channelb_read_byte(address, tmp_int)) return true;
+
+	return false;
 }
 
-unsigned int mem_pgrm_read_word(unsigned int address) {
-	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
-		return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR1);
-	}
-	// Boot ROM Address 2
-	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-		return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR2);
-	}
-	exit_error("Attempted to read word from ROM address %08x", address);
-}
-
-unsigned int mem_pgrm_read_long(unsigned int address) {
-	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
-		return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR1);
-	}
-	// Boot ROM Address 2
-	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-		return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR2);
-	}
-	exit_error("Attempted to read long from ROM address %08x", address);
-}
-
-// Data
-////////////////////////////////////////////////////////
-// Read
-////////////////////////////
-unsigned int mem_data_read_byte(unsigned int address, bool exit_on_error) {
-	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
-		return READ_BYTE(g_nvram, address - C2503_NVRAM_ADDR);
-	}
-
-	if (exit_on_error) {
-		exit_error("Attempted to read byte from RAM address %08x", address);
-	}
-	return -1;
-}
-
-unsigned int mem_data_read_word(unsigned int address) {
-	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
-		return READ_WORD(g_nvram, address - C2503_NVRAM_ADDR);
-	}
-
-	exit_error("Attempted to read word from RAM address %08x", address);
-}
-
-unsigned int mem_data_read_long(unsigned int address) {
-	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
-		return READ_LONG(g_nvram, address - C2503_NVRAM_ADDR);
-	}
-
-	exit_error("Attempted to read long from RAM address %08x", address);
-}
-
-// Write
-////////////////////////////
-void mem_data_write_byte(unsigned int address, unsigned int value) {
-	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
-		WRITE_BYTE(g_nvram, address - C2503_NVRAM_ADDR, value);
-		return;
-	}
-
-	exit_error("Attempted to write byte from RAM address %08x", address);
-}
-
-void mem_data_write_word(unsigned int address, unsigned int value) {
-	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
-		WRITE_WORD(g_nvram, address - C2503_NVRAM_ADDR, value);
-		return;
-	}
-
-	exit_error("Attempted to write word from RAM address %08x", address);
-}
-
-void mem_data_write_long(unsigned int address, unsigned int value) {
-	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
-		WRITE_LONG(g_nvram, address - C2503_NVRAM_ADDR, value);
-		return;
-	}
-
-	exit_error("Attempted to write long from RAM address %08x", address);
-}
-
-// Emulator
-////////////////////////////////////////////////////////
-// Read
-////////////////////////////
 unsigned int cpu_read_byte(unsigned int address) {
-	// Program
-	if(g_fc & 2) {
-		return mem_pgrm_read_byte(address, true);
-	}
+	unsigned int tmp_int;
 
-	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
-		return io_read_byte(address, true);
-	}
-	return mem_data_read_byte(address, true);
+	if (cpu_real_read_byte(address, &tmp_int)) return tmp_int;
+
+	exit_error("Attempted to read byte from address %08x", address);
 }
 
-unsigned int cpu_read_word(unsigned int address)
-{
-	// Program
-	if(g_fc & 2) {
-		return mem_pgrm_read_word(address);
-	}
+unsigned int cpu_read_word(unsigned int address) {
+	unsigned int tmp_int;
 
-	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
-		return io_read_word(address);
-	}
-	return mem_data_read_word(address);
+//	// Program
+//	if(g_fc & 2) {
+//		return mem_pgrm_read_byte(address, true);
+//	}
+
+	if (mem_bootrom_read_word(address, &tmp_int)) return tmp_int;
+	if (mem_nvram_read_word(address, &tmp_int)) return tmp_int;
+	if (io_68302_read_word(address, &tmp_int)) return tmp_int;
+	if (io_system_read_word(address, &tmp_int)) return tmp_int;
+	if (io_counter_read_word(address, &tmp_int)) return tmp_int;
+	if (io_duart_read_word(address, &tmp_int)) return tmp_int;
+	if (io_channela_read_word(address, &tmp_int)) return tmp_int;
+	if (io_channelb_read_word(address, &tmp_int)) return tmp_int;
+
+	exit_error("Attempted to read word from address %08x", address);
 }
 
 unsigned int cpu_read_long(unsigned int address) {
-	// Program
-	if(g_fc & 2) {
-		return mem_pgrm_read_long(address);
-	}
+	unsigned int tmp_int;
 
-	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
-		return io_read_long(address);
-	}
-	return mem_data_read_long(address);
+//	// Program
+//	if(g_fc & 2) {
+//		return mem_pgrm_read_byte(address, true);
+//	}
+
+	if (mem_bootrom_read_long(address, &tmp_int)) return tmp_int;
+	if (mem_nvram_read_long(address, &tmp_int)) return tmp_int;
+	if (io_68302_read_long(address, &tmp_int)) return tmp_int;
+	if (io_system_read_long(address, &tmp_int)) return tmp_int;
+	if (io_counter_read_long(address, &tmp_int)) return tmp_int;
+	if (io_duart_read_long(address, &tmp_int)) return tmp_int;
+	if (io_channela_read_long(address, &tmp_int)) return tmp_int;
+	if (io_channelb_read_long(address, &tmp_int)) return tmp_int;
+
+	exit_error("Attempted to read long from address %08x", address);
 }
 
-// Write
-////////////////////////////
 void cpu_write_byte(unsigned int address, unsigned int value) {
-	if(g_fc & 2)	/* Program */
-		exit_error("Attempted to write %02x to ROM address %08x", value&0xff, address);
+//	// Program
+//	if(g_fc & 2) {
+//		return mem_pgrm_read_byte(address, true);
+//	}
 
-	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
-		io_write_byte(address, value);
-		return;
-	}
+	if (mem_nvram_write_byte(address, value)) return;
+	if (io_68302_write_byte(address, value)) return;
+	if (io_system_write_byte(address, value)) return;
+	if (io_counter_write_byte(address, value)) return;
+	if (io_duart_write_byte(address, value)) return;
+	if (io_channela_write_byte(address, value)) return;
+	if (io_channelb_write_byte(address, value)) return;
 
-	mem_data_write_byte(address, value);
+	exit_error("Attempted to write byte to address %08x", address);
 }
 
 void cpu_write_word(unsigned int address, unsigned int value) {
-	if(g_fc & 2)	/* Program */
-		exit_error("Attempted to write %04x to ROM address %08x", value&0xffff, address);
+//	// Program
+//	if(g_fc & 2) {
+//		return mem_pgrm_read_byte(address, true);
+//	}
 
-	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
-		io_write_word(address, value);
-		return;
-	}
+	if (mem_nvram_write_word(address, value)) return;
+	if (io_68302_write_word(address, value)) return;
+	if (io_system_write_word(address, value)) return;
+	if (io_counter_write_word(address, value)) return;
+	if (io_duart_write_word(address, value)) return;
+	if (io_channela_write_word(address, value)) return;
+	if (io_channelb_write_word(address, value)) return;
 
-	mem_data_write_word(address, value);
+	exit_error("Attempted to write word to address %08x", address);
 }
 
 void cpu_write_long(unsigned int address, unsigned int value) {
-	if(g_fc & 2)	/* Program */
-		exit_error("Attempted to write %08x to ROM address %08x", value, address);
+//	// Program
+//	if(g_fc & 2) {
+//		return mem_pgrm_read_byte(address, true);
+//	}
 
-	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
-		io_write_long(address, value);
-		return;
-	}
+	if (mem_nvram_write_long(address, value)) return;
+	if (io_68302_write_long(address, value)) return;
+	if (io_system_write_long(address, value)) return;
+	if (io_counter_write_long(address, value)) return;
+	if (io_duart_write_long(address, value)) return;
+	if (io_channela_write_long(address, value)) return;
+	if (io_channelb_write_long(address, value)) return;
 
-	mem_data_write_long(address, value);
+	exit_error("Attempted to write long to address %08x", address);
 }
 
 // Debugger
@@ -967,7 +410,7 @@ void make_hex(char* buff, unsigned int pc, unsigned int length) {
 	char* ptr = buff;
 
 	for(; length>0; length -= 2) {
-		sprintf(ptr, "%04x", mem_pgrm_read_word(pc));
+		sprintf(ptr, "%04x", cpu_read_word(pc));
 		pc += 2;
 		ptr += 4;
 		if(length > 2)
@@ -987,7 +430,7 @@ void update_code_display() {
 	// Check if there's any room to display anything
 	if (emu_win_code_rows <= 2) return;
 
-	//pc = mem_pgrm_read_long(4);
+	//pc = cpu_read_long(4);
 	pc = m68k_get_reg(NULL, M68K_REG_PC);
 
 	// Disassemble to code window
@@ -1011,7 +454,7 @@ unsigned char filter_character_byte(unsigned char value) {
 // Produces a hex/ascii listing of the data/program space
 void update_memory_display() {
 	unsigned char byte_count = 0, line_count = 0, tmp_byte;
-	unsigned int tmp_mem_addr;
+	unsigned int tmp_mem_addr, tmp_int;
 	char buff_hex[48], buff_ascii[16], *tmp_mem_addr_src;
 
 	// Check if there's any room to display anything
@@ -1074,11 +517,8 @@ void update_memory_display() {
 
 	while (line_count < (emu_win_mem_rows - 2)) {
 		for (byte_count = 0; byte_count < 0x10; byte_count++) {
-			if (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) {
-				tmp_byte = mem_pgrm_read_byte(tmp_mem_addr + byte_count, false);
-			} else {
-				tmp_byte = mem_data_read_byte(tmp_mem_addr + byte_count, false);
-			}
+			cpu_real_read_byte(tmp_mem_addr + byte_count, &tmp_int);
+			tmp_byte = tmp_int &0xff;
 			sprintf(&buff_hex[byte_count * 3], "%02x ", tmp_byte);
 			buff_ascii[byte_count] = filter_character_byte(tmp_byte);
 		}
@@ -1408,13 +848,13 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 	}
 
-	if((fhandle = fopen(argv[1], "rb")) == NULL) {
-		printf("Unable to open %s", argv[1]);
+	if ((fhandle = fopen(argv[1], "rb")) == NULL) {
+		printf("Unable to open %s\n", argv[1]);
 		exit(-1);
 	}
 
-	if(fread(g_bootrom, 1, C2503_BOOTROM_SIZE + 1, fhandle) <= 0) {
-		printf("Error reading %s", argv[1]);
+	if (!mem_bootrom_init(fhandle)) {
+		printf("Error reading %s\n", argv[1]);
 		exit(-1);
 	}
 

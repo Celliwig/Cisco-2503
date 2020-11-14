@@ -1,7 +1,7 @@
 # Just a basic makefile to quickly test that everyting is working, it just
 # compiles the .o and the generator
 
-MAINFILES        = cisco_2503.c
+MAINFILES        = cisco_2503.c cisco_2503_peripherals.c
 MUSASHIFILES     = m68kcpu.c m68kdasm.c softfloat/softfloat.c
 MUSASHIGENCFILES = m68kops.c
 MUSASHIGENHFILES = m68kops.h
