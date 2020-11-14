@@ -98,7 +98,7 @@ unsigned char g_io_chnlb_serial[C2503_IO_CHANNELB_SERIAL_SIZE];	// Channel B: se
 // NCurses interface
 unsigned int	emu_mem_dump_start = 0x00000000;	// Address to start memory dump from
 unsigned int	emu_breakpoint = 0x00000000;		// Breakpoint address
-unsigned char	emu_mem_dump_type = 0;			// Address space to dump (0 = Data / 1 = Program)
+unsigned char	emu_mem_dump_type = 0;			// Address space to dump
 char	str_tmp_buf[512];				// Temporary string buffer
 WINDOW	*emu_win_dialog = NULL, *emu_win_code = NULL, *emu_win_mem = NULL, *emu_win_reg = NULL, *emu_win_status = NULL;
 unsigned short int xterm_cols, xterm_cols_remain, xterm_rows, xterm_rows_remain;
@@ -1011,15 +1011,70 @@ unsigned char filter_character_byte(unsigned char value) {
 // Produces a hex/ascii listing of the data/program space
 void update_memory_display() {
 	unsigned char byte_count = 0, line_count = 0, tmp_byte;
-	unsigned int tmp_mem_addr = emu_mem_dump_start;
-	char buff_hex[48], buff_ascii[16];
+	unsigned int tmp_mem_addr;
+	char buff_hex[48], buff_ascii[16], *tmp_mem_addr_src;
 
 	// Check if there's any room to display anything
 	if ((emu_win_mem_rows <= 2) || (emu_win_mem_cols <= 2)) return;
 
+	switch (emu_mem_dump_type & EMU_WIN_MEM_DISP_MASK) {
+		case EMU_WIN_MEM_DISP_A0:
+			tmp_mem_addr = m68k_get_reg(NULL, M68K_REG_A0);
+			tmp_mem_addr_src = "(A0)";
+			break;
+		case EMU_WIN_MEM_DISP_A1:
+			tmp_mem_addr = m68k_get_reg(NULL, M68K_REG_A1);
+			tmp_mem_addr_src = "(A1)";
+			break;
+		case EMU_WIN_MEM_DISP_A2:
+			tmp_mem_addr = m68k_get_reg(NULL, M68K_REG_A2);
+			tmp_mem_addr_src = "(A2)";
+			break;
+		case EMU_WIN_MEM_DISP_A3:
+			tmp_mem_addr = m68k_get_reg(NULL, M68K_REG_A3);
+			tmp_mem_addr_src = "(A3)";
+			break;
+		case EMU_WIN_MEM_DISP_A4:
+			tmp_mem_addr = m68k_get_reg(NULL, M68K_REG_A4);
+			tmp_mem_addr_src = "(A4)";
+			break;
+		case EMU_WIN_MEM_DISP_A5:
+			tmp_mem_addr = m68k_get_reg(NULL, M68K_REG_A5);
+			tmp_mem_addr_src = "(A5)";
+			break;
+		case EMU_WIN_MEM_DISP_A6:
+			tmp_mem_addr = m68k_get_reg(NULL, M68K_REG_A6);
+			tmp_mem_addr_src = "(A6)";
+			break;
+		case EMU_WIN_MEM_DISP_A7:
+			tmp_mem_addr = m68k_get_reg(NULL, M68K_REG_A7);
+			tmp_mem_addr_src = "(A7)";
+			break;
+		case EMU_WIN_MEM_DISP_PC:
+			tmp_mem_addr = m68k_get_reg(NULL, M68K_REG_PC);
+			tmp_mem_addr_src = "(PC)";
+			break;
+		case EMU_WIN_MEM_DISP_SELECTED:
+			tmp_mem_addr = emu_mem_dump_start;
+			tmp_mem_addr_src = NULL;
+			break;
+		default:
+			tmp_mem_addr = 0x00000000;
+			tmp_mem_addr_src = "Invalid";
+			break;
+	}
+
+	box(emu_win_mem, 0 , 0);
+	if (tmp_mem_addr_src == NULL) {
+		sprintf(str_tmp_buf, " %s: 0x%08x ", (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) ? "Program" : "Data", tmp_mem_addr);
+	} else {
+		sprintf(str_tmp_buf, " %s: %s ", (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) ? "Program" : "Data", tmp_mem_addr_src);
+	}
+	mvwprintw(emu_win_mem, 0, 2, "%s", str_tmp_buf);
+
 	while (line_count < (emu_win_mem_rows - 2)) {
 		for (byte_count = 0; byte_count < 0x10; byte_count++) {
-			if (emu_mem_dump_type) {
+			if (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) {
 				tmp_byte = mem_pgrm_read_byte(tmp_mem_addr + byte_count, false);
 			} else {
 				tmp_byte = mem_data_read_byte(tmp_mem_addr + byte_count, false);
@@ -1396,6 +1451,39 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 'S') {
 			emu_status_message("Stopped");
 			emu_step = 0;						// Stop execution
+		} else if (key_press == 'd') {
+			// Memory window displays data
+			emu_mem_dump_type = emu_mem_dump_type & EMU_WIN_MEM_DISP_MASK;
+		} else if (key_press == 'p') {
+			// Memory window displays program
+			emu_mem_dump_type = emu_mem_dump_type | EMU_WIN_MEM_DISP_SPACE;
+		} else if (key_press == '0') {
+			// Memory window displays address from A0
+			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_A0;
+		} else if (key_press == '1') {
+			// Memory window displays address from A1
+			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_A1;
+		} else if (key_press == '2') {
+			// Memory window displays address from A2
+			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_A2;
+		} else if (key_press == '3') {
+			// Memory window displays address from A3
+			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_A3;
+		} else if (key_press == '4') {
+			// Memory window displays address from A4
+			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_A4;
+		} else if (key_press == '5') {
+			// Memory window displays address from A5
+			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_A5;
+		} else if (key_press == '6') {
+			// Memory window displays address from A6
+			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_A6;
+		} else if (key_press == '7') {
+			// Memory window displays address from A7
+			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_A7;
+		} else if (key_press == '8') {
+			// Memory window displays address from PC
+			emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_PC;
 		}
 
 		if (emu_step != 0) {

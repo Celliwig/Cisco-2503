@@ -58,6 +58,19 @@
 #define EMU_WIN_REG_ROWS_MAX		7				// Maximum number of rows to allocate to the registers window
 #define EMU_WIN_STATUS_ROWS_MAX		1				// Maximum number of rows to allocate to the status window
 
+#define EMU_WIN_MEM_DISP_SPACE		1<<7				// Memory window displays (0 - Data space / 1 - Program space)
+#define EMU_WIN_MEM_DISP_MASK		(0xff ^ EMU_WIN_MEM_DISP_SPACE)
+#define EMU_WIN_MEM_DISP_A0		0				// Memory window display address from A0
+#define EMU_WIN_MEM_DISP_A1		1				// Memory window display address from A1
+#define EMU_WIN_MEM_DISP_A2		2				// Memory window display address from A2
+#define EMU_WIN_MEM_DISP_A3		3				// Memory window display address from A3
+#define EMU_WIN_MEM_DISP_A4		4				// Memory window display address from A4
+#define EMU_WIN_MEM_DISP_A5		5				// Memory window display address from A5
+#define EMU_WIN_MEM_DISP_A6		6				// Memory window display address from A6
+#define EMU_WIN_MEM_DISP_A7		7				// Memory window display address from A7
+#define EMU_WIN_MEM_DISP_PC		8				// Memory window display address from PC
+#define EMU_WIN_MEM_DISP_SELECTED	127				// Memory window display selected address
+
 // Disassembler
 #define cpu_read_word_dasm		mem_pgrm_read_word
 #define cpu_read_long_dasm		mem_pgrm_read_long
