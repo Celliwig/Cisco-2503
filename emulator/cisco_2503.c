@@ -1020,13 +1020,12 @@ void update_memory_display() {
 	while (line_count < (emu_win_mem_rows - 2)) {
 		for (byte_count = 0; byte_count < 0x10; byte_count++) {
 			if (emu_mem_dump_type) {
-				tmp_byte = mem_pgrm_read_byte(tmp_mem_addr, false);
+				tmp_byte = mem_pgrm_read_byte(tmp_mem_addr + byte_count, false);
 			} else {
-				tmp_byte = mem_data_read_byte(tmp_mem_addr, false);
+				tmp_byte = mem_data_read_byte(tmp_mem_addr + byte_count, false);
 			}
 			sprintf(&buff_hex[byte_count * 3], "%02x ", tmp_byte);
 			buff_ascii[byte_count] = filter_character_byte(tmp_byte);
-			tmp_mem_addr++;
 		}
 
 		sprintf(str_tmp_buf, "%08x:   %.48s      %.16s", tmp_mem_addr, buff_hex, buff_ascii);
