@@ -5,13 +5,17 @@
 #define	C2503_CPU			M68K_CPU_TYPE_68EC030
 
 // Boot ROM (PLCC32 FW1/FW2)
-#define C2503_BOOTROM_SIZE		0x200000			// 2MB Boot ROM
 #define C2503_BOOTROM_ADDR1		0x00000000			// Start address of boot ROM
 #define C2503_BOOTROM_ADDR2		0x01000000			// Alternate address of boot ROM
+#define C2503_BOOTROM_SIZE		0x200000			// 2MB Boot ROM
 
 // RAM
-#define C2503_RAM_SIZE			0x100				// 256 bytes of RAM
 #define C2503_RAM_ADDR1			0x00000000			// Start address of RAM
+#define C2503_RAM_SIZE			0x100				// 256 bytes of RAM
+
+// NVRAM
+#define	C2503_NVRAM_ADDR		0x02000000			// NVRAM address
+#define	C2503_NVRAM_SIZE		0x20000				// NVRAM window size (128k, maybe actually 32k)
 
 // I/O
 #define C2503_IO_ADDR			0x02100000			// I/O start address

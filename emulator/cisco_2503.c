@@ -78,6 +78,7 @@ unsigned int g_int_controller_highest_int = 0;		// Highest pending interrupt
 
 unsigned char g_bootrom[C2503_BOOTROM_SIZE];		// Boot ROM
 unsigned char g_ram[C2503_RAM_SIZE];			// RAM
+unsigned char g_nvram[C2503_NVRAM_SIZE];		// NVRAM
 unsigned int  g_fc;					// Current function code from CPU
 
 // Peripherals
@@ -823,10 +824,13 @@ unsigned int mem_pgrm_read_long(unsigned int address) {
 
 // Data
 ////////////////////////////////////////////////////////
+// Read
+////////////////////////////
 unsigned int mem_data_read_byte(unsigned int address, bool exit_on_error) {
-	if ((address >= C2503_RAM_ADDR1) && (address < (C2503_RAM_ADDR1 + C2503_RAM_SIZE))) {
-		return READ_BYTE(g_ram, address);
+	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
+		return READ_BYTE(g_nvram, address - C2503_NVRAM_ADDR);
 	}
+
 	if (exit_on_error) {
 		exit_error("Attempted to read byte from RAM address %08x", address);
 	}
@@ -834,17 +838,48 @@ unsigned int mem_data_read_byte(unsigned int address, bool exit_on_error) {
 }
 
 unsigned int mem_data_read_word(unsigned int address) {
-	if ((address >= C2503_RAM_ADDR1) && (address < (C2503_RAM_ADDR1 + C2503_RAM_SIZE))) {
-		return READ_WORD(g_ram, address);
+	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
+		return READ_WORD(g_nvram, address - C2503_NVRAM_ADDR);
 	}
+
 	exit_error("Attempted to read word from RAM address %08x", address);
 }
 
 unsigned int mem_data_read_long(unsigned int address) {
-	if ((address >= C2503_RAM_ADDR1) && (address < (C2503_RAM_ADDR1 + C2503_RAM_SIZE))) {
-		return READ_LONG(g_ram, address);
+	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
+		return READ_LONG(g_nvram, address - C2503_NVRAM_ADDR);
 	}
+
 	exit_error("Attempted to read long from RAM address %08x", address);
+}
+
+// Write
+////////////////////////////
+void mem_data_write_byte(unsigned int address, unsigned int value) {
+	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
+		WRITE_BYTE(g_nvram, address - C2503_NVRAM_ADDR, value);
+		return;
+	}
+
+	exit_error("Attempted to write byte from RAM address %08x", address);
+}
+
+void mem_data_write_word(unsigned int address, unsigned int value) {
+	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
+		WRITE_WORD(g_nvram, address - C2503_NVRAM_ADDR, value);
+		return;
+	}
+
+	exit_error("Attempted to write word from RAM address %08x", address);
+}
+
+void mem_data_write_long(unsigned int address, unsigned int value) {
+	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
+		WRITE_LONG(g_nvram, address - C2503_NVRAM_ADDR, value);
+		return;
+	}
+
+	exit_error("Attempted to write long from RAM address %08x", address);
 }
 
 // Emulator
@@ -899,9 +934,7 @@ void cpu_write_byte(unsigned int address, unsigned int value) {
 		return;
 	}
 
-	if(address > C2503_RAM_SIZE)
-		exit_error("Attempted to write %02x to RAM address %08x", value&0xff, address);
-	WRITE_BYTE(g_ram, address, value);
+	mem_data_write_byte(address, value);
 }
 
 void cpu_write_word(unsigned int address, unsigned int value) {
@@ -913,9 +946,7 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 		return;
 	}
 
-	if(address > C2503_RAM_SIZE)
-		exit_error("Attempted to write %04x to RAM address %08x", value&0xffff, address);
-	WRITE_WORD(g_ram, address, value);
+	mem_data_write_word(address, value);
 }
 
 void cpu_write_long(unsigned int address, unsigned int value) {
@@ -927,9 +958,7 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 		return;
 	}
 
-	if(address > C2503_RAM_SIZE)
-		exit_error("Attempted to write %08x to RAM address %08x", value, address);
-	WRITE_LONG(g_ram, address, value);
+	mem_data_write_long(address, value);
 }
 
 // Debugger
