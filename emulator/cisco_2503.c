@@ -76,9 +76,23 @@ time_t       g_output_device_last_output;		// Time of last char output
 unsigned int g_int_controller_pending = 0;		// list of pending interrupts
 unsigned int g_int_controller_highest_int = 0;		// Highest pending interrupt
 
-unsigned char g_bootrom[C2503_BOOTROM_SIZE + 1];	// Boot ROM
-unsigned char g_ram[C2503_RAM_SIZE + 1];		// RAM
+unsigned char g_bootrom[C2503_BOOTROM_SIZE];		// Boot ROM
+unsigned char g_ram[C2503_RAM_SIZE];			// RAM
 unsigned int  g_fc;					// Current function code from CPU
+
+// Peripherals
+unsigned char g_io_68302_reg[C2503_IO_68302_REG_SIZE];		// 68302 registers
+unsigned char g_io_68302_mem[C2503_IO_68302_RAM_SIZE];		// 68302 memory
+unsigned char g_io_sys_cntl1[C2503_IO_SYS_CONTROL1_SIZE];	// System control register 1
+unsigned char g_io_sys_cntl2[C2503_IO_SYS_CONTROL2_SIZE];	// System control register 2
+unsigned char g_io_sys_status[C2503_IO_SYS_STATUS_SIZE];	// System status register
+unsigned char g_io_sysid_cookie[C2503_IO_SYS_ID_COOKIE_SIZE];	// System ID cookie
+unsigned char g_io_counter[C2503_IO_COUNTER_TIMER_SIZE];	// Counter/Timer register
+unsigned char g_io_counter_cntl[C2503_IO_COUNTER_CONTROL_SIZE];	// Counter/Timer control register
+unsigned char g_io_duart[C2503_IO_DUART_SIZE];			// Dual UART
+unsigned char g_io_chnla_lance[C2503_IO_CHANNELA_LANCE_SIZE];	// Channel A: LANCE
+unsigned char g_io_chnlb_lance[C2503_IO_CHANNELB_LANCE_SIZE];	// Channel B: LANCE/serial
+unsigned char g_io_chnlb_serial[C2503_IO_CHANNELB_SERIAL_SIZE];	// Channel B: serial DTR
 
 // NCurses interface
 unsigned int	emu_mem_dump_start = 0x00000000;	// Address to start memory dump from
@@ -305,6 +319,429 @@ void get_user_input(void)
 	last_ch = ch;
 }
 
+// I/O
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Read
+////////////////////////////
+unsigned int io_read_byte(unsigned int address, bool exit_on_error) {
+	// 68302 registers
+	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
+		return READ_BYTE(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
+	}
+	// 68302 memory
+	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
+		return READ_BYTE(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR);
+	}
+	// System control register 1
+	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+		return READ_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
+	}
+	// System control register 2
+	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+		return READ_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
+	}
+	// System status register
+	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+		return READ_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
+	}
+	// System ID cookie
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+		return READ_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
+	}
+	// Counter/Timer register
+	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
+		return READ_BYTE(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
+	}
+	// Counter/Timer control register
+	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
+		return READ_BYTE(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR);
+	}
+	// Dual UART
+	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
+		return READ_BYTE(g_io_duart, address - C2503_IO_DUART_ADDR);
+	}
+	// Channel A: LANCE
+	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
+		return READ_BYTE(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
+	}
+	// Channel B: LANCE/serial
+	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
+		return READ_BYTE(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
+	}
+	// Channel B: serial DTR
+	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
+		return READ_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
+	}
+
+	if (exit_on_error) {
+		exit_error("Attempted to read byte from IO address %08x", address);
+	}
+	return -1;
+}
+
+unsigned int io_read_word(unsigned int address) {
+#if C2503_IO_68302_REG_SIZE >= 2
+	// 68302 registers
+	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
+		return READ_WORD(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
+	}
+#endif
+#if C2503_IO_68302_RAM_SIZE >= 2
+	// 68302 memory
+	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
+		return READ_WORD(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR);
+	}
+#endif
+#if C2503_IO_SYS_CONTROL1_SIZE >= 2
+	// System control register 1
+	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+		return READ_WORD(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
+	}
+#endif
+#if C2503_IO_SYS_CONTROL2_SIZE >= 2
+	// System control register 2
+	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+		return READ_WORD(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
+	}
+#endif
+#if C2503_IO_SYS_STATUS_SIZE >= 2
+	// System status register
+	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+		return READ_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
+	}
+#endif
+#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
+	// System ID cookie
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+		return READ_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
+	}
+#endif
+#if C2503_IO_COUNTER_TIMER_SIZE >= 2
+	// Counter/Timer register
+	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
+		return READ_WORD(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
+	}
+#endif
+#if C2503_IO_COUNTER_CONTROL_SIZE >= 2
+	// Counter/Timer control register
+	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
+		return READ_WORD(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR);
+	}
+#endif
+#if C2503_IO_DUART_SIZE >= 2
+	// Dual UART
+	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
+		return READ_WORD(g_io_duart, address - C2503_IO_DUART_ADDR);
+	}
+#endif
+#if C2503_IO_CHANNELA_LANCE_SIZE >= 2
+	// Channel A: LANCE
+	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
+		return READ_WORD(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
+	}
+#endif
+#if C2503_IO_CHANNELB_LANCE_SIZE >= 2
+	// Channel B: LANCE/serial
+	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
+		return READ_WORD(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
+	}
+#endif
+#if C2503_IO_CHANNELB_SERIAL_SIZE >= 2
+	// Channel B: serial DTR
+	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
+		return READ_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
+	}
+#endif
+
+	exit_error("Attempted to read word from IO address %08x", address);
+}
+
+unsigned int io_read_long(unsigned int address) {
+#if C2503_IO_68302_REG_SIZE >= 4
+	// 68302 registers
+	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
+		return READ_LONG(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
+	}
+#endif
+#if C2503_IO_68302_RAM_SIZE >= 4
+	// 68302 memory
+	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
+		return READ_LONG(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR);
+	}
+#endif
+#if C2503_IO_SYS_CONTROL1_SIZE >= 4
+	// System control register 1
+	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+		return READ_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
+	}
+#endif
+#if C2503_IO_SYS_CONTROL2_SIZE >= 4
+	// System control register 2
+	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+		return READ_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
+	}
+#endif
+#if C2503_IO_SYS_STATUS_SIZE >= 4
+	// System status register
+	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+		return READ_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
+	}
+#endif
+#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
+	// System ID cookie
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+		return READ_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
+	}
+#endif
+#if C2503_IO_COUNTER_TIMER_SIZE >= 4
+	// Counter/Timer register
+	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
+		return READ_LONG(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
+	}
+#endif
+#if C2503_IO_COUNTER_CONTROL_SIZE >= 4
+	// Counter/Timer control register
+	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
+		return READ_LONG(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR);
+	}
+#endif
+#if C2503_IO_DUART_SIZE >= 4
+	// Dual UART
+	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
+		return READ_LONG(g_io_duart, address - C2503_IO_DUART_ADDR);
+	}
+#endif
+#if C2503_IO_CHANNELA_LANCE_SIZE >= 4
+	// Channel A: LANCE
+	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
+		return READ_LONG(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
+	}
+#endif
+#if C2503_IO_CHANNELB_LANCE_SIZE >= 4
+	// Channel B: LANCE/serial
+	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
+		return READ_LONG(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
+	}
+#endif
+#if C2503_IO_CHANNELB_SERIAL_SIZE >= 4
+	// Channel B: serial DTR
+	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
+		return READ_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
+	}
+#endif
+
+	exit_error("Attempted to read long from IO address %08x", address);
+}
+
+// Write
+////////////////////////////
+void io_write_byte(unsigned int address, unsigned int value) {
+	// 68302 registers
+	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
+		WRITE_BYTE(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
+	}
+	// 68302 memory
+	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
+		WRITE_BYTE(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
+	}
+	// System control register 1
+	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+		WRITE_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
+	}
+	// System control register 2
+	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+		WRITE_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
+	}
+	// System status register
+	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+		WRITE_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
+	}
+	// System ID cookie
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+		WRITE_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
+	}
+	// Counter/Timer register
+	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
+		WRITE_BYTE(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
+	}
+	// Counter/Timer control register
+	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
+		WRITE_BYTE(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR, value);
+	}
+	// Dual UART
+	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
+		WRITE_BYTE(g_io_duart, address - C2503_IO_DUART_ADDR, value);
+	}
+	// Channel A: LANCE
+	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
+		WRITE_BYTE(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
+	}
+	// Channel B: LANCE/serial
+	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
+		WRITE_BYTE(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
+	}
+	// Channel B: serial DTR
+	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
+		WRITE_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
+	}
+
+	exit_error("Attempted to read byte from IO address %08x", address);
+}
+
+void io_write_word(unsigned int address, unsigned int value) {
+#if C2503_IO_68302_REG_SIZE >= 2
+	// 68302 registers
+	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
+		WRITE_WORD(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
+	}
+#endif
+#if C2503_IO_68302_RAM_SIZE >= 2
+	// 68302 memory
+	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
+		WRITE_WORD(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
+	}
+#endif
+#if C2503_IO_SYS_CONTROL1_SIZE >= 2
+	// System control register 1
+	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+		WRITE_WORD(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
+	}
+#endif
+#if C2503_IO_SYS_CONTROL2_SIZE >= 2
+	// System control register 2
+	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+		WRITE_WORD(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
+	}
+#endif
+#if C2503_IO_SYS_STATUS_SIZE >= 2
+	// System status register
+	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+		WRITE_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
+	}
+#endif
+#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
+	// System ID cookie
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+		WRITE_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
+	}
+#endif
+#if C2503_IO_COUNTER_TIMER_SIZE >= 2
+	// Counter/Timer register
+	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
+		WRITE_WORD(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
+	}
+#endif
+#if C2503_IO_COUNTER_CONTROL_SIZE >= 2
+	// Counter/Timer control register
+	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
+		WRITE_WORD(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR, value);
+	}
+#endif
+#if C2503_IO_DUART_SIZE >= 2
+	// Dual UART
+	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
+		WRITE_WORD(g_io_duart, address - C2503_IO_DUART_ADDR, value);
+	}
+#endif
+#if C2503_IO_CHANNELA_LANCE_SIZE >= 2
+	// Channel A: LANCE
+	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
+		WRITE_WORD(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
+	}
+#endif
+#if C2503_IO_CHANNELB_LANCE_SIZE >= 2
+	// Channel B: LANCE/serial
+	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
+		WRITE_WORD(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
+	}
+#endif
+#if C2503_IO_CHANNELB_SERIAL_SIZE >= 2
+	// Channel B: serial DTR
+	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
+		WRITE_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
+	}
+#endif
+
+	exit_error("Attempted to read word from IO address %08x", address);
+}
+
+void io_write_long(unsigned int address, unsigned int value) {
+#if C2503_IO_68302_REG_SIZE >= 4
+	// 68302 registers
+	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
+		WRITE_LONG(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
+	}
+#endif
+#if C2503_IO_68302_RAM_SIZE >= 4
+	// 68302 memory
+	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
+		WRITE_LONG(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
+	}
+#endif
+#if C2503_IO_SYS_CONTROL1_SIZE >= 4
+	// System control register 1
+	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+		WRITE_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
+	}
+#endif
+#if C2503_IO_SYS_CONTROL2_SIZE >= 4
+	// System control register 2
+	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+		WRITE_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
+	}
+#endif
+#if C2503_IO_SYS_STATUS_SIZE >= 4
+	// System status register
+	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+		WRITE_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
+	}
+#endif
+#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
+	// System ID cookie
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+		WRITE_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
+	}
+#endif
+#if C2503_IO_COUNTER_TIMER_SIZE >= 4
+	// Counter/Timer register
+	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
+		WRITE_LONG(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
+	}
+#endif
+#if C2503_IO_COUNTER_CONTROL_SIZE >= 4
+	// Counter/Timer control register
+	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
+		WRITE_LONG(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR, value);
+	}
+#endif
+#if C2503_IO_DUART_SIZE >= 4
+	// Dual UART
+	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
+		WRITE_LONG(g_io_duart, address - C2503_IO_DUART_ADDR, value);
+	}
+#endif
+#if C2503_IO_CHANNELA_LANCE_SIZE >= 4
+	// Channel A: LANCE
+	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
+		WRITE_LONG(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
+	}
+#endif
+#if C2503_IO_CHANNELB_LANCE_SIZE >= 4
+	// Channel B: LANCE/serial
+	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
+		WRITE_LONG(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
+	}
+#endif
+#if C2503_IO_CHANNELB_SERIAL_SIZE >= 4
+	// Channel B: serial DTR
+	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
+		WRITE_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
+	}
+#endif
+
+	exit_error("Attempted to read long from IO address %08x", address);
+}
+
 // Memory
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Program
@@ -319,7 +756,7 @@ unsigned int mem_pgrm_read_byte(unsigned int address, bool exit_on_error) {
 		return READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR2);
 	}
 	if (exit_on_error) {
-		exit_error("Disassembler attempted to read word from ROM address %08x", address);
+		exit_error("Attempted to read word from ROM address %08x", address);
 	}
 	return -1;
 }
@@ -333,7 +770,7 @@ unsigned int mem_pgrm_read_word(unsigned int address) {
 	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
 		return READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR2);
 	}
-	exit_error("Disassembler attempted to read word from ROM address %08x", address);
+	exit_error("Attempted to read word from ROM address %08x", address);
 }
 
 unsigned int mem_pgrm_read_long(unsigned int address) {
@@ -345,7 +782,7 @@ unsigned int mem_pgrm_read_long(unsigned int address) {
 	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
 		return READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR2);
 	}
-	exit_error("Dasm attempted to read long from ROM address %08x", address);
+	exit_error("Attempted to read long from ROM address %08x", address);
 }
 
 // Data
@@ -364,14 +801,14 @@ unsigned int mem_data_read_word(unsigned int address) {
 	if ((address >= C2503_RAM_ADDR1) && (address < (C2503_RAM_ADDR1 + C2503_RAM_SIZE))) {
 		return READ_WORD(g_ram, address);
 	}
-	exit_error("Disassembler attempted to read word from RAM address %08x", address);
+	exit_error("Attempted to read word from RAM address %08x", address);
 }
 
 unsigned int mem_data_read_long(unsigned int address) {
 	if ((address >= C2503_RAM_ADDR1) && (address < (C2503_RAM_ADDR1 + C2503_RAM_SIZE))) {
 		return READ_LONG(g_ram, address);
 	}
-	exit_error("Dasm attempted to read long from RAM address %08x", address);
+	exit_error("Attempted to read long from RAM address %08x", address);
 }
 
 // Emulator
@@ -384,14 +821,8 @@ unsigned int cpu_read_byte(unsigned int address) {
 		return mem_pgrm_read_byte(address, true);
 	}
 
-	/* Otherwise it's data space */
-	switch(address) {
-		case INPUT_ADDRESS:
-			return input_device_read();
-		case OUTPUT_ADDRESS:
-			return output_device_read();
-		default:
-			break;
+	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
+		return io_read_byte(address, true);
 	}
 	return mem_data_read_byte(address, true);
 }
@@ -403,14 +834,8 @@ unsigned int cpu_read_word(unsigned int address)
 		return mem_pgrm_read_word(address);
 	}
 
-	/* Otherwise it's data space */
-	switch(address) {
-		case INPUT_ADDRESS:
-			return input_device_read();
-		case OUTPUT_ADDRESS:
-			return output_device_read();
-		default:
-			break;
+	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
+		return io_read_word(address);
 	}
 	return mem_data_read_word(address);
 }
@@ -421,14 +846,8 @@ unsigned int cpu_read_long(unsigned int address) {
 		return mem_pgrm_read_long(address);
 	}
 
-	/* Otherwise it's data space */
-	switch(address) {
-		case INPUT_ADDRESS:
-			return input_device_read();
-		case OUTPUT_ADDRESS:
-			return output_device_read();
-		default:
-			break;
+	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
+		return io_read_long(address);
 	}
 	return mem_data_read_long(address);
 }
@@ -439,17 +858,10 @@ void cpu_write_byte(unsigned int address, unsigned int value) {
 	if(g_fc & 2)	/* Program */
 		exit_error("Attempted to write %02x to ROM address %08x", value&0xff, address);
 
-	/* Otherwise it's data space */
-	switch(address) {
-		case INPUT_ADDRESS:
-			input_device_write(value&0xff);
-			return;
-		case OUTPUT_ADDRESS:
-			output_device_write(value&0xff);
-			return;
-		default:
-			break;
+	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
+		return io_write_byte(address, value);
 	}
+
 	if(address > C2503_RAM_SIZE)
 		exit_error("Attempted to write %02x to RAM address %08x", value&0xff, address);
 	WRITE_BYTE(g_ram, address, value);
@@ -459,17 +871,10 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 	if(g_fc & 2)	/* Program */
 		exit_error("Attempted to write %04x to ROM address %08x", value&0xffff, address);
 
-	/* Otherwise it's data space */
-	switch(address) {
-		case INPUT_ADDRESS:
-			input_device_write(value&0xffff);
-			return;
-		case OUTPUT_ADDRESS:
-			output_device_write(value&0xffff);
-			return;
-		default:
-			break;
+	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
+		return io_write_word(address, value);
 	}
+
 	if(address > C2503_RAM_SIZE)
 		exit_error("Attempted to write %04x to RAM address %08x", value&0xffff, address);
 	WRITE_WORD(g_ram, address, value);
@@ -479,17 +884,10 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 	if(g_fc & 2)	/* Program */
 		exit_error("Attempted to write %08x to ROM address %08x", value, address);
 
-	/* Otherwise it's data space */
-	switch(address) {
-		case INPUT_ADDRESS:
-			input_device_write(value);
-			return;
-		case OUTPUT_ADDRESS:
-			output_device_write(value);
-			return;
-		default:
-			break;
+	if ((address >= C2503_IO_ADDR) && (address < (C2503_IO_ADDR + C2503_IO_SIZE))) {
+		return io_write_long(address, value);
 	}
+
 	if(address > C2503_RAM_SIZE)
 		exit_error("Attempted to write %08x to RAM address %08x", value, address);
 	WRITE_LONG(g_ram, address, value);

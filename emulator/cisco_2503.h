@@ -33,7 +33,7 @@
 #define C2503_IO_COUNTER_CONTROL_ADDR	0x02120040			// Counter/Timer control register address
 #define C2503_IO_COUNTER_CONTROL_SIZE	0x1				// Counter/Timer control register size
 #define C2503_IO_DUART_ADDR		0x02120100			// DUART address
-#define C2503_IO_DUART_ADDR		0x40				// DUART size
+#define C2503_IO_DUART_SIZE		0x40				// DUART size
 #define C2503_IO_CHANNELA_LANCE_ADDR	0x02130000			// Channel A: LANCE address
 #define C2503_IO_CHANNELA_LANCE_SIZE	0x4				// Channel A: LANCE size
 #define C2503_IO_CHANNELB_LANCE_ADDR	0x02130040			// Channel B: LANCE/serial address
