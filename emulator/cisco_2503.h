@@ -21,7 +21,7 @@
 #define C2503_IO_68302_RAM_ADDR		0x02101000			// 68302 RAM address
 #define C2503_IO_68302_RAM_SIZE		0x1000				// 68302 RAM window size
 #define C2503_IO_SYS_CONTROL1_ADDR	0x02110000			// System control register 1 address
-#define C2503_IO_SYS_CONTROL1_SIZE	0x1				// System control register 1 size
+#define C2503_IO_SYS_CONTROL1_SIZE	0x2				// System control register 1 size
 #define C2503_IO_SYS_CONTROL2_ADDR	0x02110002			// System control register 1 address
 #define C2503_IO_SYS_CONTROL2_SIZE	0x1				// System control register 1 size
 #define C2503_IO_SYS_STATUS_ADDR	0x02110100			// System status register address
