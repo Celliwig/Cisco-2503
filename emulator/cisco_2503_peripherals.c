@@ -677,7 +677,8 @@ unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
 }
 
 // Read a byte from address in to value from the DUART core
-bool io_duart_read_byte(unsigned address, unsigned int *value) {
+// Some register update when read, when real_read is false disables that behaviour (needed for memory dump display)
+bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
 		switch (address - C2503_IO_DUART_ADDR) {
 			case SCN2681_REG_RD_MODE_A:				// Channel A: Mode Register 1/2
@@ -686,7 +687,7 @@ bool io_duart_read_byte(unsigned address, unsigned int *value) {
 				} else {
 					*value = scn2681_channelA_mode1;
 				}
-				if (!scn2681_channelA_mode2_selected) scn2681_channelA_mode2_selected = true;
+				if (real_read & !scn2681_channelA_mode2_selected) scn2681_channelA_mode2_selected = true;
 				break;
 			case SCN2681_REG_RD_STATUS_A:			// Channel A: Status Register
 				*value = scn2681_channelA_status;
@@ -715,7 +716,7 @@ bool io_duart_read_byte(unsigned address, unsigned int *value) {
 				} else {
 					*value = scn2681_channelB_mode1;
 				}
-				if (!scn2681_channelB_mode2_selected) scn2681_channelB_mode2_selected = true;
+				if (real_read & !scn2681_channelB_mode2_selected) scn2681_channelB_mode2_selected = true;
 				break;
 			case SCN2681_REG_RD_STATUS_B:			// Channel B: Status Register
 				*value = scn2681_channelB_status;

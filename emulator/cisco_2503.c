@@ -286,7 +286,7 @@ void cpu_pulse_reset(void) {
 //	input_device_reset();
 }
 
-bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int) {
+bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int, bool real_read) {
 //	// Program
 //	if(g_fc & 2) {
 //		return mem_pgrm_read_byte(address, true);
@@ -297,7 +297,7 @@ bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int) {
 	if (io_68302_read_byte(address, tmp_int)) return true;
 	if (io_system_read_byte(address, tmp_int)) return true;
 	if (io_counter_read_byte(address, tmp_int)) return true;
-	if (io_duart_read_byte(address, tmp_int)) return true;
+	if (io_duart_read_byte(address, tmp_int, real_read)) return true;
 	if (io_channela_read_byte(address, tmp_int)) return true;
 	if (io_channelb_read_byte(address, tmp_int)) return true;
 
@@ -307,7 +307,7 @@ bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int) {
 unsigned int cpu_read_byte(unsigned int address) {
 	unsigned int tmp_int;
 
-	if (cpu_real_read_byte(address, &tmp_int)) return tmp_int;
+	if (cpu_real_read_byte(address, &tmp_int, true)) return tmp_int;
 
 	exit_error("Attempted to read byte from address %08x", address);
 }
@@ -514,7 +514,7 @@ void update_memory_display() {
 
 	while (line_count < (emu_win_mem_rows - 2)) {
 		for (byte_count = 0; byte_count < 0x10; byte_count++) {
-			cpu_real_read_byte(tmp_mem_addr + byte_count, &tmp_int);
+			cpu_real_read_byte(tmp_mem_addr + byte_count, &tmp_int, false);
 			tmp_byte = tmp_int &0xff;
 			sprintf(&buff_hex[byte_count * 3], "%02x ", tmp_byte);
 			buff_ascii[byte_count] = filter_character_byte(tmp_byte);
@@ -989,6 +989,7 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 'R') {
 			emu_status_message("Reset");
 			m68k_pulse_reset();
+			cpu_pulse_reset();					// Resets I/O subsystems
 		} else if (key_press == 's') {
 			emu_status_message("Stepped");
 			emu_step = 1;						// Execute one instruction

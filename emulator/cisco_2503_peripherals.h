@@ -254,7 +254,7 @@ enum scn2681_core_reg {
 // Prototypes
 void io_duart_core_init();
 unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname);
-bool io_duart_read_byte(unsigned address, unsigned int *value);
+bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read);
 bool io_duart_write_byte(unsigned address, unsigned int value);
 
 // Channel A: LANCE
