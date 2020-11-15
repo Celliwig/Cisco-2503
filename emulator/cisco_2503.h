@@ -6,6 +6,8 @@
 
 // NCurses definitions
 #define EMU_WIN_CODE_COLS_MAX		75				// Maximum number of columns to allocate to the code window
+#define EMU_WIN_DUART_ROWS_MAX		30				// Maximum number of rows to allocate to the DUART dialog
+#define EMU_WIN_DUART_COLS_MAX		75				// Maximum number of columns to allocate to the DUART dialog
 #define EMU_WIN_REG_ROWS_MAX		7				// Maximum number of rows to allocate to the registers window
 #define EMU_WIN_STATUS_ROWS_MAX		1				// Maximum number of rows to allocate to the status window
 

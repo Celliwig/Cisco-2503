@@ -63,11 +63,13 @@ unsigned int	g_fc;							// Current function code from CPU
 unsigned int	emu_mem_dump_start = 0x00000000;			// Address to start memory dump from
 unsigned int	emu_breakpoint = 0x00000000;				// Breakpoint address
 unsigned char	emu_mem_dump_type = 0;					// Address space to dump
+bool		emu_show_duart = false;
 char		str_tmp_buf[512];					// Temporary string buffer
-WINDOW		*emu_win_dialog = NULL, *emu_win_code = NULL, \
+WINDOW		*emu_win_dialog = NULL, *emu_win_duart = NULL, *emu_win_code = NULL, \
 		*emu_win_mem = NULL, *emu_win_reg = NULL, *emu_win_status = NULL;
 unsigned short int xterm_cols, xterm_cols_remain, xterm_rows, xterm_rows_remain;
 unsigned short int emu_win_dialog_cols, emu_win_dialog_rows, emu_win_dialog_y, emu_win_dialog_x;
+unsigned short int emu_win_duart_cols, emu_win_duart_rows, emu_win_duart_y, emu_win_duart_x;
 unsigned short int emu_win_code_cols, emu_win_code_rows, emu_win_code_y, emu_win_code_x;
 unsigned short int emu_win_mem_cols, emu_win_mem_rows, emu_win_mem_y, emu_win_mem_x;
 unsigned short int emu_win_reg_cols, emu_win_reg_rows, emu_win_reg_y, emu_win_reg_x;
@@ -423,6 +425,8 @@ void update_code_display() {
 	// Check if there's any room to display anything
 	if (emu_win_code_rows <= 2) return;
 
+	box(emu_win_code, 0 , 0);
+
 	//pc = cpu_read_long(4);
 	pc = m68k_get_reg(NULL, M68K_REG_PC);
 
@@ -435,7 +439,7 @@ void update_code_display() {
 		pc += instr_size;
 		line_count++;
 	}
-	wrefresh(emu_win_code);
+	wnoutrefresh(emu_win_code);
 }
 
 // Helper function for the memory display
@@ -521,7 +525,7 @@ void update_memory_display() {
 		tmp_mem_addr += 0x10;
 		line_count++;
 	}
-	wrefresh(emu_win_mem);
+	wnoutrefresh(emu_win_mem);
 }
 
 // Displays the state of the CPU registers
@@ -599,7 +603,7 @@ void update_register_display() {
 	}
 	mvwprintw(emu_win_reg, 5, 2, "%.*s", (emu_win_reg_cols - 4), str_tmp_buf);
 
-	wrefresh(emu_win_reg);
+	wnoutrefresh(emu_win_reg);
 
 
 //        M68K_REG_SFC,           /* Source Function Code */
@@ -619,6 +623,75 @@ void update_register_display() {
 //        M68K_REG_IR,            /* Instruction register */
 //        M68K_REG_CPU_TYPE       /* Type of CPU being run */
 }
+
+void update_duart_display() {
+	mvwprintw(emu_win_duart, 1, ((emu_win_duart_cols - 10) / 2), "DUART Core");
+
+	mvwprintw(emu_win_duart, 3, 2, "Channel A:");
+	sprintf(str_tmp_buf, "Mode 1: 0x%02x    Mode 2: 0x%02x    Clock Select: 0x%02x    Command: 0x%02x", \
+					io_duart_core_get_reg(ChannelA_Mode1), \
+					io_duart_core_get_reg(ChannelA_Mode2), \
+					io_duart_core_get_reg(ChannelA_Clock_Select), \
+					io_duart_core_get_reg(ChannelA_Command));
+	mvwprintw(emu_win_duart, 4, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    Tx: 0x%02x", \
+					io_duart_core_get_reg(ChannelA_Status), \
+					io_duart_core_get_reg(ChannelA_Rx), \
+					io_duart_core_get_reg(ChannelA_Tx));
+	mvwprintw(emu_win_duart, 5, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+
+	mvwprintw(emu_win_duart, 7, 2, "Channel B:");
+	sprintf(str_tmp_buf, "Mode 1: 0x%02x    Mode 2: 0x%02x    Clock Select: 0x%02x    Command: 0x%02x", \
+					io_duart_core_get_reg(ChannelB_Mode1), \
+					io_duart_core_get_reg(ChannelB_Mode2), \
+					io_duart_core_get_reg(ChannelB_Clock_Select), \
+					io_duart_core_get_reg(ChannelB_Command));
+	mvwprintw(emu_win_duart, 8, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    Tx: 0x%02x", \
+					io_duart_core_get_reg(ChannelB_Status), \
+					io_duart_core_get_reg(ChannelB_Rx), \
+					io_duart_core_get_reg(ChannelB_Tx));
+	mvwprintw(emu_win_duart, 9, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+
+	mvwprintw(emu_win_duart, 11, 2, "Interrupts:");
+	sprintf(str_tmp_buf, "Interrupt Status: 0x%02x    Interrupt Mask: 0x%02x", \
+					io_duart_core_get_reg(Interrupt_Status), \
+					io_duart_core_get_reg(Interrupt_Mask));
+	mvwprintw(emu_win_duart, 12, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+
+	mvwprintw(emu_win_duart, 14, 2, "Misc:");
+	sprintf(str_tmp_buf, "Auxiliary Control: 0x%02x", io_duart_core_get_reg(Auxiliary_Control));
+	mvwprintw(emu_win_duart, 15, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+
+	mvwprintw(emu_win_duart, 17, 2, "Counter / Timer:");
+	sprintf(str_tmp_buf, "Upper: 0x%02x    Upper Preset: 0x%02x    Start Command: 0x%02x", \
+					io_duart_core_get_reg(CounterTimer_Upper), \
+					io_duart_core_get_reg(CounterTimer_Upper_Preset), \
+					io_duart_core_get_reg(CounterTimer_Start_Command));
+	mvwprintw(emu_win_duart, 18, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	sprintf(str_tmp_buf, "Lower: 0x%02x    Lower Preset: 0x%02x    Stop Command: 0x%02x", \
+					io_duart_core_get_reg(CounterTimer_Lower), \
+					io_duart_core_get_reg(CounterTimer_Lower_Preset), \
+					io_duart_core_get_reg(CounterTimer_Stop_Command));
+	mvwprintw(emu_win_duart, 19, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+
+	mvwprintw(emu_win_duart, 21, 2, "Input Port:");
+	sprintf(str_tmp_buf, "Port: 0x%02x    Port Change: 0x%02x", \
+					io_duart_core_get_reg(Input_Port), \
+					io_duart_core_get_reg(Input_Port_Change));
+	mvwprintw(emu_win_duart, 22, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+
+	mvwprintw(emu_win_duart, 24, 2, "Output Port:");
+	sprintf(str_tmp_buf, "Port Config: 0x%02x    Port Set: 0x%02x    Port Reset: 0x%02x", \
+					io_duart_core_get_reg(Output_Port_Configuration), \
+					io_duart_core_get_reg(Output_Port_Set), \
+					io_duart_core_get_reg(Output_Port_Reset));
+	mvwprintw(emu_win_duart, 25, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+
+	redrawwin(emu_win_duart);
+	wnoutrefresh(emu_win_duart);
+}
+
 
 void cpu_instr_callback(int pc) {
 	(void)pc;
@@ -660,7 +733,7 @@ unsigned char ascii_2_hex(char value) {
 void emu_win_resize() {
 	endwin();
 	clear();
-	refresh();
+	refresh();								// Causes window size to be repopulated
 
 	// Get terminal size
 	getmaxyx(stdscr, xterm_rows, xterm_cols);
@@ -680,7 +753,7 @@ void emu_win_resize() {
 	emu_win_status_x = 0;							// So starts at the begining
 	delwin(emu_win_status);
 	emu_win_status = newwin(emu_win_status_rows, emu_win_status_cols, emu_win_status_y, emu_win_status_x);
-	wrefresh(emu_win_status);
+	wnoutrefresh(emu_win_status);
 
 	// Register Panel
 	// Make this the domminant panel when screen height is reduced
@@ -696,7 +769,7 @@ void emu_win_resize() {
 	delwin(emu_win_reg);
 	emu_win_reg = newwin(emu_win_reg_rows, emu_win_reg_cols, emu_win_reg_y, emu_win_reg_x);
 	box(emu_win_reg, 0 , 0);
-	wrefresh(emu_win_reg);
+	wnoutrefresh(emu_win_reg);
 
 	// Code Panel
 	// Use the remaining vertical portion of the screen
@@ -713,7 +786,7 @@ void emu_win_resize() {
 	if (emu_win_code_rows > 0) {
 		emu_win_code = newwin(emu_win_code_rows, emu_win_code_cols, emu_win_code_y, emu_win_code_x);
 		box(emu_win_code, 0 , 0);
-		wrefresh(emu_win_code);
+		wnoutrefresh(emu_win_code);
 	}
 
 	// Memory Panel
@@ -726,15 +799,34 @@ void emu_win_resize() {
 	if ((emu_win_mem_rows > 0) && (emu_win_mem_cols > 0)) {
 		emu_win_mem = newwin(emu_win_mem_rows, emu_win_mem_cols, emu_win_mem_y, emu_win_mem_x);
 		box(emu_win_mem, 0 , 0);
-		wrefresh(emu_win_mem);
+		wnoutrefresh(emu_win_mem);
 	}
+
+	// DUART Panel
+	// Half screen size
+	if (xterm_rows < EMU_WIN_DUART_ROWS_MAX) {
+		emu_win_duart_rows = xterm_rows;
+	} else {
+		emu_win_duart_rows = EMU_WIN_DUART_ROWS_MAX;
+	}
+	if (xterm_cols < EMU_WIN_DUART_COLS_MAX) {
+		emu_win_duart_cols = xterm_cols;
+	} else {
+		emu_win_duart_cols = EMU_WIN_DUART_COLS_MAX;
+	}
+	emu_win_duart_y = (xterm_rows - emu_win_duart_rows) / 2;
+	emu_win_duart_x = (xterm_cols - emu_win_duart_cols) / 2;
+	delwin(emu_win_duart);
+	emu_win_duart = newwin(emu_win_duart_rows, emu_win_duart_cols, emu_win_duart_y, emu_win_duart_x);
+	box(emu_win_duart, 0 , 0);
+	wnoutrefresh(emu_win_duart);
 }
 
 // Prints a message in the status window
 void emu_status_message(char *message) {
 	werase(emu_win_status);
 	wprintw(emu_win_status, " %-*s", (emu_win_status_cols - 2), message);
-	wrefresh(emu_win_status);
+	wnoutrefresh(emu_win_status);
 }
 
 // Uses the status window to display a message and input an address
@@ -824,6 +916,7 @@ void emu_set_memory_dump_addr() {
 void emu_win_destroy() {
 	delwin(emu_win_code);
 	delwin(emu_win_dialog);
+	delwin(emu_win_duart);
 	delwin(emu_win_mem);
 	delwin(emu_win_reg);
 	delwin(emu_win_status);
@@ -872,6 +965,8 @@ int main(int argc, char* argv[]) {
 		update_code_display();
 		update_memory_display();
 		update_register_display();
+		if (emu_show_duart) update_duart_display();
+		doupdate();
 
 		// Check if breakpoint reached
 		if (emu_breakpoint == m68k_get_reg(NULL, M68K_REG_PC)) {
@@ -900,6 +995,8 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 'S') {
 			emu_status_message("Stopped");
 			emu_step = 0;						// Stop execution
+		} else if (key_press == 'U') {
+			emu_show_duart = emu_show_duart ^ true;			// Toggle DUART window
 		} else if (key_press == 'd') {
 			// Memory window displays data
 			emu_mem_dump_type = emu_mem_dump_type & EMU_WIN_MEM_DISP_MASK;
