@@ -78,12 +78,9 @@ bool io_counter_write_long(unsigned address, unsigned int value);
 
 // Dual UART
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define C2503_IO_DUART_ADDR		0x02120100			// DUART address
-#define C2503_IO_DUART_SIZE		0x40				// DUART size
-
-void io_duart_init();
-bool io_duart_read_byte(unsigned address, unsigned int *value);
-bool io_duart_write_byte(unsigned address, unsigned int value);
+// Address & window size
+#define C2503_IO_DUART_ADDR			0x02120100		// DUART address
+#define C2503_IO_DUART_SIZE			0x40			// DUART size
 
 // SCN2681 DUART registers (Read)
 #define SCN2681_REG_RD_MODE_A			0x0			// Channel A: Mode Register 1/2
@@ -253,6 +250,12 @@ enum scn2681_core_reg {
 	Output_Port_Set,
 	Output_Port_Reset,
 };
+
+// Prototypes
+void io_duart_core_init();
+unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname);
+bool io_duart_read_byte(unsigned address, unsigned int *value);
+bool io_duart_write_byte(unsigned address, unsigned int value);
 
 // Channel A: LANCE
 //////////////////////////////////////////////////////////////////////////////////////////////
