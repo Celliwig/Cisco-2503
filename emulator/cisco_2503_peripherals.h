@@ -81,12 +81,9 @@ bool io_counter_write_long(unsigned address, unsigned int value);
 #define C2503_IO_DUART_ADDR		0x02120100			// DUART address
 #define C2503_IO_DUART_SIZE		0x40				// DUART size
 
+void io_duart_init();
 bool io_duart_read_byte(unsigned address, unsigned int *value);
-bool io_duart_read_word(unsigned address, unsigned int *value);
-bool io_duart_read_long(unsigned address, unsigned int *value);
 bool io_duart_write_byte(unsigned address, unsigned int value);
-bool io_duart_write_word(unsigned address, unsigned int value);
-bool io_duart_write_long(unsigned address, unsigned int value);
 
 // SCN2681 DUART registers (Read)
 #define SCN2681_REG_RD_MODE_A			0x0			// Channel A: Mode Register 1/2

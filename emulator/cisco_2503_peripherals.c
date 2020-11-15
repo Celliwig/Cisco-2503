@@ -514,67 +514,201 @@ bool io_counter_write_long(unsigned address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Dual UART
 //////////////////////////////////////////////////////////////////////////////////////////////
-unsigned char g_io_duart[C2503_IO_DUART_SIZE];
+bool		scn2681_channelA_mode2_selected, scn2681_channelB_mode2_selected;
+
+unsigned char	\
+		// Channel A Registers
+		scn2681_channelA_mode1, scn2681_channelA_mode2, scn2681_channelA_status, scn2681_channelA_clock_select, \
+		scn2681_channelA_command, scn2681_channelA_rx, scn2681_channelA_tx, \
+		// Channel B Registers
+		scn2681_channelB_mode1, scn2681_channelB_mode2, scn2681_channelB_status, scn2681_channelB_clock_select, \
+		scn2681_channelB_command, scn2681_channelB_rx, scn2681_channelB_tx, \
+		// Input Port
+		scn2681_input_port, scn2681_input_port_change, \
+		// Output Port
+		scn2681_output_port_configuration, scn2681_output_port_set, scn2681_output_port_reset, \
+		// Interrupts
+		scn2681_interrupt_mask, scn2681_interrupt_status, \
+		// Misc
+		scn2681_auxilary_control, \
+		// Counter / Timer
+		scn2681_counter_timer_upper, scn2681_counter_timer_lower, \
+		scn2681_counter_timer_upper_preset, scn2681_counter_timer_lower_preset, \
+		scn2681_counter_start_command, scn2681_counter_stop_command;
+
+void io_duart_init() {
+	// Channel A Registers
+	scn2681_channelA_mode2_selected = false;
+	scn2681_channelA_mode1 = 0;
+	scn2681_channelA_mode2 = 0;
+	scn2681_channelA_status = 0;
+	scn2681_channelA_clock_select = 0;
+	scn2681_channelA_command = 0;
+	scn2681_channelA_rx = 0;
+	scn2681_channelA_tx = 0;
+	// Channel B Registers
+	scn2681_channelB_mode2_selected = false;
+	scn2681_channelB_mode1 = 0;
+	scn2681_channelB_mode2 = 0;
+	scn2681_channelB_status = 0;
+	scn2681_channelB_clock_select = 0;
+	scn2681_channelB_command = 0;
+	scn2681_channelB_rx = 0;
+	scn2681_channelB_tx = 0;
+	// Input Port
+	scn2681_input_port = 0;
+	scn2681_input_port_change = 0;
+	// Output Port
+	scn2681_output_port_configuration = 0;
+	scn2681_output_port_set = 0;
+	scn2681_output_port_reset = 0;
+	// Interrupts
+	scn2681_interrupt_mask = 0;
+	scn2681_interrupt_status = 0;
+	// Misc
+	scn2681_auxilary_control = 0;
+	// Counter / Timer
+	scn2681_counter_timer_upper = 0;
+	scn2681_counter_timer_lower = 0;
+	scn2681_counter_timer_upper_preset = 0;
+	scn2681_counter_timer_lower_preset = 0;
+	scn2681_counter_start_command = 0;
+	scn2681_counter_stop_command = 0;
+}
 
 bool io_duart_read_byte(unsigned address, unsigned int *value) {
-	// Dual UART
 	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		*value = READ_BYTE(g_io_duart, address - C2503_IO_DUART_ADDR);
-		return true;
-	}
-	return false;
-}
+		switch (address - C2503_IO_DUART_ADDR) {
+			case SCN2681_REG_RD_MODE_A:				// Channel A: Mode Register 1/2
+				if (scn2681_channelA_mode2_selected) {
+					*value = scn2681_channelA_mode2;
+				} else {
+					*value = scn2681_channelA_mode1;
+				}
+				if (!scn2681_channelA_mode2_selected) scn2681_channelA_mode2_selected = true;
+				break;
+			case SCN2681_REG_RD_STATUS_A:			// Channel A: Status Register
+				*value = scn2681_channelA_status;
+				break;
+			case SCN2681_REG_RD_BRG_TEST:			// Baud Rate Generator Test
+				*value = 0;				// Not Implemented
+				break;
+			case SCN2681_REG_RD_RX_A:			// Channel A: RX Register
+				*value = scn2681_channelA_rx;
+				break;
+			case SCN2681_REG_RD_INPUT_PORT_CHANGE:		// Input Port Change Register
+				*value = scn2681_input_port_change;
+				break;
+			case SCN2681_REG_RD_INTERRUPT_STATUS:		// Interrupt Status Register
+				*value = scn2681_interrupt_status;
+				break;
+			case SCN2681_REG_RD_CTR_UPPER_VALUE:		// Counter/Timer Upper Value Register
+				*value = scn2681_counter_timer_upper;
+				break;
+			case SCN2681_REG_RD_CTR_LOWER_VALUE:		// Counter/Timer Lower Value Register
+				*value = scn2681_counter_timer_lower;
+				break;
+			case SCN2681_REG_RD_MODE_B:			// Channel B: Mode Register 1/2
+				if (scn2681_channelB_mode2_selected) {
+					*value = scn2681_channelB_mode2;
+				} else {
+					*value = scn2681_channelB_mode1;
+				}
+				if (!scn2681_channelB_mode2_selected) scn2681_channelB_mode2_selected = true;
+				break;
+			case SCN2681_REG_RD_STATUS_B:			// Channel B: Status Register
+				*value = scn2681_channelB_status;
+				break;
+			case SCN2681_REG_RD_1X16X_TEST:			// 1X/16X Test
+				*value = 0;				// Not Implemented
+				break;
+			case SCN2681_REG_RD_RX_B:			// Channel B: RX Register
+				*value = scn2681_channelB_rx;
+				break;
+			case SCN2681_REG_RD_RESERVED:			// Reserved
+				*value = 0;				// Not Implemented
+				break;
+			case SCN2681_REG_RD_INPUT_PORT:			// Input Port Register
+				*value = scn2681_input_port;
+				break;
+			case SCN2681_REG_RD_CTR_START_CMD:		// Counter Start Command Register
+				*value = scn2681_counter_start_command;
+				break;
+			case SCN2681_REG_RD_CTR_STOP_CMD:			// Counter Stop Command Register
+				*value = scn2681_counter_stop_command;
+				break;
+		}
 
-bool io_duart_read_word(unsigned address, unsigned int *value) {
-#if C2503_IO_DUART_SIZE >= 2
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		*value = READ_WORD(g_io_duart, address - C2503_IO_DUART_ADDR);
 		return true;
 	}
-#endif
-	return false;
-}
-
-bool io_duart_read_long(unsigned address, unsigned int *value) {
-#if C2503_IO_DUART_SIZE >= 4
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		*value = READ_LONG(g_io_duart, address - C2503_IO_DUART_ADDR);
-		return true;
-	}
-#endif
 	return false;
 }
 
 bool io_duart_write_byte(unsigned address, unsigned int value) {
-	// Dual UART
 	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		WRITE_BYTE(g_io_duart, address - C2503_IO_DUART_ADDR, value);
-		return true;
-	}
-	return false;
-}
+		switch (address - C2503_IO_DUART_ADDR) {
+			case SCN2681_REG_WR_MODE_A:			// Channel A: Mode Register 1/2
+				if (scn2681_channelA_mode2_selected) {
+					scn2681_channelA_mode2 = value;
+				} else {
+					scn2681_channelA_mode1 = value;
+				}
+				if (!scn2681_channelA_mode2_selected) scn2681_channelA_mode2_selected = true;
+				break;
+			case SCN2681_REG_WR_CLOCK_SELECT_A:		// Channel A: Clock Select Register
+				scn2681_channelA_clock_select = value;
+				break;
+			case SCN2681_REG_WR_COMMAND_A:			// Channel A: Command Register
+				scn2681_channelA_command = value;
+				break;
+			case SCN2681_REG_WR_TX_A:			// Channel A: TX Register
+				scn2681_channelA_tx = value;
+				break;
+			case SCN2681_REG_WR_AUX_CONTROL:		// Auxilary Control Register
+				scn2681_auxilary_control = value;
+				break;
+			case SCN2681_REG_WR_INTERRUPT_MASK:		// Interrupt Mask Register
+				scn2681_interrupt_mask = value;
+				break;
+			case SCN2681_REG_WR_CTR_UPPER_VALUE_PRESET:	// Counter/Timer Upper Value Preset Register
+				scn2681_counter_timer_upper_preset = value;
+				break;
+			case SCN2681_REG_WR_CTR_LOWER_VALUE_PRESET:	// Counter/Timer Lower Value Preset Register
+				scn2681_counter_timer_lower_preset = value;
+				break;
+			case SCN2681_REG_WR_MODE_B:			// Channel B: Mode Register 1/2
+				if (scn2681_channelB_mode2_selected) {
+					scn2681_channelB_mode2 = value;
+				} else {
+					scn2681_channelB_mode1 = value;
+				}
+				if (!scn2681_channelB_mode2_selected) scn2681_channelB_mode2_selected = true;
+				break;
+			case SCN2681_REG_WR_CLOCK_SELECT_B:		// Channel B: Clock Select Register
+				scn2681_channelB_clock_select = value;
+				break;
+			case SCN2681_REG_WR_COMMAND_B:			// Channel B: Command Register
+				scn2681_channelB_command = value;
+				break;
+			case SCN2681_REG_WR_TX_B:			// Channel B: TX Register
+				scn2681_channelB_tx = value;
+				break;
+			case SCN2681_REG_WR_RESERVED:			// Reserved
+									// Not Implemented
+				break;
+			case SCN2681_REG_WR_OUTPUT_PORT_CONF:		// Output Port Configuration Register
+				scn2681_output_port_configuration = value;
+				break;
+			case SCN2681_REG_WR_OUTPUT_PORT_SET:		// Output Port Set Register
+				scn2681_output_port_set = value;
+				break;
+			case SCN2681_REG_WR_OUTPUT_PORT_RESET:		// Output Port Reset Register
+				scn2681_output_port_reset = value;
+				break;
+		}
 
-bool io_duart_write_word(unsigned address, unsigned int value) {
-#if C2503_IO_DUART_SIZE >= 2
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		WRITE_WORD(g_io_duart, address - C2503_IO_DUART_ADDR, value);
 		return true;
 	}
-#endif
-	return false;
-}
-
-bool io_duart_write_long(unsigned address, unsigned int value) {
-#if C2503_IO_DUART_SIZE >= 4
-	// Dual UART
-	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
-		WRITE_LONG(g_io_duart, address - C2503_IO_DUART_ADDR, value);
-		return true;
-	}
-#endif
 	return false;
 }
 

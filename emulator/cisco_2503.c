@@ -101,15 +101,6 @@ void exit_error(char* fmt, ...)
 	exit(EXIT_FAILURE);
 }
 
-
-/* Called when the CPU pulses the RESET line */
-void cpu_pulse_reset(void)
-{
-	nmi_device_reset();
-	output_device_reset();
-	input_device_reset();
-}
-
 /* Called when the CPU changes the function code pins */
 void cpu_set_fc(unsigned int fc)
 {
@@ -130,9 +121,6 @@ int cpu_irq_ack(int level)
 	}
 	return M68K_INT_ACK_SPURIOUS;
 }
-
-
-
 
 /* Implementation for the NMI device */
 void nmi_device_reset(void)
@@ -285,8 +273,17 @@ void get_user_input(void)
 	last_ch = ch;
 }
 
-// Emulator memory access
+// Emulator
 ////////////////////////////////////////////////////////
+/* Called when the CPU pulses the RESET line */
+void cpu_pulse_reset(void) {
+	io_duart_init();
+
+//	nmi_device_reset();
+//	output_device_reset();
+//	input_device_reset();
+}
+
 bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int) {
 //	// Program
 //	if(g_fc & 2) {
@@ -326,7 +323,6 @@ unsigned int cpu_read_word(unsigned int address) {
 	if (io_68302_read_word(address, &tmp_int)) return tmp_int;
 	if (io_system_read_word(address, &tmp_int)) return tmp_int;
 	if (io_counter_read_word(address, &tmp_int)) return tmp_int;
-	if (io_duart_read_word(address, &tmp_int)) return tmp_int;
 	if (io_channela_read_word(address, &tmp_int)) return tmp_int;
 	if (io_channelb_read_word(address, &tmp_int)) return tmp_int;
 
@@ -346,7 +342,6 @@ unsigned int cpu_read_long(unsigned int address) {
 	if (io_68302_read_long(address, &tmp_int)) return tmp_int;
 	if (io_system_read_long(address, &tmp_int)) return tmp_int;
 	if (io_counter_read_long(address, &tmp_int)) return tmp_int;
-	if (io_duart_read_long(address, &tmp_int)) return tmp_int;
 	if (io_channela_read_long(address, &tmp_int)) return tmp_int;
 	if (io_channelb_read_long(address, &tmp_int)) return tmp_int;
 
@@ -380,7 +375,6 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 	if (io_68302_write_word(address, value)) return;
 	if (io_system_write_word(address, value)) return;
 	if (io_counter_write_word(address, value)) return;
-	if (io_duart_write_word(address, value)) return;
 	if (io_channela_write_word(address, value)) return;
 	if (io_channelb_write_word(address, value)) return;
 
@@ -397,7 +391,6 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 	if (io_68302_write_long(address, value)) return;
 	if (io_system_write_long(address, value)) return;
 	if (io_counter_write_long(address, value)) return;
-	if (io_duart_write_long(address, value)) return;
 	if (io_channela_write_long(address, value)) return;
 	if (io_channelb_write_long(address, value)) return;
 
@@ -872,9 +865,7 @@ int main(int argc, char* argv[]) {
 	m68k_init();
 	m68k_set_cpu_type(C2503_CPU);
 	m68k_pulse_reset();
-	input_device_reset();
-	output_device_reset();
-	nmi_device_reset();
+	cpu_pulse_reset();							// Resets I/O subsystems
 
 	g_quit = 0;
 	while (!g_quit) {
