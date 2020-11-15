@@ -108,7 +108,7 @@ bool io_duart_write_byte(unsigned address, unsigned int value);
 #define SCN2681_REG_WR_CLOCK_SELECT_A		0x1			// Channel A: Clock Select Register
 #define SCN2681_REG_WR_COMMAND_A		0x2			// Channel A: Command Register
 #define SCN2681_REG_WR_TX_A			0x3			// Channel A: TX Register
-#define SCN2681_REG_WR_AUX_CONTROL		0x4			// Auxilary Control Register
+#define SCN2681_REG_WR_AUX_CONTROL		0x4			// Auxiliary Control Register
 #define SCN2681_REG_WR_INTERRUPT_MASK		0x5			// Interrupt Mask Register
 #define SCN2681_REG_WR_CTR_UPPER_VALUE_PRESET	0x6			// Counter/Timer Upper Value Preset Register
 #define SCN2681_REG_WR_CTR_LOWER_VALUE_PRESET	0x7			// Counter/Timer Lower Value Preset Register
@@ -174,7 +174,7 @@ bool io_duart_write_byte(unsigned address, unsigned int value);
 #define SCN2681_REG_COMMAND_MISC_BREAK_START	6<<4			// Start Break
 #define SCN2681_REG_COMMAND_MISC_BREAK_STOP	7<<4			// Stop Break
 
-// SCN2681 DUART Auxilary Control Register (W)
+// SCN2681 DUART Auxiliary Control Register (W)
 #define SCN2681_REG_AUX_CONTROL_INT_DELTA_IP0	1<<0			// IP0 Delta Interrupt: 0 - Off / 1 - On
 #define SCN2681_REG_AUX_CONTROL_INT_DELTA_IP1	1<<1			// IP1 Delta Interrupt: 0 - Off / 1 - On
 #define SCN2681_REG_AUX_CONTROL_INT_DELTA_IP2	1<<2			// IP2 Delta Interrupt: 0 - Off / 1 - On
@@ -215,6 +215,44 @@ bool io_duart_write_byte(unsigned address, unsigned int value);
 #define SCN2681_REG_OUTPUT_PORT_CFG_6		0x1<<6			// Output Port[6]: 0 - Output Port Register[6] / Channel A Tx Ready
 #define SCN2681_REG_OUTPUT_PORT_CFG_7		0x1<<7			// Output Port[7]: 0 - Output Port Register[7] / Channel B Tx Ready
 
+// SCN2681 DUART Register Names
+enum scn2681_core_reg {
+// Channel A
+	ChannelA_Mode1,
+	ChannelA_Mode2,
+	ChannelA_Status,
+	ChannelA_Clock_Select,
+	ChannelA_Command,
+	ChannelA_Rx,
+	ChannelA_Tx,
+// Channel B
+	ChannelB_Mode1,
+	ChannelB_Mode2,
+	ChannelB_Status,
+	ChannelB_Clock_Select,
+	ChannelB_Command,
+	ChannelB_Rx,
+	ChannelB_Tx,
+// Interrupts
+	Interrupt_Mask,
+	Interrupt_Status,
+// Misc
+	Auxiliary_Control,
+// Counter / Timer
+	CounterTimer_Upper,
+	CounterTimer_Lower,
+	CounterTimer_Upper_Preset,
+	CounterTimer_Lower_Preset,
+	CounterTimer_Start_Command,
+	CounterTimer_Stop_Command,
+// Input Port
+	Input_Port,
+	Input_Port_Change,
+// Output Port
+	Output_Port_Configuration,
+	Output_Port_Set,
+	Output_Port_Reset,
+};
 
 // Channel A: LANCE
 //////////////////////////////////////////////////////////////////////////////////////////////

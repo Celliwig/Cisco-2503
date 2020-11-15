@@ -277,7 +277,7 @@ void get_user_input(void)
 ////////////////////////////////////////////////////////
 /* Called when the CPU pulses the RESET line */
 void cpu_pulse_reset(void) {
-	io_duart_init();
+	io_duart_core_init();
 
 //	nmi_device_reset();
 //	output_device_reset();

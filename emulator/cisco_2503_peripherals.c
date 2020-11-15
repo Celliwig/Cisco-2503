@@ -530,13 +530,14 @@ unsigned char	\
 		// Interrupts
 		scn2681_interrupt_mask, scn2681_interrupt_status, \
 		// Misc
-		scn2681_auxilary_control, \
+		scn2681_auxiliary_control, \
 		// Counter / Timer
 		scn2681_counter_timer_upper, scn2681_counter_timer_lower, \
 		scn2681_counter_timer_upper_preset, scn2681_counter_timer_lower_preset, \
 		scn2681_counter_start_command, scn2681_counter_stop_command;
 
-void io_duart_init() {
+// Initialise (reset) DUART core
+void io_duart_core_init() {
 	// Channel A Registers
 	scn2681_channelA_mode2_selected = false;
 	scn2681_channelA_mode1 = 0;
@@ -566,7 +567,7 @@ void io_duart_init() {
 	scn2681_interrupt_mask = 0;
 	scn2681_interrupt_status = 0;
 	// Misc
-	scn2681_auxilary_control = 0;
+	scn2681_auxiliary_control = 0;
 	// Counter / Timer
 	scn2681_counter_timer_upper = 0;
 	scn2681_counter_timer_lower = 0;
@@ -576,6 +577,106 @@ void io_duart_init() {
 	scn2681_counter_stop_command = 0;
 }
 
+// Read DUART core registers directly (for instrumentation)
+unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
+	switch (regname) {
+	// Channel A
+		case ChannelA_Mode1:
+			return scn2681_channelA_mode1;
+			break;
+		case ChannelA_Mode2:
+			return scn2681_channelA_mode2;
+			break;
+		case ChannelA_Status:
+			return scn2681_channelA_status;
+			break;
+		case ChannelA_Clock_Select:
+			return scn2681_channelA_clock_select;
+			break;
+		case ChannelA_Command:
+			return scn2681_channelA_command;
+			break;
+		case ChannelA_Rx:
+			return scn2681_channelA_rx;
+			break;
+		case ChannelA_Tx:
+			return scn2681_channelA_tx;
+			break;
+	// Channel B
+		case ChannelB_Mode1:
+			return scn2681_channelB_mode1;
+			break;
+		case ChannelB_Mode2:
+			return scn2681_channelB_mode2;
+			break;
+		case ChannelB_Status:
+			return scn2681_channelB_status;
+			break;
+		case ChannelB_Clock_Select:
+			return scn2681_channelB_clock_select;
+			break;
+		case ChannelB_Command:
+			return scn2681_channelB_command;
+			break;
+		case ChannelB_Rx:
+			return scn2681_channelB_rx;
+			break;
+		case ChannelB_Tx:
+			return scn2681_channelB_tx;
+			break;
+	// Interrupts
+		case Interrupt_Mask:
+			return scn2681_interrupt_mask;
+			break;
+		case Interrupt_Status:
+			return scn2681_interrupt_status;
+			break;
+	// Misc
+		case Auxiliary_Control:
+			return scn2681_auxiliary_control;
+			break;
+	// Counter / Timer
+		case CounterTimer_Upper:
+			return scn2681_counter_timer_upper;
+			break;
+		case CounterTimer_Lower:
+			return scn2681_counter_timer_lower;
+			break;
+		case CounterTimer_Upper_Preset:
+			return scn2681_counter_timer_upper_preset;
+			break;
+		case CounterTimer_Lower_Preset:
+			return scn2681_counter_timer_lower_preset;
+			break;
+		case CounterTimer_Start_Command:
+			return scn2681_counter_start_command;
+			break;
+		case CounterTimer_Stop_Command:
+			return scn2681_counter_stop_command;
+			break;
+	// Input Port
+		case Input_Port:
+			return scn2681_input_port;
+			break;
+		case Input_Port_Change:
+			return scn2681_input_port_change;
+			break;
+	// Output Port
+		case Output_Port_Configuration:
+			return scn2681_output_port_configuration;
+			break;
+		case Output_Port_Set:
+			return scn2681_output_port_set;
+			break;
+		case Output_Port_Reset:
+			return scn2681_output_port_reset;
+			break;
+	}
+
+	return 0;
+}
+
+// Read a byte from address in to value from the DUART core
 bool io_duart_read_byte(unsigned address, unsigned int *value) {
 	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
 		switch (address - C2503_IO_DUART_ADDR) {
@@ -644,6 +745,7 @@ bool io_duart_read_byte(unsigned address, unsigned int *value) {
 	return false;
 }
 
+// Write value to address in the DUART core
 bool io_duart_write_byte(unsigned address, unsigned int value) {
 	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
 		switch (address - C2503_IO_DUART_ADDR) {
@@ -664,8 +766,8 @@ bool io_duart_write_byte(unsigned address, unsigned int value) {
 			case SCN2681_REG_WR_TX_A:			// Channel A: TX Register
 				scn2681_channelA_tx = value;
 				break;
-			case SCN2681_REG_WR_AUX_CONTROL:		// Auxilary Control Register
-				scn2681_auxilary_control = value;
+			case SCN2681_REG_WR_AUX_CONTROL:		// Auxiliary Control Register
+				scn2681_auxiliary_control = value;
 				break;
 			case SCN2681_REG_WR_INTERRUPT_MASK:		// Interrupt Mask Register
 				scn2681_interrupt_mask = value;
