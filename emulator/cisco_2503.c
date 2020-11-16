@@ -536,6 +536,8 @@ void update_memory_display() {
 // Displays the state of the CPU registers
 void update_register_display() {
 	char* str_cpu_type = "Invalid";
+
+	box(emu_win_reg, 0 , 0);
 	switch (m68k_get_reg(NULL, M68K_REG_CPU_TYPE)) {
 		case M68K_CPU_TYPE_68000:
 			str_cpu_type = "68000";
