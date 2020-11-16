@@ -81,6 +81,7 @@ bool io_counter_write_long(unsigned address, unsigned int value);
 // Address & window size
 #define C2503_IO_DUART_ADDR			0x02120100		// DUART address
 #define C2503_IO_DUART_SIZE			0x40			// DUART size
+#define C2503_IO_DUART_CORE_TICKS_PER_BYTE	0x400			// Number of ticks to shift byte through TSR
 
 // SCN2681 DUART registers (Read)
 #define SCN2681_REG_RD_MODE_A			0x0			// Channel A: Mode Register 1/2
@@ -221,7 +222,8 @@ enum scn2681_core_reg {
 	ChannelA_Clock_Select,
 	ChannelA_Command,
 	ChannelA_Rx,
-	ChannelA_Tx,
+	ChannelA_Tx_Holding,
+	ChannelA_Tx_Shift,
 // Channel B
 	ChannelB_Mode1,
 	ChannelB_Mode2,
@@ -229,7 +231,8 @@ enum scn2681_core_reg {
 	ChannelB_Clock_Select,
 	ChannelB_Command,
 	ChannelB_Rx,
-	ChannelB_Tx,
+	ChannelB_Tx_Holding,
+	ChannelB_Tx_Shift,
 // Interrupts
 	Interrupt_Mask,
 	Interrupt_Status,

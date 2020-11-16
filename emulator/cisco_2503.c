@@ -399,6 +399,11 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 	exit_error("Attempted to write long to address %08x", address);
 }
 
+// For peripherals that are clocked
+void system_tick() {
+	io_duart_core_clock_tick();
+}
+
 // Debugger
 //////////////////////////////////////////////////////////////////////////////////////////////
 void make_hex(char* buff, unsigned int pc, unsigned int length) {
@@ -634,10 +639,11 @@ void update_duart_display() {
 					io_duart_core_get_reg(ChannelA_Clock_Select), \
 					io_duart_core_get_reg(ChannelA_Command));
 	mvwprintw(emu_win_duart, 4, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
-	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    Tx: 0x%02x", \
+	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    TxHR: 0x%02x    TxSR: 0x%02x", \
 					io_duart_core_get_reg(ChannelA_Status), \
 					io_duart_core_get_reg(ChannelA_Rx), \
-					io_duart_core_get_reg(ChannelA_Tx));
+					io_duart_core_get_reg(ChannelA_Tx_Holding), \
+					io_duart_core_get_reg(ChannelA_Tx_Shift));
 	mvwprintw(emu_win_duart, 5, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
 	mvwprintw(emu_win_duart, 7, 2, "Channel B:");
@@ -647,10 +653,11 @@ void update_duart_display() {
 					io_duart_core_get_reg(ChannelB_Clock_Select), \
 					io_duart_core_get_reg(ChannelB_Command));
 	mvwprintw(emu_win_duart, 8, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
-	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    Tx: 0x%02x", \
+	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    TxHR: 0x%02x    TxSR: 0x%02x", \
 					io_duart_core_get_reg(ChannelB_Status), \
 					io_duart_core_get_reg(ChannelB_Rx), \
-					io_duart_core_get_reg(ChannelB_Tx));
+					io_duart_core_get_reg(ChannelB_Tx_Holding), \
+					io_duart_core_get_reg(ChannelB_Tx_Shift));
 	mvwprintw(emu_win_duart, 9, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
 	mvwprintw(emu_win_duart, 11, 2, "Interrupts:");
@@ -1043,9 +1050,8 @@ int main(int argc, char* argv[]) {
 
 			// Note that I am not emulating the correct clock speed!
 			m68k_execute(1);
-//			output_device_update();
-//			input_device_update();
 //			nmi_device_update();
+			system_tick();
 
 			if (emu_step > 0) emu_step--;
 		}

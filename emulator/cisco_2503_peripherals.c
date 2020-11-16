@@ -514,15 +514,25 @@ bool io_counter_write_long(unsigned address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Dual UART
 //////////////////////////////////////////////////////////////////////////////////////////////
-bool		scn2681_channelA_mode2_selected, scn2681_channelB_mode2_selected;
+bool		\
+		// Channel A
+		scn2681_channelA_rx_enabled, scn2681_channelA_mode2_selected, \
+		scn2681_channelA_tx_enabled, scn2681_channelA_tx_thr_empty, scn2681_channelA_tx_tsr_empty, \
+		// Channel B
+		scn2681_channelB_rx_enabled, scn2681_channelB_mode2_selected, \
+		scn2681_channelB_tx_enabled, scn2681_channelB_tx_thr_empty, scn2681_channelB_tx_tsr_empty;
 
 unsigned char	\
 		// Channel A Registers
-		scn2681_channelA_mode1, scn2681_channelA_mode2, scn2681_channelA_status, scn2681_channelA_clock_select, \
-		scn2681_channelA_command, scn2681_channelA_rx, scn2681_channelA_tx, \
+		scn2681_channelA_mode1, scn2681_channelA_mode2, scn2681_channelA_status, \
+		scn2681_channelA_clock_select, scn2681_channelA_command, \
+		scn2681_channelA_rx, \
+		scn2681_channelA_tx_thr, scn2681_channelA_tx_tsr, \
 		// Channel B Registers
-		scn2681_channelB_mode1, scn2681_channelB_mode2, scn2681_channelB_status, scn2681_channelB_clock_select, \
-		scn2681_channelB_command, scn2681_channelB_rx, scn2681_channelB_tx, \
+		scn2681_channelB_mode1, scn2681_channelB_mode2, scn2681_channelB_status, \
+		scn2681_channelB_clock_select, scn2681_channelB_command, \
+		scn2681_channelB_rx, \
+		scn2681_channelB_tx_thr, scn2681_channelB_tx_tsr, \
 		// Input Port
 		scn2681_input_port, scn2681_input_port_change, \
 		// Output Port
@@ -536,48 +546,14 @@ unsigned char	\
 		scn2681_counter_timer_upper_preset, scn2681_counter_timer_lower_preset, \
 		scn2681_counter_start_command, scn2681_counter_stop_command;
 
-// Initialise (reset) DUART core
-void io_duart_core_init() {
-	// Channel A Registers
-	scn2681_channelA_mode2_selected = false;
-	scn2681_channelA_mode1 = 0;
-	scn2681_channelA_mode2 = 0;
-	scn2681_channelA_status = 0;
-	scn2681_channelA_clock_select = 0;
-	scn2681_channelA_command = 0;
-	scn2681_channelA_rx = 0;
-	scn2681_channelA_tx = 0;
-	// Channel B Registers
-	scn2681_channelB_mode2_selected = false;
-	scn2681_channelB_mode1 = 0;
-	scn2681_channelB_mode2 = 0;
-	scn2681_channelB_status = 0;
-	scn2681_channelB_clock_select = 0;
-	scn2681_channelB_command = 0;
-	scn2681_channelB_rx = 0;
-	scn2681_channelB_tx = 0;
-	// Input Port
-	scn2681_input_port = 0;
-	scn2681_input_port_change = 0;
-	// Output Port
-	scn2681_output_port_configuration = 0;
-	scn2681_output_port_set = 0;
-	scn2681_output_port_reset = 0;
-	// Interrupts
-	scn2681_interrupt_mask = 0;
-	scn2681_interrupt_status = 0;
-	// Misc
-	scn2681_auxiliary_control = 0;
-	// Counter / Timer
-	scn2681_counter_timer_upper = 0;
-	scn2681_counter_timer_lower = 0;
-	scn2681_counter_timer_upper_preset = 0;
-	scn2681_counter_timer_lower_preset = 0;
-	scn2681_counter_start_command = 0;
-	scn2681_counter_stop_command = 0;
-}
+unsigned int	\
+		// Channel A
+		scn2681_channelA_tx_tsr_ticks, \
+		// Channel B
+		scn2681_channelB_tx_tsr_ticks;
 
 // Read DUART core registers directly (for instrumentation)
+//////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
 	switch (regname) {
 	// Channel A
@@ -599,8 +575,11 @@ unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
 		case ChannelA_Rx:
 			return scn2681_channelA_rx;
 			break;
-		case ChannelA_Tx:
-			return scn2681_channelA_tx;
+		case ChannelA_Tx_Holding:
+			return scn2681_channelA_tx_thr;
+			break;
+		case ChannelA_Tx_Shift:
+			return scn2681_channelA_tx_tsr;
 			break;
 	// Channel B
 		case ChannelB_Mode1:
@@ -621,8 +600,11 @@ unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
 		case ChannelB_Rx:
 			return scn2681_channelB_rx;
 			break;
-		case ChannelB_Tx:
-			return scn2681_channelB_tx;
+		case ChannelB_Tx_Holding:
+			return scn2681_channelB_tx_thr;
+			break;
+		case ChannelB_Tx_Shift:
+			return scn2681_channelB_tx_tsr;
 			break;
 	// Interrupts
 		case Interrupt_Mask:
@@ -676,8 +658,164 @@ unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
 	return 0;
 }
 
+// Channel A functions
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Misc
+void io_duart_core_channelA_reset_selected_mr() {
+	scn2681_channelA_mode2_selected = false;
+}
+void io_duart_core_channelA_reset_error_status() {
+	scn2681_channelA_status = scn2681_channelA_status & 0x0F;
+}
+
+// Rx
+void io_duart_core_channelA_rx_enable() {
+	scn2681_channelA_rx_enabled = true;
+}
+void io_duart_core_channelA_rx_disable() {
+	scn2681_channelA_rx_enabled = false;
+}
+void io_duart_core_channelA_rx_reset() {
+	io_duart_core_channelA_rx_disable();
+	scn2681_channelA_rx = 0;
+}
+
+// Tx
+void io_duart_core_channelA_tx_enable() {
+	scn2681_channelA_tx_enabled = true;
+}
+void io_duart_core_channelA_tx_disable() {
+	scn2681_channelA_tx_enabled = false;
+}
+void io_duart_core_channelA_tx_reset() {
+	io_duart_core_channelA_tx_disable();
+	scn2681_channelA_tx_thr = 0;
+	scn2681_channelA_tx_thr_empty = true;
+	scn2681_channelA_tx_tsr = 0;
+	scn2681_channelA_tx_tsr_empty = true;
+	scn2681_channelA_tx_tsr_ticks = 0;
+}
+
+// Channel B functions
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Misc
+void io_duart_core_channelB_reset_selected_mr() {
+	scn2681_channelB_mode2_selected = false;
+}
+void io_duart_core_channelB_reset_error_status() {
+	scn2681_channelB_status = scn2681_channelB_status & 0x0F;
+}
+
+// Rx
+void io_duart_core_channelB_rx_enable() {
+	scn2681_channelB_rx_enabled = true;
+}
+void io_duart_core_channelB_rx_disable() {
+	scn2681_channelB_rx_enabled = false;
+}
+void io_duart_core_channelB_rx_reset() {
+	io_duart_core_channelB_rx_disable();
+	scn2681_channelB_rx = 0;
+}
+
+// Tx
+void io_duart_core_channelB_tx_enable() {
+	scn2681_channelB_tx_enabled = true;
+}
+void io_duart_core_channelB_tx_disable() {
+	scn2681_channelB_tx_enabled = false;
+}
+void io_duart_core_channelB_tx_reset() {
+	io_duart_core_channelB_tx_disable();
+	scn2681_channelB_tx_thr = 0;
+	scn2681_channelB_tx_thr_empty = true;
+	scn2681_channelB_tx_tsr = 0;
+	scn2681_channelB_tx_tsr_empty = true;
+	scn2681_channelB_tx_tsr_ticks = 0;
+}
+
+// Initialise (reset) DUART core
+//////////////////////////////////////////////////////////////////////////////////////////////
+void io_duart_core_init() {
+	// Channel A Registers
+	scn2681_channelA_mode1 = 0;
+	scn2681_channelA_mode2 = 0;
+	scn2681_channelA_status = 0;
+	scn2681_channelA_clock_select = 0;
+	scn2681_channelA_command = 0;
+	io_duart_core_channelA_reset_selected_mr();
+	io_duart_core_channelA_rx_disable();
+	io_duart_core_channelA_tx_disable();
+	// Channel B Registers
+	scn2681_channelB_mode1 = 0;
+	scn2681_channelB_mode2 = 0;
+	scn2681_channelB_status = 0;
+	scn2681_channelB_clock_select = 0;
+	scn2681_channelB_command = 0;
+	io_duart_core_channelB_reset_selected_mr();
+	io_duart_core_channelB_rx_disable();
+	io_duart_core_channelB_tx_disable();
+	// Input Port
+	scn2681_input_port = 0;
+	scn2681_input_port_change = 0;
+	// Output Port
+	scn2681_output_port_configuration = 0;
+	scn2681_output_port_set = 0;
+	scn2681_output_port_reset = 0;
+	// Interrupts
+	scn2681_interrupt_mask = 0;
+	scn2681_interrupt_status = 0;
+	// Misc
+	scn2681_auxiliary_control = 0;
+	// Counter / Timer
+	scn2681_counter_timer_upper = 0;
+	scn2681_counter_timer_lower = 0;
+	scn2681_counter_timer_upper_preset = 0;
+	scn2681_counter_timer_lower_preset = 0;
+	scn2681_counter_start_command = 0;
+	scn2681_counter_stop_command = 0;
+}
+
+// Emulate a clock cycle of the DUART core
+//////////////////////////////////////////////////////////////////////////////////////////////
+void io_duart_core_clock_tick() {
+	// Channel A Registers
+	if (!scn2681_channelA_tx_tsr_empty) {
+		scn2681_channelA_tx_tsr_ticks++;
+		if (scn2681_channelA_tx_tsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
+			// Finished sending byte serially
+			scn2681_channelA_tx_tsr_empty = true;
+			scn2681_channelA_tx_tsr_ticks = 0;
+		}
+	}
+	if (!scn2681_channelA_tx_thr_empty) {
+		if (scn2681_channelA_tx_tsr_empty) {
+			scn2681_channelA_tx_tsr = scn2681_channelA_tx_thr;
+			scn2681_channelA_tx_tsr_empty = false;
+			scn2681_channelA_tx_thr_empty = true;
+		}
+	}
+	// Channel B Registers
+	if (!scn2681_channelB_tx_tsr_empty) {
+		scn2681_channelB_tx_tsr_ticks++;
+		if (scn2681_channelB_tx_tsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
+			// Finished sending byte serially
+			scn2681_channelB_tx_tsr_empty = true;
+			scn2681_channelB_tx_tsr_ticks = 0;
+		}
+	}
+	if (!scn2681_channelB_tx_thr_empty) {
+		if (scn2681_channelB_tx_tsr_empty) {
+			scn2681_channelB_tx_tsr = scn2681_channelB_tx_thr;
+			scn2681_channelB_tx_tsr_empty = false;
+			scn2681_channelB_tx_thr_empty = true;
+		}
+	}
+}
+
 // Read a byte from address in to value from the DUART core
 // Some register update when read, when real_read is false disables that behaviour (needed for memory dump display)
+//////////////////////////////////////////////////////////////////////////////////////////////
 bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
 		switch (address - C2503_IO_DUART_ADDR) {
@@ -691,6 +829,8 @@ bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 				break;
 			case SCN2681_REG_RD_STATUS_A:			// Channel A: Status Register
 				*value = scn2681_channelA_status;
+				if (scn2681_channelA_tx_thr_empty) *value = *value | SCN2681_REG_STATUS_TX_RDY;
+				if (scn2681_channelA_tx_thr_empty & scn2681_channelA_tx_tsr_empty) *value = *value | SCN2681_REG_STATUS_TX_EMT;
 				break;
 			case SCN2681_REG_RD_BRG_TEST:			// Baud Rate Generator Test
 				*value = 0;				// Not Implemented
@@ -720,6 +860,8 @@ bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 				break;
 			case SCN2681_REG_RD_STATUS_B:			// Channel B: Status Register
 				*value = scn2681_channelB_status;
+				if (scn2681_channelB_tx_thr_empty) *value = *value | SCN2681_REG_STATUS_TX_RDY;
+				if (scn2681_channelB_tx_thr_empty & scn2681_channelB_tx_tsr_empty) *value = *value | SCN2681_REG_STATUS_TX_EMT;
 				break;
 			case SCN2681_REG_RD_1X16X_TEST:			// 1X/16X Test
 				*value = 0;				// Not Implemented
@@ -747,6 +889,7 @@ bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 }
 
 // Write value to address in the DUART core
+//////////////////////////////////////////////////////////////////////////////////////////////
 bool io_duart_write_byte(unsigned address, unsigned int value) {
 	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
 		switch (address - C2503_IO_DUART_ADDR) {
@@ -763,9 +906,24 @@ bool io_duart_write_byte(unsigned address, unsigned int value) {
 				break;
 			case SCN2681_REG_WR_COMMAND_A:			// Channel A: Command Register
 				scn2681_channelA_command = value;
+				if (scn2681_channelA_command & SCN2681_REG_COMMAND_RX_ENABLE) io_duart_core_channelA_rx_enable();
+				if (scn2681_channelA_command & SCN2681_REG_COMMAND_RX_DISABLE) io_duart_core_channelA_rx_disable();
+				if (scn2681_channelA_command & SCN2681_REG_COMMAND_TX_ENABLE) io_duart_core_channelA_tx_enable();
+				if (scn2681_channelA_command & SCN2681_REG_COMMAND_TX_DISABLE) io_duart_core_channelA_tx_disable();
+				if ((scn2681_channelA_command & 0xF0) == SCN2681_REG_COMMAND_MISC_RESET_MR) io_duart_core_channelA_reset_selected_mr();
+				if ((scn2681_channelA_command & 0xF0) == SCN2681_REG_COMMAND_MISC_RESET_RX) io_duart_core_channelA_rx_reset();
+				if ((scn2681_channelA_command & 0xF0) == SCN2681_REG_COMMAND_MISC_RESET_TX) io_duart_core_channelA_tx_reset();
+				if ((scn2681_channelA_command & 0xF0) == SCN2681_REG_COMMAND_MISC_RESET_ERR) io_duart_core_channelA_reset_error_status();
+				// Not Implemented
+				// SCN2681_REG_COMMAND_MISC_RESET_CHNG
+				// SCN2681_REG_COMMAND_MISC_BREAK_START
+				// SCN2681_REG_COMMAND_MISC_BREAK_STOP
 				break;
 			case SCN2681_REG_WR_TX_A:			// Channel A: TX Register
-				scn2681_channelA_tx = value;
+				if (scn2681_channelA_tx_enabled) {
+					scn2681_channelA_tx_thr = value;
+					scn2681_channelA_tx_thr_empty = false;
+				}
 				break;
 			case SCN2681_REG_WR_AUX_CONTROL:		// Auxiliary Control Register
 				scn2681_auxiliary_control = value;
@@ -792,9 +950,24 @@ bool io_duart_write_byte(unsigned address, unsigned int value) {
 				break;
 			case SCN2681_REG_WR_COMMAND_B:			// Channel B: Command Register
 				scn2681_channelB_command = value;
+				if (scn2681_channelB_command & SCN2681_REG_COMMAND_RX_ENABLE) io_duart_core_channelB_rx_enable();
+				if (scn2681_channelB_command & SCN2681_REG_COMMAND_RX_DISABLE) io_duart_core_channelB_rx_disable();
+				if (scn2681_channelB_command & SCN2681_REG_COMMAND_TX_ENABLE) io_duart_core_channelB_tx_enable();
+				if (scn2681_channelB_command & SCN2681_REG_COMMAND_TX_DISABLE) io_duart_core_channelB_tx_disable();
+				if ((scn2681_channelB_command & 0xF0) == SCN2681_REG_COMMAND_MISC_RESET_MR) io_duart_core_channelB_reset_selected_mr();
+				if ((scn2681_channelB_command & 0xF0) == SCN2681_REG_COMMAND_MISC_RESET_RX) io_duart_core_channelB_rx_reset();
+				if ((scn2681_channelB_command & 0xF0) == SCN2681_REG_COMMAND_MISC_RESET_TX) io_duart_core_channelB_tx_reset();
+				if ((scn2681_channelB_command & 0xF0) == SCN2681_REG_COMMAND_MISC_RESET_ERR) io_duart_core_channelB_reset_error_status();
+				// Not Implemented
+				// SCN2681_REG_COMMAND_MISC_RESET_CHNG
+				// SCN2681_REG_COMMAND_MISC_BREAK_START
+				// SCN2681_REG_COMMAND_MISC_BREAK_STOP
 				break;
 			case SCN2681_REG_WR_TX_B:			// Channel B: TX Register
-				scn2681_channelB_tx = value;
+				if (scn2681_channelB_tx_enabled) {
+					scn2681_channelB_tx_thr = value;
+					scn2681_channelB_tx_thr_empty = false;
+				}
 				break;
 			case SCN2681_REG_WR_RESERVED:			// Reserved
 									// Not Implemented
