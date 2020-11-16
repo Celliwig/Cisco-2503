@@ -255,8 +255,11 @@ enum scn2681_core_reg {
 };
 
 // Prototypes
-void io_duart_core_init();
+void io_duart_core_channelA_serial_device(int device);
+void io_duart_core_channelB_serial_device(int device);
 unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname);
+void io_duart_core_init();
+void io_duart_core_clock_tick();
 bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read);
 bool io_duart_write_byte(unsigned address, unsigned int value);
 

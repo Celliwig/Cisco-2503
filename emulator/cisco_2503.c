@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <time.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include "m68k.h"
 #include "cisco_2503.h"
@@ -931,26 +932,59 @@ void emu_win_destroy() {
 	delwin(emu_win_status);
 }
 
+// Print usage
+//////////////////////////////////////////////////////////////////////////////////////////////
+void print_usage() {
+	printf("Usage: cisco_2503 -b <ROM file> -s <serial device> \n");
+	printf("	-b <ROM file>		Initial boot ROM file.\n");
+	printf("	-s <serial device>	Device to connect to, to provide serial emulation.\n");
+	exit(-1);
+}
+
 // Main loop
 //////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
-	FILE*	fhandle;
-	int	key_press;
-	char	emu_step = 0;
+	FILE*	fh_bootrom;
+	int	fd_serial, key_press, tmp_opt;
+	char	emu_step = 0, *bootrom_filename = NULL, *console_devname = NULL;
 
-	if (argc != 2) {
-		printf("Usage: cisco_2503 <ROM file>\n");
+	opterr = 0;
+	while ((tmp_opt = getopt(argc, argv, "b:s:")) != -1) {
+		switch (tmp_opt) {
+			case 'b':
+				bootrom_filename = optarg;
+				break;
+			case 's':
+				console_devname = optarg;
+				break;
+			default:
+				print_usage();
+				break;
+		}
+	}
+
+	// Check if all needed paramters supplied
+	if (bootrom_filename == NULL) {
+		print_usage();
+	}
+
+	if ((fh_bootrom = fopen(bootrom_filename, "rb")) == NULL) {
+		printf("Unable to open %s\n", bootrom_filename);
+		exit(-1);
+	}
+	if (!mem_bootrom_init(fh_bootrom)) {
+		printf("Error reading %s\n", bootrom_filename);
 		exit(-1);
 	}
 
-	if ((fhandle = fopen(argv[1], "rb")) == NULL) {
-		printf("Unable to open %s\n", argv[1]);
-		exit(-1);
-	}
-
-	if (!mem_bootrom_init(fhandle)) {
-		printf("Error reading %s\n", argv[1]);
-		exit(-1);
+	// Open console serial device, if it's been specified
+	if (console_devname != NULL) {
+		if ((fd_serial = open(console_devname, O_RDWR | O_NOCTTY | O_NDELAY)) == -1) {
+			printf("Unable to open %s\n", console_devname);
+			exit(-1);
+		} else {
+			io_duart_core_channelA_serial_device(fd_serial);
+		}
 	}
 
 	// Init ncurses

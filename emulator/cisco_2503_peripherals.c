@@ -552,6 +552,22 @@ unsigned int	\
 		// Channel B
 		scn2681_channelB_tx_tsr_ticks;
 
+int		\
+		// Channel A
+		scn2681_channelA_serial_device_fd = -1, \
+		// Channel B
+		scn2681_channelB_serial_device_fd = -1;
+
+// Sets a file handler to use as a serial device for channel
+//////////////////////////////////////////////////////////////////////////////////////////////
+void io_duart_core_channelA_serial_device(int device) {
+	scn2681_channelA_serial_device_fd = device;
+}
+
+void io_duart_core_channelB_serial_device(int device) {
+	scn2681_channelB_serial_device_fd = device;
+}
+
 // Read DUART core registers directly (for instrumentation)
 //////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
@@ -784,6 +800,9 @@ void io_duart_core_clock_tick() {
 		scn2681_channelA_tx_tsr_ticks++;
 		if (scn2681_channelA_tx_tsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
 			// Finished sending byte serially
+			if (scn2681_channelA_serial_device_fd != -1) {
+				write(scn2681_channelA_serial_device_fd, &scn2681_channelA_tx_tsr, 1);
+			}
 			scn2681_channelA_tx_tsr_empty = true;
 			scn2681_channelA_tx_tsr_ticks = 0;
 		}
@@ -800,6 +819,9 @@ void io_duart_core_clock_tick() {
 		scn2681_channelB_tx_tsr_ticks++;
 		if (scn2681_channelB_tx_tsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
 			// Finished sending byte serially
+			if (scn2681_channelB_serial_device_fd != -1) {
+				write(scn2681_channelB_serial_device_fd, &scn2681_channelB_tx_tsr, 1);
+			}
 			scn2681_channelB_tx_tsr_empty = true;
 			scn2681_channelB_tx_tsr_ticks = 0;
 		}
