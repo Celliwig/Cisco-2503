@@ -229,6 +229,15 @@ unsigned char g_io_sys_cntl2[C2503_IO_SYS_CONTROL2_SIZE];
 unsigned char g_io_sysid_cookie[C2503_IO_SYS_ID_COOKIE_SIZE];
 unsigned char g_io_sys_status[C2503_IO_SYS_STATUS_SIZE];
 
+// Initialise (reset) system control core
+//////////////////////////////////////////////////////////////////////////////////////////////
+void io_system_core_init() {
+	// Init System ID Cookie
+	for (int i = 0; i < 0x20; i++) {
+		g_io_sysid_cookie[i] = 0xff;
+	}
+}
+
 bool io_system_read_byte(unsigned address, unsigned int *value) {
 	// System control register 1
 	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {

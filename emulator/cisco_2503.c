@@ -280,6 +280,7 @@ void get_user_input(void)
 ////////////////////////////////////////////////////////
 /* Called when the CPU pulses the RESET line */
 void cpu_pulse_reset(void) {
+	io_system_core_init();
 	io_duart_core_init();
 
 //	nmi_device_reset();
@@ -302,6 +303,7 @@ bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int, bool real_r
 	if (io_channela_read_byte(address, tmp_int)) return true;
 	if (io_channelb_read_byte(address, tmp_int)) return true;
 
+	*tmp_int = -1;
 	return false;
 }
 

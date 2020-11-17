@@ -49,12 +49,13 @@ bool io_68302_write_long(unsigned address, unsigned int value);
 #define C2503_IO_SYS_CONTROL1_ADDR	0x02110000			// System control register 1 address
 #define C2503_IO_SYS_CONTROL1_SIZE	0x2				// System control register 1 size
 #define C2503_IO_SYS_CONTROL2_ADDR	0x02110002			// System control register 1 address
-#define C2503_IO_SYS_CONTROL2_SIZE	0x1				// System control register 1 size
+#define C2503_IO_SYS_CONTROL2_SIZE	0x2				// System control register 1 size
 #define C2503_IO_SYS_ID_COOKIE_ADDR	0x02110040			// System ID cookie address
 #define C2503_IO_SYS_ID_COOKIE_SIZE	0x20				// System ID cookie size
 #define C2503_IO_SYS_STATUS_ADDR	0x02110100			// System status register address
 #define C2503_IO_SYS_STATUS_SIZE	0x1				// System status register size
 
+void io_system_core_init();
 bool io_system_read_byte(unsigned address, unsigned int *value);
 bool io_system_read_word(unsigned address, unsigned int *value);
 bool io_system_read_long(unsigned address, unsigned int *value);
