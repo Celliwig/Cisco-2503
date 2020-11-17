@@ -296,6 +296,7 @@ bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int, bool real_r
 
 	if (mem_bootrom_read_byte(address, tmp_int)) return true;
 	if (mem_nvram_read_byte(address, tmp_int)) return true;
+	if (mem_ram_read_byte(address, tmp_int)) return true;
 	if (io_68302_read_byte(address, tmp_int)) return true;
 	if (io_system_read_byte(address, tmp_int)) return true;
 	if (io_counter_read_byte(address, tmp_int)) return true;
@@ -325,6 +326,7 @@ unsigned int cpu_read_word(unsigned int address) {
 
 	if (mem_bootrom_read_word(address, &tmp_int)) return tmp_int;
 	if (mem_nvram_read_word(address, &tmp_int)) return tmp_int;
+	if (mem_ram_read_word(address, &tmp_int)) return tmp_int;
 	if (io_68302_read_word(address, &tmp_int)) return tmp_int;
 	if (io_system_read_word(address, &tmp_int)) return tmp_int;
 	if (io_counter_read_word(address, &tmp_int)) return tmp_int;
@@ -344,6 +346,7 @@ unsigned int cpu_read_long(unsigned int address) {
 
 	if (mem_bootrom_read_long(address, &tmp_int)) return tmp_int;
 	if (mem_nvram_read_long(address, &tmp_int)) return tmp_int;
+	if (mem_ram_read_long(address, &tmp_int)) return tmp_int;
 	if (io_68302_read_long(address, &tmp_int)) return tmp_int;
 	if (io_system_read_long(address, &tmp_int)) return tmp_int;
 	if (io_counter_read_long(address, &tmp_int)) return tmp_int;
@@ -360,6 +363,7 @@ void cpu_write_byte(unsigned int address, unsigned int value) {
 //	}
 
 	if (mem_nvram_write_byte(address, value)) return;
+	if (mem_ram_write_byte(address, value)) return;
 	if (io_68302_write_byte(address, value)) return;
 	if (io_system_write_byte(address, value)) return;
 	if (io_counter_write_byte(address, value)) return;
@@ -377,6 +381,7 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 //	}
 
 	if (mem_nvram_write_word(address, value)) return;
+	if (mem_ram_write_word(address, value)) return;
 	if (io_68302_write_word(address, value)) return;
 	if (io_system_write_word(address, value)) return;
 	if (io_counter_write_word(address, value)) return;
@@ -393,6 +398,7 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 //	}
 
 	if (mem_nvram_write_long(address, value)) return;
+	if (mem_ram_write_long(address, value)) return;
 	if (io_68302_write_long(address, value)) return;
 	if (io_system_write_long(address, value)) return;
 	if (io_counter_write_long(address, value)) return;
@@ -1002,8 +1008,8 @@ int main(int argc, char* argv[]) {
 	// Init 68k core
 	m68k_init();
 	m68k_set_cpu_type(C2503_CPU);
-	m68k_pulse_reset();
 	cpu_pulse_reset();							// Resets I/O subsystems
+	m68k_pulse_reset();
 
 	g_quit = 0;
 	while (!g_quit) {

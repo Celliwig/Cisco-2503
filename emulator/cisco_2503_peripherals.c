@@ -7,6 +7,198 @@
 #include "cisco_2503.h"
 #include "cisco_2503_peripherals.h"
 
+// System Registers
+//////////////////////////////////////////////////////////////////////////////////////////////
+//unsigned char g_io_sys_cntl1[C2503_IO_SYS_CONTROL1_SIZE];
+//unsigned char g_io_sys_cntl2[C2503_IO_SYS_CONTROL2_SIZE];
+unsigned char		g_io_sysid_cookie[C2503_IO_SYS_ID_COOKIE_SIZE];
+unsigned char		g_io_sys_status[C2503_IO_SYS_STATUS_SIZE];
+
+unsigned short int 	g_io_sys_control1, \
+			g_io_sys_control2;
+
+// Initialise (reset) system control core
+//////////////////////////////////////////////////////////////////////////////////////////////
+void io_system_core_init() {
+	g_io_sys_control1 = C2503_IO_SYS_CONTROL1_BOOTROM_REMAP;
+	g_io_sys_control2 = 0;
+
+	// Init System ID Cookie
+	for (int i = 0; i < 0x20; i++) {
+		g_io_sysid_cookie[i] = 0xff;
+	}
+}
+
+bool io_system_read_byte(unsigned address, unsigned int *value) {
+//	// System control register 1
+//	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+//		*value = READ_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
+//		return true;
+//	}
+//	// System control register 2
+//	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+//		*value = READ_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
+//		return true;
+//	}
+	// System ID cookie
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+		*value = READ_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
+		return true;
+	}
+//	// System status register
+//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+//		*value = READ_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
+//		return true;
+//	}
+	return false;
+}
+
+bool io_system_read_word(unsigned address, unsigned int *value) {
+	// System control register 1
+	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+		*value = g_io_sys_control1;
+		return true;
+	}
+	// System control register 2
+	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+		*value = g_io_sys_control2;
+		return true;
+	}
+
+//#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
+//	// System ID cookie
+//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+//		*value = READ_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
+//		return true;
+//	}
+//#endif
+//#if C2503_IO_SYS_STATUS_SIZE >= 2
+//	// System status register
+//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+//		*value = READ_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
+//		return true;
+//	}
+//#endif
+	return false;
+}
+
+bool io_system_read_long(unsigned address, unsigned int *value) {
+//#if C2503_IO_SYS_CONTROL1_SIZE >= 4
+//	// System control register 1
+//	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+//		*value = READ_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
+//		return true;
+//	}
+//#endif
+//#if C2503_IO_SYS_CONTROL2_SIZE >= 4
+//	// System control register 2
+//	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+//		*value = READ_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
+//		return true;
+//	}
+//#endif
+//#if C2503_IO_SYS_STATUS_SIZE >= 4
+//	// System status register
+//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+//		*value = READ_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
+//		return true;
+//	}
+//#endif
+//#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
+//	// System ID cookie
+//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+//		*value = READ_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
+//		return true;
+//	}
+//#endif
+	return false;
+}
+
+bool io_system_write_byte(unsigned address, unsigned int value) {
+//	// System control register 1
+//	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+//		WRITE_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
+//		return true;
+//	}
+//	// System control register 2
+//	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+//		WRITE_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
+//		return true;
+//	}
+//	// System status register
+//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+//		WRITE_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
+//		return true;
+//	}
+//	// System ID cookie
+//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+//		WRITE_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
+//		return true;
+//	}
+	return false;
+}
+
+bool io_system_write_word(unsigned address, unsigned int value) {
+	// System control register 1
+	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+		g_io_sys_control1 = (short) value;
+		return true;
+	}
+	// System control register 2
+	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+		g_io_sys_control2 = (short) value;
+		return true;
+	}
+
+//#if C2503_IO_SYS_STATUS_SIZE >= 2
+//	// System status register
+//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+//		WRITE_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
+//		return true;
+//	}
+//#endif
+//#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
+//	// System ID cookie
+//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+//		WRITE_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
+//		return true;
+//	}
+//#endif
+	return false;
+}
+
+bool io_system_write_long(unsigned address, unsigned int value) {
+//#if C2503_IO_SYS_CONTROL1_SIZE >= 4
+//	// System control register 1
+//	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
+//		WRITE_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
+//		return true;
+//	}
+//#endif
+//#if C2503_IO_SYS_CONTROL2_SIZE >= 4
+//	// System control register 2
+//	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
+//		WRITE_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
+//		return true;
+//	}
+//#endif
+//#if C2503_IO_SYS_STATUS_SIZE >= 4
+//	// System status register
+//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
+//		WRITE_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
+//		return true;
+//	}
+//#endif
+//#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
+//	// System ID cookie
+//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+//		WRITE_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
+//		return true;
+//	}
+//#endif
+	return false;
+}
+
 // Memory
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Boot ROM
@@ -21,7 +213,8 @@ bool mem_bootrom_init(FILE *fhandle) {
 
 bool mem_bootrom_read_byte(unsigned address, unsigned int *value) {
 	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \
+							(g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
 		*value = READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR1);
 		return true;
 	}
@@ -35,7 +228,8 @@ bool mem_bootrom_read_byte(unsigned address, unsigned int *value) {
 
 bool mem_bootrom_read_word(unsigned address, unsigned int *value) {
 	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \
+							(g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
 		*value = READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR1);
 		return true;
 	}
@@ -49,7 +243,8 @@ bool mem_bootrom_read_word(unsigned address, unsigned int *value) {
 
 bool mem_bootrom_read_long(unsigned address, unsigned int *value) {
 	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE))) {
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \
+							(g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
 		*value = READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR1);
 		return true;
 	}
@@ -109,6 +304,98 @@ bool mem_nvram_write_word(unsigned address, unsigned int value) {
 bool mem_nvram_write_long(unsigned address, unsigned int value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
 		WRITE_LONG(g_nvram, address - C2503_NVRAM_ADDR, value);
+		return true;
+	}
+	return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// RAM
+//////////////////////////////////////////////////////////////////////////////////////////////
+unsigned char g_ram[C2503_RAM_SIZE];
+
+bool mem_ram_read_byte(unsigned address, unsigned int *value) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		*value = READ_BYTE(g_ram, address - C2503_RAM_ADDR);
+		return true;
+	}
+	// Handle maximum memory size
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		*value = -1;
+		return true;
+	}
+	return false;
+}
+
+bool mem_ram_read_word(unsigned address, unsigned int *value) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		*value = READ_WORD(g_ram, address - C2503_RAM_ADDR);
+		return true;
+	}
+	// Handle maximum memory size
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		*value = -1;
+		return true;
+	}
+	return false;
+}
+
+bool mem_ram_read_long(unsigned address, unsigned int *value) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		*value = READ_LONG(g_ram, address - C2503_RAM_ADDR);
+		return true;
+	}
+	// Handle maximum memory size
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		*value = -1;
+		return true;
+	}
+	return false;
+}
+
+bool mem_ram_write_byte(unsigned address, unsigned int value) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		WRITE_BYTE(g_ram, address - C2503_RAM_ADDR, value);
+		return true;
+	}
+	// Handle maximum memory size
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		return true;
+	}
+	return false;
+}
+
+bool mem_ram_write_word(unsigned address, unsigned int value) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		WRITE_WORD(g_ram, address - C2503_RAM_ADDR, value);
+		return true;
+	}
+	// Handle maximum memory size
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		return true;
+	}
+	return false;
+}
+
+bool mem_ram_write_long(unsigned address, unsigned int value) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		WRITE_LONG(g_ram, address - C2503_RAM_ADDR, value);
+		return true;
+	}
+	// Handle maximum memory size
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
+						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
 		return true;
 	}
 	return false;
@@ -215,199 +502,6 @@ bool io_68302_write_long(unsigned address, unsigned int value) {
 	// 68302 memory
 	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
 		WRITE_LONG(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
-		return true;
-	}
-#endif
-	return false;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////
-// System Registers
-//////////////////////////////////////////////////////////////////////////////////////////////
-unsigned char g_io_sys_cntl1[C2503_IO_SYS_CONTROL1_SIZE];
-unsigned char g_io_sys_cntl2[C2503_IO_SYS_CONTROL2_SIZE];
-unsigned char g_io_sysid_cookie[C2503_IO_SYS_ID_COOKIE_SIZE];
-unsigned char g_io_sys_status[C2503_IO_SYS_STATUS_SIZE];
-
-// Initialise (reset) system control core
-//////////////////////////////////////////////////////////////////////////////////////////////
-void io_system_core_init() {
-	// Init System ID Cookie
-	for (int i = 0; i < 0x20; i++) {
-		g_io_sysid_cookie[i] = 0xff;
-	}
-}
-
-bool io_system_read_byte(unsigned address, unsigned int *value) {
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		*value = READ_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
-		return true;
-	}
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		*value = READ_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
-		return true;
-	}
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		*value = READ_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
-		return true;
-	}
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		*value = READ_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
-		return true;
-	}
-	return false;
-}
-
-bool io_system_read_word(unsigned address, unsigned int *value) {
-#if C2503_IO_SYS_CONTROL1_SIZE >= 2
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		*value = READ_WORD(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_CONTROL2_SIZE >= 2
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		*value = READ_WORD(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		*value = READ_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_STATUS_SIZE >= 2
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		*value = READ_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
-		return true;
-	}
-#endif
-	return false;
-}
-
-bool io_system_read_long(unsigned address, unsigned int *value) {
-#if C2503_IO_SYS_CONTROL1_SIZE >= 4
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		*value = READ_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_CONTROL2_SIZE >= 4
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		*value = READ_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_STATUS_SIZE >= 4
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		*value = READ_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		*value = READ_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
-		return true;
-	}
-#endif
-	return false;
-}
-
-bool io_system_write_byte(unsigned address, unsigned int value) {
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		WRITE_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
-		return true;
-	}
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		WRITE_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
-		return true;
-	}
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		WRITE_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-		return true;
-	}
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		WRITE_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
-		return true;
-	}
-	return false;
-}
-
-bool io_system_write_word(unsigned address, unsigned int value) {
-#if C2503_IO_SYS_CONTROL1_SIZE >= 2
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		WRITE_WORD(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_CONTROL2_SIZE >= 2
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		WRITE_WORD(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_STATUS_SIZE >= 2
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		WRITE_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		WRITE_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
-		return true;
-	}
-#endif
-	return false;
-}
-
-bool io_system_write_long(unsigned address, unsigned int value) {
-#if C2503_IO_SYS_CONTROL1_SIZE >= 4
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		WRITE_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_CONTROL2_SIZE >= 4
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		WRITE_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_STATUS_SIZE >= 4
-	// System status register
-	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-		WRITE_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-		return true;
-	}
-#endif
-#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
-	// System ID cookie
-	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-		WRITE_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
 		return true;
 	}
 #endif

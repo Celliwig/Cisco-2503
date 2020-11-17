@@ -30,6 +30,19 @@ bool mem_nvram_write_byte(unsigned address, unsigned int value);
 bool mem_nvram_write_word(unsigned address, unsigned int value);
 bool mem_nvram_write_long(unsigned address, unsigned int value);
 
+// RAM
+//////////////////////////////////////////////////////////////////////////////////////////////
+#define	C2503_RAM_ADDR		0x00000000				// RAM address
+#define	C2503_RAM_SIZE		0x200000				// RAM size (2MB)
+#define	C2503_RAM_WIN_SIZE	0x1000000				// RAM window size (16MB)
+
+bool mem_ram_read_byte(unsigned address, unsigned int *value);
+bool mem_ram_read_word(unsigned address, unsigned int *value);
+bool mem_ram_read_long(unsigned address, unsigned int *value);
+bool mem_ram_write_byte(unsigned address, unsigned int value);
+bool mem_ram_write_word(unsigned address, unsigned int value);
+bool mem_ram_write_long(unsigned address, unsigned int value);
+
 // 68302
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define C2503_IO_68302_REG_ADDR		0x02100000			// 68302 registers address
@@ -46,14 +59,16 @@ bool io_68302_write_long(unsigned address, unsigned int value);
 
 // System Registers
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define C2503_IO_SYS_CONTROL1_ADDR	0x02110000			// System control register 1 address
-#define C2503_IO_SYS_CONTROL1_SIZE	0x2				// System control register 1 size
-#define C2503_IO_SYS_CONTROL2_ADDR	0x02110002			// System control register 1 address
-#define C2503_IO_SYS_CONTROL2_SIZE	0x2				// System control register 1 size
-#define C2503_IO_SYS_ID_COOKIE_ADDR	0x02110040			// System ID cookie address
-#define C2503_IO_SYS_ID_COOKIE_SIZE	0x20				// System ID cookie size
-#define C2503_IO_SYS_STATUS_ADDR	0x02110100			// System status register address
-#define C2503_IO_SYS_STATUS_SIZE	0x1				// System status register size
+#define C2503_IO_SYS_CONTROL1_ADDR		0x02110000			// System control register 1 address
+#define C2503_IO_SYS_CONTROL1_SIZE		0x2				// System control register 1 size
+#define C2503_IO_SYS_CONTROL2_ADDR		0x02110002			// System control register 1 address
+#define C2503_IO_SYS_CONTROL2_SIZE		0x2				// System control register 1 size
+#define C2503_IO_SYS_ID_COOKIE_ADDR		0x02110040			// System ID cookie address
+#define C2503_IO_SYS_ID_COOKIE_SIZE		0x20				// System ID cookie size
+#define C2503_IO_SYS_STATUS_ADDR		0x02110100			// System status register address
+#define C2503_IO_SYS_STATUS_SIZE		0x1				// System status register size
+
+#define C2503_IO_SYS_CONTROL1_BOOTROM_REMAP	0x1				// Initially remap bootrom to 0x00000000
 
 void io_system_core_init();
 bool io_system_read_byte(unsigned address, unsigned int *value);
