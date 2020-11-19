@@ -1043,8 +1043,8 @@ int main(int argc, char* argv[]) {
 			emu_step = -1;						// Start execution (run)
 		} else if (key_press == 'R') {
 			emu_status_message("Reset");
-			m68k_pulse_reset();
 			cpu_pulse_reset();					// Resets I/O subsystems
+			m68k_pulse_reset();
 		} else if (key_press == 's') {
 			emu_status_message("Stepped");
 			emu_step = 1;						// Execute one instruction
