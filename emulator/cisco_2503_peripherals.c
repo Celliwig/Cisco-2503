@@ -315,87 +315,78 @@ bool mem_nvram_write_long(unsigned address, unsigned int value) {
 unsigned char g_ram[C2503_RAM_SIZE];
 
 bool mem_ram_read_byte(unsigned address, unsigned int *value) {
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
-						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
-		*value = READ_BYTE(g_ram, address - C2503_RAM_ADDR);
-		return true;
-	}
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
-		*value = -1;
+		// Addresses greater than RAM size are wrapped
+		// RAM size must be a power of 2
+		address = address & (C2503_RAM_SIZE - 1);
+		*value = READ_BYTE(g_ram, address - C2503_RAM_ADDR);
 		return true;
 	}
 	return false;
 }
 
 bool mem_ram_read_word(unsigned address, unsigned int *value) {
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
-						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
-		*value = READ_WORD(g_ram, address - C2503_RAM_ADDR);
-		return true;
-	}
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
-		*value = -1;
+		// Addresses greater than RAM size are wrapped
+		// RAM size must be a power of 2
+		address = address & (C2503_RAM_SIZE - 1);
+		*value = READ_WORD(g_ram, address - C2503_RAM_ADDR);
 		return true;
 	}
 	return false;
 }
 
 bool mem_ram_read_long(unsigned address, unsigned int *value) {
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
-						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
-		*value = READ_LONG(g_ram, address - C2503_RAM_ADDR);
-		return true;
-	}
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
-		*value = -1;
+		// Addresses greater than RAM size are wrapped
+		// RAM size must be a power of 2
+		address = address & (C2503_RAM_SIZE - 1);
+		*value = READ_LONG(g_ram, address - C2503_RAM_ADDR);
 		return true;
 	}
 	return false;
 }
 
 bool mem_ram_write_byte(unsigned address, unsigned int value) {
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
-						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
-		WRITE_BYTE(g_ram, address - C2503_RAM_ADDR, value);
-		return true;
-	}
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		// Addresses greater than RAM size are wrapped
+		// RAM size must be a power of 2
+		address = address & (C2503_RAM_SIZE - 1);
+		WRITE_BYTE(g_ram, address - C2503_RAM_ADDR, value);
 		return true;
 	}
 	return false;
 }
 
 bool mem_ram_write_word(unsigned address, unsigned int value) {
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
-						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
-		WRITE_WORD(g_ram, address - C2503_RAM_ADDR, value);
-		return true;
-	}
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		// Addresses greater than RAM size are wrapped
+		// RAM size must be a power of 2
+		address = address & (C2503_RAM_SIZE - 1);
+		WRITE_WORD(g_ram, address - C2503_RAM_ADDR, value);
 		return true;
 	}
 	return false;
 }
 
 bool mem_ram_write_long(unsigned address, unsigned int value) {
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_SIZE)) && \
-						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
-		WRITE_LONG(g_ram, address - C2503_RAM_ADDR, value);
-		return true;
-	}
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						(!g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP)) {
+		// Addresses greater than RAM size are wrapped
+		// RAM size must be a power of 2
+		address = address & (C2503_RAM_SIZE - 1);
+		WRITE_LONG(g_ram, address - C2503_RAM_ADDR, value);
 		return true;
 	}
 	return false;
