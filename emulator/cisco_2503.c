@@ -650,10 +650,12 @@ void update_duart_display() {
 					io_duart_core_get_reg(ChannelA_Clock_Select), \
 					io_duart_core_get_reg(ChannelA_Command));
 	mvwprintw(emu_win_duart, 4, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
-	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    TxHR: 0x%02x    TxSR: 0x%02x", \
+	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    TxHR[%u]: 0x%02x    TxSR[%u]: 0x%02x", \
 					io_duart_core_get_reg(ChannelA_Status), \
 					io_duart_core_get_reg(ChannelA_Rx), \
+					io_duart_core_get_reg(ChannelA_Tx_Holding_Empty), \
 					io_duart_core_get_reg(ChannelA_Tx_Holding), \
+					io_duart_core_get_reg(ChannelA_Tx_Shift_Empty), \
 					io_duart_core_get_reg(ChannelA_Tx_Shift));
 	mvwprintw(emu_win_duart, 5, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
@@ -664,10 +666,12 @@ void update_duart_display() {
 					io_duart_core_get_reg(ChannelB_Clock_Select), \
 					io_duart_core_get_reg(ChannelB_Command));
 	mvwprintw(emu_win_duart, 8, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
-	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    TxHR: 0x%02x    TxSR: 0x%02x", \
+	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    TxHR[%u]: 0x%02x    TxSR[%u]: 0x%02x", \
 					io_duart_core_get_reg(ChannelB_Status), \
 					io_duart_core_get_reg(ChannelB_Rx), \
+					io_duart_core_get_reg(ChannelB_Tx_Holding_Empty), \
 					io_duart_core_get_reg(ChannelB_Tx_Holding), \
+					io_duart_core_get_reg(ChannelB_Tx_Shift_Empty), \
 					io_duart_core_get_reg(ChannelB_Tx_Shift));
 	mvwprintw(emu_win_duart, 9, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 

@@ -239,7 +239,9 @@ enum scn2681_core_reg {
 	ChannelA_Command,
 	ChannelA_Rx,
 	ChannelA_Tx_Holding,
+	ChannelA_Tx_Holding_Empty,
 	ChannelA_Tx_Shift,
+	ChannelA_Tx_Shift_Empty,
 // Channel B
 	ChannelB_Mode1,
 	ChannelB_Mode2,
@@ -248,7 +250,9 @@ enum scn2681_core_reg {
 	ChannelB_Command,
 	ChannelB_Rx,
 	ChannelB_Tx_Holding,
+	ChannelB_Tx_Holding_Empty,
 	ChannelB_Tx_Shift,
+	ChannelB_Tx_Shift_Empty,
 // Interrupts
 	Interrupt_Mask,
 	Interrupt_Status,

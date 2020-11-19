@@ -697,8 +697,14 @@ unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
 		case ChannelA_Tx_Holding:
 			return scn2681_channelA_tx_thr;
 			break;
+		case ChannelA_Tx_Holding_Empty:
+			return scn2681_channelA_tx_thr_empty;
+			break;
 		case ChannelA_Tx_Shift:
 			return scn2681_channelA_tx_tsr;
+			break;
+		case ChannelA_Tx_Shift_Empty:
+			return scn2681_channelA_tx_tsr_empty;
 			break;
 	// Channel B
 		case ChannelB_Mode1:
@@ -722,8 +728,14 @@ unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
 		case ChannelB_Tx_Holding:
 			return scn2681_channelB_tx_thr;
 			break;
+		case ChannelB_Tx_Holding_Empty:
+			return scn2681_channelB_tx_thr_empty;
+			break;
 		case ChannelB_Tx_Shift:
 			return scn2681_channelB_tx_tsr;
+			break;
+		case ChannelB_Tx_Shift_Empty:
+			return scn2681_channelB_tx_tsr_empty;
 			break;
 	// Interrupts
 		case Interrupt_Mask:
@@ -865,6 +877,7 @@ void io_duart_core_init() {
 	io_duart_core_channelA_reset_selected_mr();
 	io_duart_core_channelA_rx_disable();
 	io_duart_core_channelA_tx_disable();
+	io_duart_core_channelA_tx_reset();
 	// Channel B Registers
 	scn2681_channelB_mode1 = 0;
 	scn2681_channelB_mode2 = 0;
@@ -874,6 +887,7 @@ void io_duart_core_init() {
 	io_duart_core_channelB_reset_selected_mr();
 	io_duart_core_channelB_rx_disable();
 	io_duart_core_channelB_tx_disable();
+	io_duart_core_channelB_tx_reset();
 	// Input Port
 	scn2681_input_port = 0;
 	scn2681_input_port_change = 0;
