@@ -1039,8 +1039,13 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 'Q') {
 			g_quit = 1;
 		} else if (key_press == 'r') {
-			emu_status_message("Running");
-			emu_step = -1;						// Start execution (run)
+			if (emu_step == 0) {
+				emu_status_message("Running");
+				emu_step = -1;					// Start execution (run)
+			} else {
+				emu_status_message("Stopped");
+				emu_step = 0;					// Stop execution
+			}
 		} else if (key_press == 'R') {
 			emu_status_message("Reset");
 			cpu_pulse_reset();					// Resets I/O subsystems
@@ -1048,9 +1053,7 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 's') {
 			emu_status_message("Stepped");
 			emu_step = 1;						// Execute one instruction
-		} else if (key_press == 'S') {
-			emu_status_message("Stopped");
-			emu_step = 0;						// Stop execution
+//		} else if (key_press == 'S') {
 		} else if (key_press == 'U') {
 			emu_show_duart = emu_show_duart ^ true;			// Toggle DUART window
 		} else if (key_press == 'd') {
@@ -1104,7 +1107,7 @@ int main(int argc, char* argv[]) {
 			if (emu_step > 0) emu_step--;
 		}
 
-		usleep(2000);
+		usleep(1000);
 	}
 
 	// Destroy ncurses
