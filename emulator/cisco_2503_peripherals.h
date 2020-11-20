@@ -188,6 +188,12 @@ bool io_counter_write_long(unsigned address, unsigned int value);
 #define SCN2681_REG_COMMAND_MISC_BREAK_START	6<<4			// Start Break
 #define SCN2681_REG_COMMAND_MISC_BREAK_STOP	7<<4			// Stop Break
 
+// SCN2681 DUART RX FIFO Status Bits
+#define SCN2681_REG_RD_RX_A_FIFO_PARITY_ERR	1<<8			// Parity error associated with this byte
+#define SCN2681_REG_RD_RX_A_FIFO_FRAMING_ERR	1<<9			// Framing error associated with this byte
+#define SCN2681_REG_RD_RX_A_FIFO_RECEIVED_BRK	1<<10			// Received break associated with this byte
+#define SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE	1<<15			// This is a valid byte
+
 // SCN2681 DUART Auxiliary Control Register (W)
 #define SCN2681_REG_AUX_CONTROL_INT_DELTA_IP0	1<<0			// IP0 Delta Interrupt: 0 - Off / 1 - On
 #define SCN2681_REG_AUX_CONTROL_INT_DELTA_IP1	1<<1			// IP1 Delta Interrupt: 0 - Off / 1 - On
@@ -237,7 +243,16 @@ enum scn2681_core_reg {
 	ChannelA_Status,
 	ChannelA_Clock_Select,
 	ChannelA_Command,
-	ChannelA_Rx,
+	ChannelA_Rx_Fifo0,
+	ChannelA_Rx_Fifo0_Status,
+	ChannelA_Rx_Fifo1,
+	ChannelA_Rx_Fifo1_Status,
+	ChannelA_Rx_Fifo2,
+	ChannelA_Rx_Fifo2_Status,
+	ChannelA_Rx_Read_Index,
+	ChannelA_Rx_Write_Index,
+	ChannelA_Rx_Shift,
+	ChannelA_Rx_Shift_Empty,
 	ChannelA_Tx_Holding,
 	ChannelA_Tx_Holding_Empty,
 	ChannelA_Tx_Shift,
@@ -248,7 +263,16 @@ enum scn2681_core_reg {
 	ChannelB_Status,
 	ChannelB_Clock_Select,
 	ChannelB_Command,
-	ChannelB_Rx,
+	ChannelB_Rx_Fifo0,
+	ChannelB_Rx_Fifo0_Status,
+	ChannelB_Rx_Fifo1,
+	ChannelB_Rx_Fifo1_Status,
+	ChannelB_Rx_Fifo2,
+	ChannelB_Rx_Fifo2_Status,
+	ChannelB_Rx_Read_Index,
+	ChannelB_Rx_Write_Index,
+	ChannelB_Rx_Shift,
+	ChannelB_Rx_Shift_Empty,
 	ChannelB_Tx_Holding,
 	ChannelB_Tx_Holding_Empty,
 	ChannelB_Tx_Shift,
