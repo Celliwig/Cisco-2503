@@ -1,0 +1,6 @@
+*.bin
+*.hex
+*.lst
+*.o
+*.run
+
