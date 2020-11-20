@@ -27,8 +27,7 @@
 * Defines
 ******************************************************************************
 RAM_START		= 0x00000000
-/* RAM_END			= 0x200000 */
-RAM_END			= 0x1000
+RAM_END			= 0x200000
 MAX_LINE_LENGTH		= 80
 monitor_start		= 0x1000			/* Start of monitor code */
 bootrom_start		= 0x01000000			/* Start of boot ROM */
@@ -108,6 +107,14 @@ ram_check:
 	bsr.w	print_str
 	lea	RAM_START, %a2
 ram_check_loop:
+	bsr.w	console_in_check			/* Check if there's a key press pending */
+	beq.s	ram_check_test
+	bsr.w	console_in_nocheck			/* Get key press */
+	cmp.b	#ESC, %d0
+	bne.s	ram_check_test
+	lea	str_cancelled, %a0
+	bra.s	ram_check_print
+ram_check_test:
 	move.b	#0xaa, (%a2)				/* First test with 10101010 */
 	cmp.b	#0xaa, (%a2)
 	bne.s	ram_check_fail
@@ -119,7 +126,7 @@ ram_check_loop:
 	bne.s	ram_check_fail
 	cmp.l	#RAM_END, %a2
 	blt.s	ram_check_loop				/* While we're still below the end of ram to check */
-	bra.s	ram_check_succ
+	bra.s	ram_check_success
 ram_check_fail:						/* One of the bytes of RAM failed to readback test */
 	lea	str_failed_at, %a0
 	bsr.w	print_str
@@ -128,8 +135,9 @@ ram_check_fail:						/* One of the bytes of RAM failed to readback test */
 	bsr.w	print_newline
 ram_check_haltloop:					/* Sit forever in the halt loop */
 	bra.s	ram_check_haltloop
-ram_check_succ:						/* All bytes passed the readback test */
+ram_check_success:						/* All bytes passed the readback test */
 	lea	str_passed, %a0
+ram_check_print:
 	bsr.w	print_str
 
 **************************************************
@@ -655,6 +663,8 @@ str_failed_at:
 	.asciz	"Failed at: "
 str_passed:
 	.asciz	"Passed.\r\n"
+str_cancelled:
+	.asciz	"Cancelled.\r\n"
 str_colon_space:
 	.asciz	": "
 str_newline:
