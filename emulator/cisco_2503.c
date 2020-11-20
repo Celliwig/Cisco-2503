@@ -5,6 +5,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <termios.h>
 #include "m68k.h"
 #include "cisco_2503.h"
 #include "cisco_2503_peripherals.h"
@@ -650,65 +651,83 @@ void update_duart_display() {
 					io_duart_core_get_reg(ChannelA_Clock_Select), \
 					io_duart_core_get_reg(ChannelA_Command));
 	mvwprintw(emu_win_duart, 4, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
-	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    TxHR[%u]: 0x%02x    TxSR[%u]: 0x%02x", \
+	sprintf(str_tmp_buf, "Status: 0x%02x    TxHR[%u]: 0x%02x    TxSR[%u]: 0x%02x", \
 					io_duart_core_get_reg(ChannelA_Status), \
-					io_duart_core_get_reg(ChannelA_Rx), \
 					io_duart_core_get_reg(ChannelA_Tx_Holding_Empty), \
 					io_duart_core_get_reg(ChannelA_Tx_Holding), \
 					io_duart_core_get_reg(ChannelA_Tx_Shift_Empty), \
 					io_duart_core_get_reg(ChannelA_Tx_Shift));
 	mvwprintw(emu_win_duart, 5, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	sprintf(str_tmp_buf, "RxSR[%u]: 0x%02x    FIFO0[%02x]: 0x%02x    FIFO1[%02x]: 0x%02x    FIFO2[%02x]: 0x%02x", \
+					io_duart_core_get_reg(ChannelA_Rx_Shift_Empty), \
+					io_duart_core_get_reg(ChannelA_Rx_Shift), \
+					io_duart_core_get_reg(ChannelA_Rx_Fifo0_Status), \
+					io_duart_core_get_reg(ChannelA_Rx_Fifo0), \
+					io_duart_core_get_reg(ChannelA_Rx_Fifo1_Status), \
+					io_duart_core_get_reg(ChannelA_Rx_Fifo1), \
+					io_duart_core_get_reg(ChannelA_Rx_Fifo2_Status), \
+					io_duart_core_get_reg(ChannelA_Rx_Fifo2));
+	mvwprintw(emu_win_duart, 6, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
-	mvwprintw(emu_win_duart, 7, 2, "Channel B:");
+	mvwprintw(emu_win_duart, 8, 2, "Channel B:");
 	sprintf(str_tmp_buf, "Mode 1: 0x%02x    Mode 2: 0x%02x    Clock Select: 0x%02x    Command: 0x%02x", \
 					io_duart_core_get_reg(ChannelB_Mode1), \
 					io_duart_core_get_reg(ChannelB_Mode2), \
 					io_duart_core_get_reg(ChannelB_Clock_Select), \
 					io_duart_core_get_reg(ChannelB_Command));
-	mvwprintw(emu_win_duart, 8, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
-	sprintf(str_tmp_buf, "Status: 0x%02x    Rx: 0x%02x    TxHR[%u]: 0x%02x    TxSR[%u]: 0x%02x", \
+	mvwprintw(emu_win_duart, 9, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	sprintf(str_tmp_buf, "Status: 0x%02x    TxHR[%u]: 0x%02x    TxSR[%u]: 0x%02x", \
 					io_duart_core_get_reg(ChannelB_Status), \
-					io_duart_core_get_reg(ChannelB_Rx), \
 					io_duart_core_get_reg(ChannelB_Tx_Holding_Empty), \
 					io_duart_core_get_reg(ChannelB_Tx_Holding), \
 					io_duart_core_get_reg(ChannelB_Tx_Shift_Empty), \
 					io_duart_core_get_reg(ChannelB_Tx_Shift));
-	mvwprintw(emu_win_duart, 9, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	mvwprintw(emu_win_duart, 10, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	sprintf(str_tmp_buf, "RxSR[%u]: 0x%02x    FIFO0[%02x]: 0x%02x    FIFO1[%02x]: 0x%02x    FIFO2[%02x]: 0x%02x", \
+					io_duart_core_get_reg(ChannelB_Rx_Shift_Empty), \
+					io_duart_core_get_reg(ChannelB_Rx_Shift), \
+					io_duart_core_get_reg(ChannelB_Rx_Fifo0_Status), \
+					io_duart_core_get_reg(ChannelB_Rx_Fifo0), \
+					io_duart_core_get_reg(ChannelB_Rx_Fifo1_Status), \
+					io_duart_core_get_reg(ChannelB_Rx_Fifo1), \
+					io_duart_core_get_reg(ChannelB_Rx_Fifo2_Status), \
+					io_duart_core_get_reg(ChannelB_Rx_Fifo2));
+	mvwprintw(emu_win_duart, 11, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
-	mvwprintw(emu_win_duart, 11, 2, "Interrupts:");
+	mvwprintw(emu_win_duart, 13, 2, "Interrupts:");
 	sprintf(str_tmp_buf, "Interrupt Status: 0x%02x    Interrupt Mask: 0x%02x", \
 					io_duart_core_get_reg(Interrupt_Status), \
 					io_duart_core_get_reg(Interrupt_Mask));
-	mvwprintw(emu_win_duart, 12, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	mvwprintw(emu_win_duart, 14, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
-	mvwprintw(emu_win_duart, 14, 2, "Misc:");
+	mvwprintw(emu_win_duart, 16, 2, "Misc:");
 	sprintf(str_tmp_buf, "Auxiliary Control: 0x%02x", io_duart_core_get_reg(Auxiliary_Control));
-	mvwprintw(emu_win_duart, 15, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	mvwprintw(emu_win_duart, 17, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
-	mvwprintw(emu_win_duart, 17, 2, "Counter / Timer:");
+	mvwprintw(emu_win_duart, 19, 2, "Counter / Timer:");
 	sprintf(str_tmp_buf, "Upper: 0x%02x    Upper Preset: 0x%02x    Start Command: 0x%02x", \
 					io_duart_core_get_reg(CounterTimer_Upper), \
 					io_duart_core_get_reg(CounterTimer_Upper_Preset), \
 					io_duart_core_get_reg(CounterTimer_Start_Command));
-	mvwprintw(emu_win_duart, 18, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	mvwprintw(emu_win_duart, 20, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 	sprintf(str_tmp_buf, "Lower: 0x%02x    Lower Preset: 0x%02x    Stop Command: 0x%02x", \
 					io_duart_core_get_reg(CounterTimer_Lower), \
 					io_duart_core_get_reg(CounterTimer_Lower_Preset), \
 					io_duart_core_get_reg(CounterTimer_Stop_Command));
-	mvwprintw(emu_win_duart, 19, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	mvwprintw(emu_win_duart, 21, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
-	mvwprintw(emu_win_duart, 21, 2, "Input Port:");
+	mvwprintw(emu_win_duart, 23, 2, "Input Port:");
 	sprintf(str_tmp_buf, "Port: 0x%02x    Port Change: 0x%02x", \
 					io_duart_core_get_reg(Input_Port), \
 					io_duart_core_get_reg(Input_Port_Change));
-	mvwprintw(emu_win_duart, 22, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	mvwprintw(emu_win_duart, 24, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
-	mvwprintw(emu_win_duart, 24, 2, "Output Port:");
+	mvwprintw(emu_win_duart, 26, 2, "Output Port:");
 	sprintf(str_tmp_buf, "Port Config: 0x%02x    Port Set: 0x%02x    Port Reset: 0x%02x", \
 					io_duart_core_get_reg(Output_Port_Configuration), \
 					io_duart_core_get_reg(Output_Port_Set), \
 					io_duart_core_get_reg(Output_Port_Reset));
-	mvwprintw(emu_win_duart, 25, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
+	mvwprintw(emu_win_duart, 27, 4, "%.*s", (emu_win_duart_cols - 6), str_tmp_buf);
 
 	redrawwin(emu_win_duart);
 	wnoutrefresh(emu_win_duart);
@@ -956,9 +975,10 @@ void print_usage() {
 // Main loop
 //////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
-	FILE*	fh_bootrom;
-	int	fd_serial, key_press, tmp_opt;
-	char	emu_step = 0, *bootrom_filename = NULL, *console_devname = NULL;
+	FILE*		fh_bootrom;
+	int		fd_serial, key_press, tmp_opt;
+	char		emu_step = 0, *bootrom_filename = NULL, *console_devname = NULL;
+	struct termios	serial_fd_opts;
 
 	opterr = 0;
 	while ((tmp_opt = getopt(argc, argv, "b:s:")) != -1) {
@@ -995,6 +1015,19 @@ int main(int argc, char* argv[]) {
 			printf("Unable to open %s\n", console_devname);
 			exit(-1);
 		} else {
+			/* get the current options */
+			tcgetattr(fd_serial, &serial_fd_opts);
+
+			/* set raw input, 1 second timeout */
+			serial_fd_opts.c_cflag |= (CLOCAL | CREAD);
+			serial_fd_opts.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+			serial_fd_opts.c_oflag &= ~OPOST;
+			serial_fd_opts.c_cc[VMIN] = 0;
+			serial_fd_opts.c_cc[VTIME] = 0;
+
+			/* set the options */
+			tcsetattr(fd_serial, TCSANOW, &serial_fd_opts);
+
 			io_duart_core_channelA_serial_device(fd_serial);
 		}
 	}
@@ -1107,7 +1140,7 @@ int main(int argc, char* argv[]) {
 			if (emu_step > 0) emu_step--;
 		}
 
-		usleep(1000);
+		usleep(800);
 	}
 
 	// Destroy ncurses

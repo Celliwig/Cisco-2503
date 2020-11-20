@@ -707,10 +707,10 @@ unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
 			return 0xff & (scn2681_channelA_rx_fifo[2]>>8);
 			break;
 		case ChannelA_Rx_Read_Index:
-			return scn2681_channelA_rd_idx;
+			return scn2681_channelA_rx_rd_idx;
 			break;
 		case ChannelA_Rx_Write_Index:
-			return scn2681_channelA_wr_idx;
+			return scn2681_channelA_rx_wr_idx;
 			break;
 		case ChannelA_Rx_Shift:
 			return scn2681_channelA_rx_rsr;
@@ -765,10 +765,10 @@ unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
 			return 0xff & (scn2681_channelB_rx_fifo[2]>>8);
 			break;
 		case ChannelB_Rx_Read_Index:
-			return scn2681_channelB_rd_idx;
+			return scn2681_channelB_rx_rd_idx;
 			break;
 		case ChannelB_Rx_Write_Index:
-			return scn2681_channelB_wr_idx;
+			return scn2681_channelB_rx_wr_idx;
 			break;
 		case ChannelB_Rx_Shift:
 			return scn2681_channelB_rx_rsr;
