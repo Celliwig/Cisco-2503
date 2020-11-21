@@ -143,8 +143,8 @@ startup_final:
 	jsr	print_newline
 	jsr	print_newline
 
-	lea	str_version, %a0
-	jsr	print_str
+	lea	str_prompt9b, %a0
+	jsr	print_cstr
 
 *	ld	hl, str_logon1				; Print greeting
 *	call	print_cstr
@@ -226,9 +226,72 @@ module_search_failed:
 module_search_end:
 	rts
 
+# String routines
+###########################################################################
+# char_2_upper
+#################################
+#  Converts ASCII letter to uppercase if necessary
+#	In:	D0 = ASCII character
+#	Out:	D0 = ASCII character
+char_2_upper:
+	cmp.b	#97, %d0				/* 'a' */
+	blt.s	char_2_upper_end
+	cmp.b	#123, %d0				/* 'z' + 1 */
+	bgt.s	char_2_upper_end
+	add.b	#224, %d0				/* Addition wraps */
+char_2_upper_end:
+	rts
+
+# char_2_hex
+#################################
+#  Converts (if possible) a character (A-Z/0-9) to hex value
+#	In:	A = ASCII character
+#	Out:	A = Hex value
+#		Carry set if value valid, not otherwise
+*char_2_hex:
+*	add	a, 208
+*	jr	nc, char_2_hex_not
+*	add	a, 246
+*	jr	c, char_2_hex_maybe
+*	add	a, 10
+*	scf						; Set Carry flag
+*	ret
+*char_2_hex_maybe:
+*	add	a, 249
+*	jr	nc, char_2_hex_not
+*	add	a, 250
+*	jr	c, char_2_hex_not
+*	add	a, 16
+*	scf						; Set Carry flag
+*	ret
+*char_2_hex_not:
+*	scf						; Clear Carry flag
+*	ccf
+*	ret
+
+# string_length
+#################################
+#  Calculates the length of the string
+#	In:	HL = Pointer to string
+#	Out:	BC = String length
+*string_length:
+*	push	hl
+*	ld	bc, 0					; Clear count
+*string_length_loop:
+*	ld	a, (hl)					; Get byte to test
+*	and	a					; Set flags
+*	jr	z, string_length_end			; Have we reached the end
+*	inc	bc					; Increment count
+*	bit	7, a					; See if we have a multi-part string
+*	jr	nz, string_length_end
+*	inc	hl					; Increment pointer
+*	jr	string_length_loop
+*string_length_end:
+*	pop	hl
+*	ret
+
 # Print routines
 ###########################################################################
-
 # print_spacex2
 #################################
 #  Print double space
@@ -528,148 +591,134 @@ print_str:
 print_str_end:
 	rts
 
-*; # print_cstr
-*; #################################
-*;  Prints compressed strings. A dictionary of 128 words is stored in 4
-*;  bit packed binary format. When it finds a byte in a string with the
-*;  high bit set, it prints the word from the dictionary. A few bytes
-*;  have special functions and everything else prints as if it were an
-*;  ordinary string.
-*;
-*;  Special codes for pcstr:
-*;	0 = end of string
-*;	13 = CR/LF
-*;	14 = CR/LF and end of string
-*;	31 = next word code should be capitalized
-*;
-*;	In:	HL = Pointer to compressed string
-*print_cstr:
-*	ld	b, 0					; B is used to store state information
-*	set	1, b					; If unset, prints a space in front of compressed word
-*	set	5, b					; If unset, prints word with capitalised first letter
-*print_cstr_next:
-*	ld	a, (hl)					; Get next character
-*	inc	hl					; Increment pointer
-*	and	a					; Test if value is zero
-*	jr	z, print_cstr_end			; Check whether NULL character
-*	bit	7, a					; Test msb
-*	jr	z, print_cstr_check_13
-*	call	dictionary_print_word			; It's a dictionary word, so print it
-*	jr	print_cstr_next
-*print_cstr_check_13:
-*	cp	13					; Check for control code
-*	jr	nz, print_cstr_check_14
-*	call	print_newline
-*	set	1, b					; Print a space in front of compressed word
-*	jr	print_cstr_next				; Loop for next character
-*print_cstr_check_14:
-*	cp	14					; Check for control code
-*	jr	nz, print_cstr_check_31
-*	call	print_newline
-*	jr	print_cstr_end
-*print_cstr_check_31:
-*	cp	31					; Check for control code
-*	jr	nz, print_cstr_char
-*	res	5, b					; Reset B(5) so as to capitalise next word
-*	jr	print_cstr_next
-*print_cstr_char:
-*	res	1, b					; Print a space in front of next compressed word.
-*	call	monlib_console_out			; Print character
-*	jr	print_cstr_next
-*print_cstr_end:
-*	ret
-*
-*; # dictionary_print_word
-*; #################################
-*;  Prints a selected word from the built-in dictionary
-*;	In:	A = Selected word index
-*;		B = Control byte
-*;			bit 1 - 0 = Print space / 1 = Don't print space
-*;			bit 5 - 0 = Capitalise first letter / 1 = Don't capitalise first letter
-*;			bit 7 - Used to indicate top/bottom nibble
-*dictionary_print_word:
-*	and	0x7F					; Clear msb on A
-*	ld	c, a					; Save word index
-*	bit	1, b					; If unset, print a space
-*	jr	nz, dictionary_print_word_search_setup
-*	call	print_space				; Print a space
-*dictionary_print_word_search_setup:
-*	res	1, b					; Be sure to print a space next time
-*	ld	ix, common_words			; Get pointer to dictionary
-*	res	7, b					; Make sure we get the bottom nibble to start
-*	ld	a, c					; Reload word index
-*	and	c					; Update flags
-*dictionary_print_word_search_loop:
-*	jr	z, dictionary_print_word_selected_loop	; Found the word, so print it
-*dictionary_print_word_nibble_loop:
-*	call	dictionary_get_next_nibble		; Scan through nibbles
-*	jr	nz, dictionary_print_word_nibble_loop	; Searching for the end of a word (A = 0)
-*	dec	c					; Found the end of the word, so decrement word index
-*	jr	dictionary_print_word_search_loop	; Search again
-*dictionary_print_word_selected_loop:
-*	call	dictionary_get_next_nibble		; Get next compressed character
-*	jr	z, dictionary_print_word_end		; End of the word, so finish
-*	cp	0x0f					; Check whether to select alternate letters
-*	jr	z, dictionary_print_word_select_unloved
-*dictionary_print_word_select_loved:
-*	ld	iy, dictionary_loved_letters		; Get pointer to loved letters
-*	jr	dictionary_print_word_get_char
-*dictionary_print_word_select_unloved:
-*	call	dictionary_get_next_nibble		; Get the next character
-*	ld	iy, dictionary_unloved_letters		; Get pointer to unloved letters
-*dictionary_print_word_get_char:
-*	dec	a					; Decrement index
-*	ld	d, 0
-*	ld	e, a					; Create offset
-*	add	iy, de					; Add offset to pointer
-*	ld	a, (iy+0)				; Get letter
-*	bit	5, b					; Test whether to capitalise letter
-*	jr	nz, dictionary_print_word_print_char
-*	call	char_2_upper				; Capitalise letter
-*	set	5, b					; Disable capitalisation for the rest of the word
-*dictionary_print_word_print_char:
-*	push	ix					; Save IX
-*	call	monlib_console_out			; Print character
-*	pop	ix					; Restore IX
-*	jr	dictionary_print_word_selected_loop	; Loop through additional characters
-*dictionary_print_word_end:
-*	ret
-*
-*dictionary_loved_letters:	db	"etarnisolumpdc"	; 14 most commonly used letters
-*dictionary_unloved_letters:	db	"hfwgybxvkqjz"		; 12 least commonly used letters
-*
-*; # dictionary_get_next_nibble
-*; #################################
-*;  Returns the selected nibble from the memory location
-*;  Prints a selected word from the built-in dictionary
-*;	In:	IX = Pointer to memory location
-*;		B = Control byte
-*;			bit 7 - Used to indicate top/bottom nibble
-*dictionary_get_next_nibble:
-*	ld	a, (IX+0)
-*	bit	7, b					; Test whether we want top or bottom nibble
-*	jr	nz, dictionary_get_next_nibble_top	; We want the top nibble
-*dictionary_get_next_nibble_bottom:
-*	and	0x0f
-*	set	7, b					; Select top nibble on the next read
-*	ret
-*dictionary_get_next_nibble_top:
-*	inc	ix					; Increment pointer
-*	srl	a
-*	srl	a
-*	srl	a
-*	srl	a					; Top nibble shifted to the bottom
-*	and	0x0f
-*	res	7, b					; Select bottom nibble on the next read
-*	ret
-*
+# print_cstr
+#################################
+#  Prints compressed strings. A dictionary of 128 words is stored in 4
+#  bit packed binary format. When it finds a byte in a string with the
+#  high bit set, it prints the word from the dictionary. A few bytes
+#  have special functions and everything else prints as if it were an
+#  ordinary string.
+#
+#  Special codes for pcstr:
+#	0 = end of string
+#	13 = CR/LF
+#	14 = CR/LF and end of string
+#	31 = next word code should be capitalized
+#
+#	In:	A0 = Pointer to compressed string
+print_cstr:
+	eor.l	%d2, %d2				/* Clear D1, used for state information */
+	bset	#1, %d2					/* If unset, prints a space in front of compressed word */
+	bset	#5, %d2					/* If unset, prints word with capitalised first letter */
+print_cstr_next:
+	mov.b	(%a0)+, %d0				/* Get next character, increment pointer */
+	beq.s	print_cstr_end				/* Check whether NULL character */
+	btst	#7, %d0					/* Test msb */
+	beq.s	print_cstr_check_13
+	mov.b	%d0, %d1
+	jsr	dictionary_print_word			/* It's a dictionary word, so print it */
+	bra.s	print_cstr_next
+print_cstr_check_13:
+	cmp.b	#13, %d0				/* Check for control code */
+	bne.b	print_cstr_check_14
+	jsr	print_newline
+	bset	#1, %d2					/* No automatic space */
+	bra.s	print_cstr_next				/* Loop for next character */
+print_cstr_check_14:
+	cmp.b	#14, %d0				/* Check for control code */
+	bne.s	print_cstr_check_31
+	jsr	print_newline
+	bra.s	print_cstr_end				/* Finished */
+print_cstr_check_31:
+	cmp.b	#31, %d0				/* Check for control code */
+	bne.s	print_cstr_char
+	bclr	#5, %d2					/* Capitalise the next word */
+	bra.s	print_cstr_next				/* Loop for next character */
+print_cstr_char:
+	bclr	#1, %d2					/* Ensure a space is printed in front of the next compressed word */
+	jsr	console_out				/* Print character */
+	bra.s	print_cstr_next				/* Loop to next character */
+print_cstr_end:
+	rts
+
+# dictionary_print_word
+#################################
+#  Prints a selected word from the built-in dictionary
+#	In:	D1 = Selected word index
+#		D2 = Control byte
+#			bit 1 - 0 = Print space / 1 = Don't print space
+#			bit 5 - 0 = Capitalise first letter / 1 = Don't capitalise first letter
+#			bit 7 - Used to indicate top/bottom nibble
+dictionary_print_word:
+	andi.b	#0x7f, %d1				/* Clear msb of word index */
+	bset.l	#1, %d2					/* Check whether to print space */
+	bne.s	dictionary_print_word_search_setup
+	jsr	print_space				/* Print space */
+dictionary_print_word_search_setup:
+	lea	common_words, %a1
+	bset.l	#7, %d2					/* Make sure we get the bottom nibble to start */
+	and.b	%d1, %d1				/* Update flags */
+dictionary_print_word_search_loop:
+	beq.s	dictionary_print_word_selected_loop	/* Found the word, so print it */
+dictionary_print_word_nibble_loop:
+	jsr	dictionary_get_next_nibble		/* Scan through nibbles */
+	bne.s	dictionary_print_word_nibble_loop	/* Searching for the end of a word (D0 = 0) */
+	subq.b	#1, %d1					/* Decrement word index */
+	bra.s	dictionary_print_word_search_loop	/* Search again */
+dictionary_print_word_selected_loop:
+	jsr	dictionary_get_next_nibble		/* Get next compressed character*/
+	beq.s	dictionary_print_word_end		/* End of the word, so finish */
+	cmp.b	#0x0f, %d0				/* Check whether to select alternate letters */
+	beq.s	dictionary_print_word_select_unloved
+dictionary_print_word_select_loved:
+	lea	dictionary_loved_letters, %a2		/* Get pointer to loved letters */
+	bra.s	dictionary_print_word_get_char
+dictionary_print_word_select_unloved:
+	jsr	dictionary_get_next_nibble		/* Get the next character */
+	lea	dictionary_unloved_letters, %a2		/* Get pointer to unloved letters */
+dictionary_print_word_get_char:
+	subq.b	#1, %d0					/* Decrement index */
+	add.l	%d0, %a2				/* Create pointer to letter */
+	mov.b	(%a2), %d0				/* Get letter */
+	bset	#5, %d2					/* Test whether to capitalise letter, reset flag */
+	bne.s	dictionary_print_word_print_char
+	jsr	char_2_upper				/* Capitalise letter */
+dictionary_print_word_print_char:
+	jsr	console_out				/* Print character */
+	bra.s	dictionary_print_word_selected_loop	/* Loop through additional characters */
+dictionary_print_word_end:
+	rts
+
+dictionary_loved_letters:	.ascii	"etarnisolumpdc"	/* 14 most commonly used letters */
+dictionary_unloved_letters:	.ascii	"hfwgybxvkqjz"		/* 12 least commonly used letters */
+
+# dictionary_get_next_nibble
+#################################
+#  Returns the selected nibble from the memory location
+#  Prints a selected word from the built-in dictionary
+#	In:	A1 = Pointer to memory location
+#		D2 = Control byte
+#			bit 7 - Used to indicate top/bottom nibble
+#	Out:	D0 = Nibble value
+dictionary_get_next_nibble:
+	eor.l	%d0, %d0				/* Clear D0, will want to do long addition to an address later */
+	mov.b	(%a1), %d0
+	bchg.l	#7, %d2					/* Test whether we want top or bottom nibble, and toggle */
+	bne.s	dictionary_get_next_nibble_bottom	/* We want the top nibble */
+dictionary_get_next_nibble_top:
+	adda.l	#1, %a1					/* Increment pointer */
+	lsr.b	#4, %d0					/* Top nibble shifted to the bottom */
+dictionary_get_next_nibble_bottom:
+	and.b	#0x0f, %d0
+	rts
+
 *; # print_abort
 *; #################################
 *;  Print the abort string
 *print_abort:
 *	ld	hl, str_abort
 *	jp	print_cstr
-*
+
 *; # print_registers
 *; #################################
 *;  Print out the contents of all registers (without altering them!)
@@ -833,70 +882,6 @@ print_str_end:
 *	add	c					; Combine values
 *	ret
 
-*; # String routines
-*; ###########################################################################
-*; # char_2_upper
-*; #################################
-*;  Converts ASCII letter to uppercase if necessary
-*;	In:	A = ASCII character
-*;	Out:	A = ASCII character
-*char_2_upper:
-*	cp	97					; 'a'
-*	jr	c, char_2_upper_end
-*	cp	123					; 'z' + 1
-*	jr	nc, char_2_upper_end
-*	add	224
-*char_2_upper_end:
-*	ret
-*
-*; # char_2_hex
-*; #################################
-*;  Converts (if possible) a character (A-Z/0-9) to hex value
-*;	In:	A = ASCII character
-*;	Out:	A = Hex value
-*;		Carry set if value valid, not otherwise
-*char_2_hex:
-*	add	a, 208
-*	jr	nc, char_2_hex_not
-*	add	a, 246
-*	jr	c, char_2_hex_maybe
-*	add	a, 10
-*	scf						; Set Carry flag
-*	ret
-*char_2_hex_maybe:
-*	add	a, 249
-*	jr	nc, char_2_hex_not
-*	add	a, 250
-*	jr	c, char_2_hex_not
-*	add	a, 16
-*	scf						; Set Carry flag
-*	ret
-*char_2_hex_not:
-*	scf						; Clear Carry flag
-*	ccf
-*	ret
-*
-*; # string_length
-*; #################################
-*;  Calculates the length of the string
-*;	In:	HL = Pointer to string
-*;	Out:	BC = String length
-*string_length:
-*	push	hl
-*	ld	bc, 0					; Clear count
-*string_length_loop:
-*	ld	a, (hl)					; Get byte to test
-*	and	a					; Set flags
-*	jr	z, string_length_end			; Have we reached the end
-*	inc	bc					; Increment count
-*	bit	7, a					; See if we have a multi-part string
-*	jr	nz, string_length_end
-*	inc	hl					; Increment pointer
-*	jr	string_length_loop
-*string_length_end:
-*	pop	hl
-*	ret
-*
 *; # Input routines
 *; ###########################################################################
 *; # input_character_filter
@@ -2289,99 +2274,99 @@ print_str_end:
 *menu_main_end:
 *	jp	print_newline				; This will return to menu_main
 
-*; # Fixed data structures
-*; ###########################################################################
-*
-*; # Dictionary of common words
-*; #################################
-*;  This is the dictionary of 128 words used by print_cstr.
-*; 0 - to		32 - abort		64 - internal		 96 - support
-*; 1 - location		33 - you		65 - complete		 97 - write
-*; 2 - program		34 - the		66 - an			 98 - up
-*; 3 - memory		35 - is			67 - header		 99 - stack
-*; 4 - hex		36 - and		68 - register		100 - press
-*; 5 - unexpected	37 - interrupt		69 - must		101 - see
-*; 6 - run		38 - in			70 - line		102 - reset
-*; 7 - new		39 - be			71 - found		103 - pointer
-*; 8 - jump		40 - with		72 - quit		104 - fixed
-*; 9 - file		41 - as			73 - type		105 - detection
-*;10 - download		42 - code		74 - which		106 - may
-*;11 - bytes		43 - will		75 - erase		107 - has
-*;12 - esc		44 - from		76 - step		108 - assemble
-*;13 - information	45 - that		77 - provide		109 - clear
-*;14 - this		46 - at			78 - so			110 - configure
-*;15 - start		47 - used		79 - single		111 - data
-*;16 - rom		48 - if			80 - should		112 - change
-*;17 - receive		49 - by			81 - list		113 - allow
-*;18 - ram		50 - value		82 - search		114 - written
-*;19 - upload		51 - not		83 - eprom		115 - interface
-*;20 - paulmon		52 - for		84 - next		116 - install
-*;21 - or		53 - baud		85 - more		117 - checksum
-*;22 - of		54 - when		86 - available		118 - instruction
-*;23 - no		55 - rate		87 - help		119 - unchanged
-*;24 - intel		56 - can		88 - edit		120 - end
-*;25 - flash		57 - are		89 - well		121 - transfer
-*;26 - external		58 - use		90 - user		122 - time
-*;27 - errors		59 - serial		91 - dump		123 - any
-*;28 - editing		60 - auto		92 - delays		124 - skip
-*;29 - digits		61 - port		93 - these		125 - name
-*;30 - command		62 - all		94 - terminal		126 - address
-*;31 - begin		63 - make		95 - system		127 - print
-*common_words:
-*	db	0x82, 0x90, 0xE8, 0x23, 0x86, 0x05, 0x4C, 0xF8
-*	db	0x44, 0xB3, 0xB0, 0xB1, 0x48, 0x5F, 0xF0, 0x11
-*	db	0x7F, 0xA0, 0x15, 0x7F, 0x1C, 0x2E, 0xD1, 0x40
-*	db	0x5A, 0x50, 0xF1, 0x03, 0xBF, 0xBA, 0x0C, 0x2F
-*	db	0x96, 0x01, 0x8D, 0x3F, 0x95, 0x38, 0x0D, 0x6F
-*	db	0x5F, 0x12, 0x07, 0x71, 0x0E, 0x56, 0x2F, 0x48
-*	db	0x3B, 0x62, 0x58, 0x20, 0x1F, 0x76, 0x70, 0x32
-*	db	0x24, 0x40, 0xB8, 0x40, 0xE1, 0x61, 0x8F, 0x01
-*	db	0x34, 0x0B, 0xCA, 0x89, 0xD3, 0xC0, 0xA3, 0xB9
-*	db	0x58, 0x80, 0x04, 0xF8, 0x02, 0x85, 0x60, 0x25
-*	db	0x91, 0xF0, 0x92, 0x73, 0x1F, 0x10, 0x7F, 0x12
-*	db	0x54, 0x93, 0x10, 0x44, 0x48, 0x07, 0xD1, 0x26
-*	db	0x56, 0x4F, 0xD0, 0xF6, 0x64, 0x72, 0xE0, 0xB8
-*	db	0x3B, 0xD5, 0xF0, 0x16, 0x4F, 0x56, 0x30, 0x6F
-*	db	0x48, 0x02, 0x5F, 0xA8, 0x20, 0x1F, 0x01, 0x76
-*	db	0x30, 0xD5, 0x60, 0x25, 0x41, 0xA4, 0x2C, 0x60
-*	db	0x05, 0x6F, 0x01, 0x3F, 0x26, 0x1F, 0x30, 0x07
-*	db	0x8E, 0x1D, 0xF0, 0x63, 0x99, 0xF0, 0x42, 0xB8
-*	db	0x20, 0x1F, 0x23, 0x30, 0x02, 0x7A, 0xD1, 0x60
-*	db	0x2F, 0xF0, 0xF6, 0x05, 0x8F, 0x93, 0x1A, 0x50
-*	db	0x28, 0xF0, 0x82, 0x04, 0x6F, 0xA3, 0x0D, 0x3F
-*	db	0x1F, 0x51, 0x40, 0x23, 0x01, 0x3E, 0x05, 0x43
-*	db	0x01, 0x7A, 0x01, 0x17, 0x64, 0x93, 0x30, 0x2A
-*	db	0x08, 0x8C, 0x24, 0x30, 0x99, 0xB0, 0xF3, 0x19
-*	db	0x60, 0x25, 0x41, 0x35, 0x09, 0x8E, 0xCB, 0x19
-*	db	0x12, 0x30, 0x05, 0x1F, 0x31, 0x1D, 0x04, 0x14
-*	db	0x4F, 0x76, 0x12, 0x04, 0xAB, 0x27, 0x90, 0x56
-*	db	0x01, 0x2F, 0xA8, 0xD5, 0xF0, 0xAA, 0x26, 0x20
-*	db	0x5F, 0x1C, 0xF0, 0xF3, 0x61, 0xFE, 0x01, 0x41
-*	db	0x73, 0x01, 0x27, 0xC1, 0xC0, 0x84, 0x8F, 0xD6
-*	db	0x01, 0x87, 0x70, 0x56, 0x4F, 0x19, 0x70, 0x1F
-*	db	0xA8, 0xD9, 0x90, 0x76, 0x02, 0x17, 0x43, 0xFE
-*	db	0x01, 0xC1, 0x84, 0x0B, 0x15, 0x7F, 0x02, 0x8B
-*	db	0x14, 0x30, 0x8F, 0x63, 0x39, 0x6F, 0x19, 0xF0
-*	db	0x11, 0xC9, 0x10, 0x6D, 0x02, 0x3F, 0x91, 0x09
-*	db	0x7A, 0x41, 0xD0, 0xBA, 0x0C, 0x1D, 0x39, 0x5F
-*	db	0x07, 0xF2, 0x11, 0x17, 0x20, 0x41, 0x6B, 0x35
-*	db	0x09, 0xF7, 0x75, 0x12, 0x0B, 0xA7, 0xCC, 0x48
-*	db	0x02, 0x3F, 0x64, 0x12, 0xA0, 0x0C, 0x27, 0xE3
-*	db	0x9F, 0xC0, 0x14, 0x77, 0x70, 0x11, 0x40, 0x71
-*	db	0x21, 0xC0, 0x68, 0x25, 0x41, 0xF0, 0x62, 0x7F
-*	db	0xD1, 0xD0, 0x21, 0xE1, 0x62, 0x58, 0xB0, 0xF3
-*	db	0x05, 0x1F, 0x73, 0x30, 0x77, 0xB1, 0x6F, 0x19
-*	db	0xE0, 0x19, 0x43, 0xE0, 0x58, 0x2F, 0xF6, 0xA4
-*	db	0x14, 0xD0, 0x23, 0x03, 0xFE, 0x31, 0xF5, 0x14
-*	db	0x30, 0x99, 0xF8, 0x03, 0x3F, 0x64, 0x22, 0x51
-*	db	0x60, 0x25, 0x41, 0x2F, 0xE3, 0x01, 0x56, 0x27
-*	db	0x93, 0x09, 0xFE, 0x11, 0xFE, 0x79, 0xBA, 0x60
-*	db	0x75, 0x42, 0xEA, 0x62, 0x58, 0xA0, 0xE5, 0x1F
-*	db	0x53, 0x4F, 0xD1, 0x10, 0xd5, 0x20, 0x34, 0x75
-*	db	0x2f, 0x41, 0x20, 0xb6, 0x01, 0x53, 0x5f, 0x70
-*	db	0x9f, 0xc6, 0x50, 0xb3, 0x01, 0xd3, 0x4d, 0x71
-*	db	0x07, 0x4c, 0x56, 0x02
-*
+# Fixed data structures
+###########################################################################
+
+# Dictionary of common words
+#################################
+#  This is the dictionary of 128 words used by print_cstr.
+#  0 - to		32 - abort		64 - internal		 96 - support
+#  1 - location		33 - you		65 - complete		 97 - write
+#  2 - program		34 - the		66 - an			 98 - up
+#  3 - memory		35 - is			67 - header		 99 - stack
+#  4 - hex		36 - and		68 - register		100 - press
+#  5 - unexpected	37 - interrupt		69 - must		101 - see
+#  6 - run		38 - in			70 - line		102 - reset
+#  7 - new		39 - be			71 - found		103 - pointer
+#  8 - jump		40 - with		72 - quit		104 - fixed
+#  9 - file		41 - as			73 - type		105 - detection
+# 10 - download		42 - code		74 - which		106 - may
+# 11 - bytes		43 - will		75 - erase		107 - has
+# 12 - esc		44 - from		76 - step		108 - assemble
+# 13 - information	45 - that		77 - provide		109 - clear
+# 14 - this		46 - at			78 - so			110 - configure
+# 15 - start		47 - used		79 - single		111 - data
+# 16 - rom		48 - if			80 - should		112 - change
+# 17 - receive		49 - by			81 - list		113 - allow
+# 18 - ram		50 - value		82 - search		114 - written
+# 19 - upload		51 - not		83 - eprom		115 - interface
+# 20 - paulmon		52 - for		84 - next		116 - install
+# 21 - or		53 - baud		85 - more		117 - checksum
+# 22 - of		54 - when		86 - available		118 - instruction
+# 23 - no		55 - rate		87 - help		119 - unchanged
+# 24 - intel		56 - can		88 - edit		120 - end
+# 25 - flash		57 - are		89 - well		121 - transfer
+# 26 - external		58 - use		90 - user		122 - time
+# 27 - errors		59 - serial		91 - dump		123 - any
+# 28 - editing		60 - auto		92 - delays		124 - skip
+# 29 - digits		61 - port		93 - these		125 - name
+# 30 - command		62 - all		94 - terminal		126 - address
+# 31 - begin		63 - make		95 - system		127 - print
+common_words:
+	dc.b	0x82, 0x90, 0xE8, 0x23, 0x86, 0x05, 0x4C, 0xF8
+	dc.b	0x44, 0xB3, 0xB0, 0xB1, 0x48, 0x5F, 0xF0, 0x11
+	dc.b	0x7F, 0xA0, 0x15, 0x7F, 0x1C, 0x2E, 0xD1, 0x40
+	dc.b	0x5A, 0x50, 0xF1, 0x03, 0xBF, 0xBA, 0x0C, 0x2F
+	dc.b	0x96, 0x01, 0x8D, 0x3F, 0x95, 0x38, 0x0D, 0x6F
+	dc.b	0x5F, 0x12, 0x07, 0x71, 0x0E, 0x56, 0x2F, 0x48
+	dc.b	0x3B, 0x62, 0x58, 0x20, 0x1F, 0x76, 0x70, 0x32
+	dc.b	0x24, 0x40, 0xB8, 0x40, 0xE1, 0x61, 0x8F, 0x01
+	dc.b	0x34, 0x0B, 0xCA, 0x89, 0xD3, 0xC0, 0xA3, 0xB9
+	dc.b	0x58, 0x80, 0x04, 0xF8, 0x02, 0x85, 0x60, 0x25
+	dc.b	0x91, 0xF0, 0x92, 0x73, 0x1F, 0x10, 0x7F, 0x12
+	dc.b	0x54, 0x93, 0x10, 0x44, 0x48, 0x07, 0xD1, 0x26
+	dc.b	0x56, 0x4F, 0xD0, 0xF6, 0x64, 0x72, 0xE0, 0xB8
+	dc.b	0x3B, 0xD5, 0xF0, 0x16, 0x4F, 0x56, 0x30, 0x6F
+	dc.b	0x48, 0x02, 0x5F, 0xA8, 0x20, 0x1F, 0x01, 0x76
+	dc.b	0x30, 0xD5, 0x60, 0x25, 0x41, 0xA4, 0x2C, 0x60
+	dc.b	0x05, 0x6F, 0x01, 0x3F, 0x26, 0x1F, 0x30, 0x07
+	dc.b	0x8E, 0x1D, 0xF0, 0x63, 0x99, 0xF0, 0x42, 0xB8
+	dc.b	0x20, 0x1F, 0x23, 0x30, 0x02, 0x7A, 0xD1, 0x60
+	dc.b	0x2F, 0xF0, 0xF6, 0x05, 0x8F, 0x93, 0x1A, 0x50
+	dc.b	0x28, 0xF0, 0x82, 0x04, 0x6F, 0xA3, 0x0D, 0x3F
+	dc.b	0x1F, 0x51, 0x40, 0x23, 0x01, 0x3E, 0x05, 0x43
+	dc.b	0x01, 0x7A, 0x01, 0x17, 0x64, 0x93, 0x30, 0x2A
+	dc.b	0x08, 0x8C, 0x24, 0x30, 0x99, 0xB0, 0xF3, 0x19
+	dc.b	0x60, 0x25, 0x41, 0x35, 0x09, 0x8E, 0xCB, 0x19
+	dc.b	0x12, 0x30, 0x05, 0x1F, 0x31, 0x1D, 0x04, 0x14
+	dc.b	0x4F, 0x76, 0x12, 0x04, 0xAB, 0x27, 0x90, 0x56
+	dc.b	0x01, 0x2F, 0xA8, 0xD5, 0xF0, 0xAA, 0x26, 0x20
+	dc.b	0x5F, 0x1C, 0xF0, 0xF3, 0x61, 0xFE, 0x01, 0x41
+	dc.b	0x73, 0x01, 0x27, 0xC1, 0xC0, 0x84, 0x8F, 0xD6
+	dc.b	0x01, 0x87, 0x70, 0x56, 0x4F, 0x19, 0x70, 0x1F
+	dc.b	0xA8, 0xD9, 0x90, 0x76, 0x02, 0x17, 0x43, 0xFE
+	dc.b	0x01, 0xC1, 0x84, 0x0B, 0x15, 0x7F, 0x02, 0x8B
+	dc.b	0x14, 0x30, 0x8F, 0x63, 0x39, 0x6F, 0x19, 0xF0
+	dc.b	0x11, 0xC9, 0x10, 0x6D, 0x02, 0x3F, 0x91, 0x09
+	dc.b	0x7A, 0x41, 0xD0, 0xBA, 0x0C, 0x1D, 0x39, 0x5F
+	dc.b	0x07, 0xF2, 0x11, 0x17, 0x20, 0x41, 0x6B, 0x35
+	dc.b	0x09, 0xF7, 0x75, 0x12, 0x0B, 0xA7, 0xCC, 0x48
+	dc.b	0x02, 0x3F, 0x64, 0x12, 0xA0, 0x0C, 0x27, 0xE3
+	dc.b	0x9F, 0xC0, 0x14, 0x77, 0x70, 0x11, 0x40, 0x71
+	dc.b	0x21, 0xC0, 0x68, 0x25, 0x41, 0xF0, 0x62, 0x7F
+	dc.b	0xD1, 0xD0, 0x21, 0xE1, 0x62, 0x58, 0xB0, 0xF3
+	dc.b	0x05, 0x1F, 0x73, 0x30, 0x77, 0xB1, 0x6F, 0x19
+	dc.b	0xE0, 0x19, 0x43, 0xE0, 0x58, 0x2F, 0xF6, 0xA4
+	dc.b	0x14, 0xD0, 0x23, 0x03, 0xFE, 0x31, 0xF5, 0x14
+	dc.b	0x30, 0x99, 0xF8, 0x03, 0x3F, 0x64, 0x22, 0x51
+	dc.b	0x60, 0x25, 0x41, 0x2F, 0xE3, 0x01, 0x56, 0x27
+	dc.b	0x93, 0x09, 0xFE, 0x11, 0xFE, 0x79, 0xBA, 0x60
+	dc.b	0x75, 0x42, 0xEA, 0x62, 0x58, 0xA0, 0xE5, 0x1F
+	dc.b	0x53, 0x4F, 0xD1, 0x10, 0xd5, 0x20, 0x34, 0x75
+	dc.b	0x2f, 0x41, 0x20, 0xb6, 0x01, 0x53, 0x5f, 0x70
+	dc.b	0x9f, 0xc6, 0x50, 0xb3, 0x01, 0xd3, 0x4d, 0x71
+	dc.b	0x07, 0x4c, 0x56, 0x02
+
 *; # List of strings
 *; #################################
 *; Strings used to dump register contents
@@ -2417,7 +2402,7 @@ print_str_end:
 *str_prompt8:		db	13,13,31,136,128,131,129,0				; \n\nJump to memory location
 *;str_prompt9:		db	13,13,31,130,31,253,0					; \n\nProgram Name (OLD)
 *str_prompt9:		db	13,31,130,31,253,0					; \nProgram Name
-*str_prompt9b:		db	31,129,32,32,32,32,32,31,201,14				; Location      Type	 (must follow prompt9)
+str_prompt9b:		dc.b	31,129,32,32,32,32,32,31,201,14				/* Location      Type	 (must follow prompt9) */
 *str_prompt10:		db	") ",31,135,31,178,": ",0				; ) New Value:
 *str_prompt11:		db	31,189,": ",0						; Port:
 *str_prompt12:		db	31,178,": ",0						; Value:
