@@ -15,7 +15,7 @@ monitor-simple.hex: monitor-simple.run
 	srec_cat monitor-simple.run -Motorola -output monitor-simple.hex -Intel
 
 m68kmon.o: m68kmon.s
-	m68k-linux-gnu-as -m68000 -a=m68kmon.lst -o m68kmon.o m68kmon.s
+	m68k-linux-gnu-as -m68000 -a=m68kmon.lst -o m68kmon.o m68kmon.s cisco-2500/cisco-2500_lib.s
 
 m68kmon.elf: m68kmon.o
 	m68k-linux-gnu-ld -nostdlib -o m68kmon.elf m68kmon.o

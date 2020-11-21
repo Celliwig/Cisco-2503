@@ -16,55 +16,6 @@
 .include "cisco-2500/cisco-2500.h"
 .include "include/stddefs.h"
 
-.org	monitor_start
-
-*; # Architecture Jump Table
-*; ###########################################################################
-*; RST 0 / Processor cold start
-*orgmem	mem_base
-*	di						; Disable maskable interrupts
-*	jp	startup_cold				; Cold startup
-*
-*; RST 8
-*orgmem	mem_base+0x08
-*	jp	startup_warm				; Main startup routine (stack must be available)
-*
-*; RST 16
-*orgmem	mem_base+0x10
-*	jp	startup_final				; Startup completed
-*
-*; RST 24
-*orgmem	mem_base+0x18
-*	ds	8
-*
-*; RST 32
-*orgmem	mem_base+0x20
-*	ds	8
-*
-*; RST 40
-*orgmem	mem_base+0x28
-*	ds	8
-*
-*; RST 48
-*orgmem	mem_base+0x30
-*	ds	8
-*
-*; RST 56 / Mode 1 maskable interrupt
-*orgmem	mem_base+0x38
-*z80_interrupt_handler:
-*	reti						; RETI added to ignore maskable interrupt
-*	reti						; Additional library may overwrite
-*	reti						; With actual interrupt handler
-*	reti
-*
-*; NMI
-*orgmem	mem_base+0x66
-*z80_nm_interrupt_handler:
-*	retn						; RETN added to ignore non-maskable interrupt
-*	retn						; Additional library may overwrite
-*	retn						; With actual interrupt handler
-*	retn
-*
 *; # Subroutine Jump Table
 *; ###########################################################################
 *orgmem	mem_base+0x80
@@ -124,32 +75,171 @@
 *	dw	0x0000
 *z80mon_temp8:
 *	dw	0x0000
+
+# Monitor
+###########################################################################
+.org	monitor_start
+
+# Startup routines
+###########################################################################
+# startup_cold
+#################################
+# This is the first section of code executed on startup before any
+# hardware is initialised.
+startup_cold:
+	/* Basic initialisation */
+	move	%sr, %d0				/* Disable external interrupts */
+	or.l	#0x0700, %d0
+	move	%d0, %sr
+
+	/* Search for an init module */
+	lea	bootrom_start, %a0			/* Set search start */
+	lea	bootrom_start + bootrom_size, %a1	/* Set search end */
+	lea	startup_cold_search_rtn, %a7		/* Set return address */
+
+startup_cold_search:
+	bra.s	module_find				/* Find next module */
+
+startup_cold_search_rtn:
+	cmp.b	#0, %d0					/* Check if it's an init module */
+	beq.s	startup_cold_end			/* If don't find a module, just continue boot */
+	cmp.b	#249, %d0				/* Check if it's an init module */
+	bne.s	startup_cold_search_next		/* It's not an init module, keep searching */
+	adda.l	#0x40, %a0				/* Create pointer to init module */
+	lea	startup_cold_end, %a7			/* Save return address in A7 */
+	jmp	(%a0)					/* Execute init module */
+startup_cold_search_next:
+	adda.l	#0x100, %a0				/* Increment pointer */
+	cmp.l	%a1, %a0				/* Check if we've reached the end */
+	blt.s	startup_cold_search			/* We're not at the end so keep searching */
+startup_cold_end:
+
+# startup_warm
+#################################
+# This code is executed once basic system is initialised
+# It's assumed that a stack is available at this point
+startup_warm:
+	move	#stack_ptr, %sp				/* Reset stack pointer */
+
+*	ld	a, 253					; Search for startup application
+*	ld	hl, mem_srch_start			; Set search start
+*	call	module_search
+*	jr	nc, startup_warm_end			; No module found, so finish
 *
-*; # Monitor
-*; ###########################################################################
-*orgmem	mon_base
+*	ld	de, 0x40				; Load offset to module code
+*	add	hl, de					; Create pointer to init module
+*	jp	(hl)					; Execute startup module
 *
-*; # get_version
+*startup_warm_end:
+*	rst	16
+*
+*; # startup_final
 *; #################################
-*;  Returns the version number of the monitor
-*;	Out:	D = Major version number
-*;		E = Minor version number
+*;  Final section of startup, executes menu system
+*startup_final:
+*	call	print_newline
+*	ld	hl, str_logon1				; Print greeting
+*	call	print_cstr
+*	;ld	hl, str_logon2				; Print documentation notes
+*	;call	print_cstr
+*
+*	call	module_list_commands			; Print included commands
+*
+*	jp	menu_main				; Enter main menu
+*
+
+# Module routines
+###########################################################################
+# module_find
+#################################
+#  Finds the next header in the external memory. (Has to be able to work without stack)
+#	In:	A0 = point to start of search (only MSB used)
+#		A1 = point to end of search
+#		A7 = Return address
+#	Out:	A0 = location of next module
+#		D0 = module type, or unset if no module found
+module_find:
+	mov.l	%a0, %d0				/* Make sure we are on a boundary */
+	andi.l	#0xffffff00, %d0
+	mov.l	%d0, %a0
+module_find_loop:
+	mov.l	%a0, %a2				/* Copy address */
+	cmp.b	#0xA5, (%a2)+				/* Check first byte */
+	bne.s	module_find_next			/* If this doesn't match, check next range */
+	cmp.b	#0xE5, (%a2)+				/* Check second byte */
+	bne.s	module_find_next			/* If this doesn't match, check next range */
+	cmp.b	#0xE0, (%a2)+				/* Check third byte */
+	bne.s	module_find_next			/* If this doesn't match, check next range */
+	cmp.b	#0xA5, (%a2)+				/* Check fourth byte */
+	bne.s	module_find_next			/* If this doesn't match, check next range */
+	mov.b	(%a2), %d0				/* Get module type */
+	jmp	(%a7)					/* Resume execution from where we left off */
+module_find_next:
+	adda.l	#0x100, %a0				/* Increment address pointer */
+	cmp.l	%a1, %a0				/* Check if we've reached the end */
+	blt.s	module_find_loop
+module_find_end:
+	eor.l	%d0, %d0				/* Clear A to indicate no module */
+	jmp	(%a7)					/* Resume execution from where we left off */
+
+*; # module_search
+*; #################################
+*;  Finds the next header in the external memory.
+*;	In:	A = Module type to search for
+*;		HL = Address to start searching from
+*;	Out:	HL = location of next module
+*;		Carry flag is set on success, Carry flag is unset on failure
+*module_search:
+*	ld	de, mem_srch_end			; Set search end
+*	inc	d					; Increment search end address (so as to search up to and including)
+*	ld	ix, module_search_reenter		; Set return address
+*	ex	af, af'					; Swap out module type
+*module_search_next:
+*	ld	a, d					; Copy end search pointer MSB for compare
+*	cp	h					; Check whether we are at the end of the search space
+*	jr	z, module_search_failed			; We've reached the end, so we've failed to find a module
+*	jr	module_find
+*module_search_reenter:
+*	jr	nc, module_search_failed		; No module, exit
+*	ld	h, b					; Copy BC -> HL
+*	ld	l, c
+*	ld	b, a					; Copy module type
+*	ex	af, af'					; Swap in module type
+*	cp	b					; Check module type
+*	jr	z, module_search_end			; If they're the same, return
+*	ex	af, af'					; Swap out module type
+*	inc	h					; Increment pointer MSB
+*	jr	module_search_next			; Continue search
+*module_search_end:
+*	scf						; Set Carry flag
+*	ret
+*module_search_failed:
+*	scf
+*	ccf						; Clear Carry flag
+*	ret
+*
+
+*# get_version
+*#################################
+*#  Returns the version number of the monitor
+*#	Out:	D = Major version number
+*#		E = Minor version number
 *get_version:
 *	ld	d, z80mon_version_major
 *	ld	e, z80mon_version_minor
 *	ret
-*
-*; # Math routines
-*; ###########################################################################
-*; # math_divide_16b
-*; #################################
-*;  Divides 16 bit number by another 16 bit number
-*;  From: http://map.grauw.nl/sources/external/z80bits.html
-*;	In:	BC = Dividend
-*;		DE = Divisor
-*;		HL = 0
-*;	Out:	BC = Quotient
-*;		HL = Remainder
+
+*# Math routines
+*###########################################################################
+*# math_divide_16b
+*#################################
+*#  Divides 16 bit number by another 16 bit number
+*#  From: http://map.grauw.nl/sources/external/z80bits.html
+*#	In:	BC = Dividend
+*#		DE = Divisor
+*#		HL = 0
+*#	Out:	BC = Quotient
+*#		HL = Remainder
 *math_divide_16b:
 *	ld	hl, 0x0000
 *	ld	a, 0x10
@@ -166,7 +256,7 @@
 *	dec	a
 *	jr	nz, math_divide_16b_loop
 *	ret
-*
+
 *; # math_bcd_2_hex
 *; #################################
 *;  Converts an 8 bit bcd encoded value to hex
@@ -189,7 +279,7 @@
 *math_bcd_2_hex_combine:
 *	add	c					; Combine values
 *	ret
-*
+
 *; # Print routines
 *; ###########################################################################
 *; Note: will not alter any registers other than AF.
@@ -216,7 +306,7 @@
 *	jr	nz, print_spaces_n
 *print_spaces_n_exit:
 *	ret
-*
+
 *; # print_dash
 *; #################################
 *;  Print '-'
@@ -230,7 +320,7 @@
 *	call	print_space
 *	call	print_dash
 *	jr	print_space
-*
+
 *; # print_colon_space
 *; #################################
 *;  Print ': '
@@ -238,12 +328,12 @@
 *	ld	a, ":"
 *	call	monlib_console_out
 *	jp	print_space
-*
+
 *;cout_sp:acall	cout
 *;	ajmp	space
 *;	nop
 *;
-*
+
 *; # print_newlinex2
 *; #################################
 *;  Print 2 new lines
@@ -258,7 +348,7 @@
 *	ld	a, character_code_linefeed
 *	call	monlib_console_out
 *	ret
-*
+
 *; # print_hex16
 *; #################################
 *;  Print 16 bit number as hex
@@ -289,7 +379,7 @@
 *	call	monlib_console_out
 *	pop	af
 *	ret
-*
+
 *; # print_dec8u
 *; #################################
 *;  Print 8 bit number as unsigned decimal
@@ -352,7 +442,7 @@
 *print_dec8_digit_skipped:
 *	pop	af					; Restore result
 *	ret
-*
+
 *; # print_dec16u
 *; #################################
 *;  Print a 16 bit number as unsigned decimal
@@ -361,7 +451,7 @@
 *	ld	ix, z80mon_temp1			; Used to store state
 *	xor	a
 *	ld	(ix+0), a 				; Clear flag used to suppress leading zeros
-*
+
 *print_dec16u_d5:
 *	ld	de, 0x2710
 *	call	math_divide_16b				; Divid by 10000
@@ -372,7 +462,7 @@
 *	jr	z, print_dec16u_d4
 *	call	print_hex_digit
 *	set	4, (ix+0)				; Digit has been printed
-*
+
 *print_dec16u_d4:
 *	ld	de, 0x03e8
 *	call	math_divide_16b				; Divid by 1000
@@ -1245,89 +1335,6 @@
 *memory_copy_verify_failed:
 *	scf						; Clear Carry flag
 *	ccf
-*	ret
-*
-*; # Module routines
-*; ###########################################################################
-*; # module_find
-*; #################################
-*;  Finds the next header in the external memory. (Has to be able to work without stack)
-*;  	In:	HL = point to start of search (only MSB used)
-*;		DE = point to end of search
-*;		IX = Return address
-*;  	Out:	BC = location of next module
-*;		A = module type, or unset if no module found
-*;		Carry flag is set on success, Carry flag is unset on failure
-*module_find:
-*	ld	l, 0x0					; Make sure we are on a boundary
-*	ld	b, h					; Copy HL -> BC
-*	ld	c, l
-*
-*	ld	a, 0xA5					; First identity byte
-*	cp	(hl)					; Compare memory
-*	jr	nz, module_find_next			; Not equal, so check next range
-*	inc	hl					; Increment pointer
-*	ld	a, 0xE5					; Second identity byte
-*	cp	(hl)					; Compare memory
-*	jr	nz, module_find_next			; Not equal, so check next range
-*	inc	hl					; Increment pointer
-*	ld	a, 0xE0					; Third identity byte
-*	cp	(hl)					; Compare memory
-*	jr	nz, module_find_next			; Not equal, so check next range
-*	inc	hl					; Increment pointer
-*	ld	a, 0xA5					; Fourth identity byte
-*	cp	(hl)					; Compare memory
-*	jr	nz, module_find_next			; Not equal, so check next range
-*	inc	hl					; Increment pointer
-*	ld	a, (hl)					; Get module type
-*	scf						; Set Carry flag
-*	jp	(ix)					; Resume execution from where we left off
-*module_find_next:
-*	ld	a, d					; Get end address MSB
-*	cp	h					; Compare to current address
-*	jr	z, module_find_end			; Were at the end so finish
-*	inc	h					; Increment MSB of pointer
-*	jr	module_find				; Repeat search
-*module_find_end:
-*	xor	a					; Clear A to indicate no module
-*	scf						; Clear Carry flag
-*	ccf
-*	jp	(ix)					; Resume execution from where we left off
-*
-*; # module_search
-*; #################################
-*;  Finds the next header in the external memory.
-*;	In:	A = Module type to search for
-*;		HL = Address to start searching from
-*;	Out:	HL = location of next module
-*;		Carry flag is set on success, Carry flag is unset on failure
-*module_search:
-*	ld	de, mem_srch_end			; Set search end
-*	inc	d					; Increment search end address (so as to search up to and including)
-*	ld	ix, module_search_reenter		; Set return address
-*	ex	af, af'					; Swap out module type
-*module_search_next:
-*	ld	a, d					; Copy end search pointer MSB for compare
-*	cp	h					; Check whether we are at the end of the search space
-*	jr	z, module_search_failed			; We've reached the end, so we've failed to find a module
-*	jr	module_find
-*module_search_reenter:
-*	jr	nc, module_search_failed		; No module, exit
-*	ld	h, b					; Copy BC -> HL
-*	ld	l, c
-*	ld	b, a					; Copy module type
-*	ex	af, af'					; Swap in module type
-*	cp	b					; Check module type
-*	jr	z, module_search_end			; If they're the same, return
-*	ex	af, af'					; Swap out module type
-*	inc	h					; Increment pointer MSB
-*	jr	module_search_next			; Continue search
-*module_search_end:
-*	scf						; Set Carry flag
-*	ret
-*module_search_failed:
-*	scf
-*	ccf						; Clear Carry flag
 *	ret
 *
 *; # module_list_commands
@@ -2294,76 +2301,7 @@
 *
 *menu_main_end:
 *	jp	print_newline				; This will return to menu_main
-*
-*; # Startup routines
-*; ###########################################################################
-*; # startup_cold
-*; #################################
-*; This is the first section of code executed on startup before any
-*; hardware is initialised.
-*startup_cold:
-*	; Basic initialisation
-*	di						; Disable interrupts
-*	im	1					; Set interrupt mode 1
-*	ld	sp, 0x0					; Zero stack pointer
-*
-*	; Search for an init module
-*	ld	hl, mem_srch_start			; Set search start
-*	ld	de, mem_srch_end			; Set search end
-*	ld	ix, startup_cold_search_rtn		; Set return address
-*startup_cold_search:
-*	jp	module_find
-*startup_cold_search_rtn:
-*	cp	0x00					; Check if we have a module
-*	jr	z, startup_cold_end			; If don't find a module, just continue boot
-*	ld	h, b					; Copy BC -> HL
-*	ld	l, c
-*	cp	249					; Check if it's an init module
-*	jr	nz, startup_cold_search_next		; It's not an init module, keep searching
-*	ld	sp, hl					; Load module base addess in to stack pointer (we can't load IX directly)
-*	ld	ix, 0x40				; Load offset in to IX
-*	add	ix, sp					; Create pointer to init module
-*	jp	(ix)					; Execute init module
-*startup_cold_search_next:
-*	inc	h					; Increment pointer MSB
-*	ld	a, d					; Copy end search pointer MSB for compare
-*	cp	h					; Check whether we are at the end of the search space
-*	jr	nz, startup_cold_search			; We're not at the end so keep searching
-*
-*startup_cold_end:
-*	rst	8					; We've done basic system init so warm boot rest
-*
-*; # startup_warm
-*; #################################
-*; This code is executed once basic system is initialised
-*; It's assumed that a stack is available at this point
-*startup_warm:
-*	ld	a, 253					; Search for startup application
-*	ld	hl, mem_srch_start			; Set search start
-*	call	module_search
-*	jr	nc, startup_warm_end			; No module found, so finish
-*
-*	ld	de, 0x40				; Load offset to module code
-*	add	hl, de					; Create pointer to init module
-*	jp	(hl)					; Execute startup module
-*
-*startup_warm_end:
-*	rst	16
-*
-*; # startup_final
-*; #################################
-*;  Final section of startup, executes menu system
-*startup_final:
-*	call	print_newline
-*	ld	hl, str_logon1				; Print greeting
-*	call	print_cstr
-*	;ld	hl, str_logon2				; Print documentation notes
-*	;call	print_cstr
-*
-*	call	module_list_commands			; Print included commands
-*
-*	jp	menu_main				; Enter main menu
-*
+
 *; # Fixed data structures
 *; ###########################################################################
 *
