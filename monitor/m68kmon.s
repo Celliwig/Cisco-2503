@@ -12,6 +12,11 @@
 # See also:
 # 	https://www.pjrc.com/tech/8051/paulmon2.html
 
+# Map console routines from monitor to library
+###########################################################################
+.equiv	console_out, scn2681_out_A
+###########################################################################
+
 # Include definitions
 .include "cisco-2500/cisco-2500.h"
 .include "include/stddefs.h"
@@ -95,7 +100,7 @@ startup_cold:
 	/* Search for an init module */
 	lea	bootrom_start, %a0			/* Set search start */
 	lea	bootrom_start + bootrom_size, %a1	/* Set search end */
-	lea	startup_cold_search_rtn, %a7		/* Set return address */
+	lea	startup_cold_search_rtn, %a6		/* Set return address */
 
 startup_cold_search:
 	bra.s	module_find				/* Find next module */
@@ -105,8 +110,8 @@ startup_cold_search_rtn:
 	beq.s	startup_cold_end			/* If don't find a module, just continue boot */
 	cmp.b	#249, %d0				/* Check if it's an init module */
 	bne.s	startup_cold_search_next		/* It's not an init module, keep searching */
-	adda.l	#0x40, %a0				/* Create pointer to init module */
-	lea	startup_cold_end, %a7			/* Save return address in A7 */
+	adda.l	#0x40, %a0				/* Add offset to module code */
+	lea	startup_cold_end, %a6			/* Save return address in A7 */
 	jmp	(%a0)					/* Execute init module */
 startup_cold_search_next:
 	adda.l	#0x100, %a0				/* Increment pointer */
@@ -119,25 +124,28 @@ startup_cold_end:
 # This code is executed once basic system is initialised
 # It's assumed that a stack is available at this point
 startup_warm:
-	move	#stack_ptr, %sp				/* Reset stack pointer */
+	mov.l	#stack_ptr, %sp				/* Reset stack pointer */
 
-*	ld	a, 253					; Search for startup application
-*	ld	hl, mem_srch_start			; Set search start
-*	call	module_search
-*	jr	nc, startup_warm_end			; No module found, so finish
-*
-*	ld	de, 0x40				; Load offset to module code
-*	add	hl, de					; Create pointer to init module
-*	jp	(hl)					; Execute startup module
-*
-*startup_warm_end:
-*	rst	16
-*
-*; # startup_final
-*; #################################
-*;  Final section of startup, executes menu system
-*startup_final:
-*	call	print_newline
+	lea	bootrom_start, %a0			/* Set search start */
+	mov.b	#253, %d1				/* Search for startup application */
+	bsr.s	module_search
+	cmp.b	#0, %d0
+	beq.s	startup_warm_end			/* No module found, so finish */
+
+	adda.l	#0x40, %a0				/* Add offset to module code */
+	jsr	(%a0)					/* Execute startup module */
+startup_warm_end:
+
+# startup_final
+#################################
+# Final section of startup, executes menu system
+startup_final:
+	jsr	print_newline
+	jsr	print_newline
+
+	lea	str_version, %a0
+	jsr	print_str
+
 *	ld	hl, str_logon1				; Print greeting
 *	call	print_cstr
 *	;ld	hl, str_logon2				; Print documentation notes
@@ -146,7 +154,17 @@ startup_warm:
 *	call	module_list_commands			; Print included commands
 *
 *	jp	menu_main				; Enter main menu
-*
+
+startup_final_loop:
+	bra.s	startup_final_loop			/* For testing */
+
+# get_version
+#################################
+#  Returns the version number of the monitor
+#	Out:	D0 = Minor version number [16] | Major version number [16]
+get_version:
+	mov.l	#m68kmon_version, %d0
+	rts
 
 # Module routines
 ###########################################################################
@@ -155,7 +173,7 @@ startup_warm:
 #  Finds the next header in the external memory. (Has to be able to work without stack)
 #	In:	A0 = point to start of search (only MSB used)
 #		A1 = point to end of search
-#		A7 = Return address
+#		A6 = Return address
 #	Out:	A0 = location of next module
 #		D0 = module type, or unset if no module found
 module_find:
@@ -173,181 +191,103 @@ module_find_loop:
 	cmp.b	#0xA5, (%a2)+				/* Check fourth byte */
 	bne.s	module_find_next			/* If this doesn't match, check next range */
 	mov.b	(%a2), %d0				/* Get module type */
-	jmp	(%a7)					/* Resume execution from where we left off */
+	jmp	(%a6)					/* Resume execution from where we left off */
 module_find_next:
 	adda.l	#0x100, %a0				/* Increment address pointer */
 	cmp.l	%a1, %a0				/* Check if we've reached the end */
 	blt.s	module_find_loop
 module_find_end:
 	eor.l	%d0, %d0				/* Clear A to indicate no module */
-	jmp	(%a7)					/* Resume execution from where we left off */
+	jmp	(%a6)					/* Resume execution from where we left off */
 
-*; # module_search
-*; #################################
-*;  Finds the next header in the external memory.
-*;	In:	A = Module type to search for
-*;		HL = Address to start searching from
-*;	Out:	HL = location of next module
-*;		Carry flag is set on success, Carry flag is unset on failure
-*module_search:
-*	ld	de, mem_srch_end			; Set search end
-*	inc	d					; Increment search end address (so as to search up to and including)
-*	ld	ix, module_search_reenter		; Set return address
-*	ex	af, af'					; Swap out module type
-*module_search_next:
-*	ld	a, d					; Copy end search pointer MSB for compare
-*	cp	h					; Check whether we are at the end of the search space
-*	jr	z, module_search_failed			; We've reached the end, so we've failed to find a module
-*	jr	module_find
-*module_search_reenter:
-*	jr	nc, module_search_failed		; No module, exit
-*	ld	h, b					; Copy BC -> HL
-*	ld	l, c
-*	ld	b, a					; Copy module type
-*	ex	af, af'					; Swap in module type
-*	cp	b					; Check module type
-*	jr	z, module_search_end			; If they're the same, return
-*	ex	af, af'					; Swap out module type
-*	inc	h					; Increment pointer MSB
-*	jr	module_search_next			; Continue search
-*module_search_end:
-*	scf						; Set Carry flag
-*	ret
-*module_search_failed:
-*	scf
-*	ccf						; Clear Carry flag
-*	ret
-*
+# module_search
+#################################
+# Finds the next header in the external memory.
+#	In:	A0 = Address to start searching from
+#		D1 = Module type to search for
+#	Out:	A0 = location of next module
+#		D0 = Found module type (cleared on failure)
+module_search:
+	lea	module_search_mem_end, %a1		/* Set search end */
+	lea	module_search_reenter, %a6		/* Set return address */
+module_search_next:
+	cmp.l	%a1, %a0				/* Check if we've reached the end */
+	bge.s	module_search_failed			/* We've reached the end, so we've failed to find a module */
+	jmp	module_find
+module_search_reenter:
+	cmp.b	#0, %d0
+	beq.s	module_search_failed			/* No module, exit */
+	cmp.b	%d1, %d0				/* Check if module type we're looking for */
+	beq.s	module_search_end			/* If they're the same, return */
+	adda.l	#0x100, %a0				/* Increment address pointer */
+	bra.s	module_search_next			/* Continue search */
+module_search_failed:
+	eor.l	%d0, %d0				/* Clear D0 as we've failed */
+module_search_end:
+	rts
 
-*# get_version
-*#################################
-*#  Returns the version number of the monitor
-*#	Out:	D = Major version number
-*#		E = Minor version number
-*get_version:
-*	ld	d, z80mon_version_major
-*	ld	e, z80mon_version_minor
-*	ret
+# Print routines
+###########################################################################
 
-*# Math routines
-*###########################################################################
-*# math_divide_16b
-*#################################
-*#  Divides 16 bit number by another 16 bit number
-*#  From: http://map.grauw.nl/sources/external/z80bits.html
-*#	In:	BC = Dividend
-*#		DE = Divisor
-*#		HL = 0
-*#	Out:	BC = Quotient
-*#		HL = Remainder
-*math_divide_16b:
-*	ld	hl, 0x0000
-*	ld	a, 0x10
-*math_divide_16b_loop:
-*	db	 0xcb, 0x31				; Undocumented instruction: SLL  C
-*	;sll	c					; carry <- C <- 1
-*	rl	b					; carry <- B <- carry
-*	adc	hl, hl					; HL = HL + HL + carry
-*	sbc	hl, de					; HL = HL - (DE + carry)
-*	jr	nc, math_divide_16b_check
-*	add	hl, de					; HL = HL + DE
-*	dec	c					; C = C - 1
-*math_divide_16b_check:
-*	dec	a
-*	jr	nz, math_divide_16b_loop
-*	ret
+# print_spacex2
+#################################
+#  Print double space
+print_spacex2:
+	jsr	print_space
+# print_space
+#################################
+#  Print a space
+print_space:
+	mov.b	#' ', %d0
+	jmp	console_out
+# print_spaces_n
+#################################
+#  Print n spaces
+#	In:	D1 = Number of spaces
+print_spaces_n:
+	subi.w	#1, %d1
+print_spaces_n_loop:
+	jsr	print_space
+	dbf	%d1, print_spaces_n_loop
+print_spaces_n_exit:
+	rts
 
-*; # math_bcd_2_hex
-*; #################################
-*;  Converts an 8 bit bcd encoded value to hex
-*;	In:	A = BCD value
-*;	Out:	A = Hex value
-*math_bcd_2_hex:
-*	ld	b, a					; Save value
-*	srl	b					; Shift upper nibble to lower
-*	srl	b
-*	srl	b
-*	srl	b
-*	and	0x0f					; Extract lower nibble
-*	ld	c, a					; Save for later
-*	xor	a					; Clear A
-*	cp	b					; Test 10s digit
-*	jr	z, math_bcd_2_hex_combine		; No 10s, so finish
-*math_bcd_2_hex_loop:
-*	add	0x0a					; Add 10
-*	djnz	math_bcd_2_hex_loop
-*math_bcd_2_hex_combine:
-*	add	c					; Combine values
-*	ret
+# print_dash
+#################################
+#  Print '-'
+print_dash:
+	mov.b	#'-', %d0
+	jmp	console_out
+# print_dash_spaces
+#################################
+#  Print ' - '
+print_dash_spaces:
+	jsr	print_space
+	jsr	print_dash
+	jmp	print_space
 
-*; # Print routines
-*; ###########################################################################
-*; Note: will not alter any registers other than AF.
-*; Shadow registers fair game.
-*;
-*; # print_spacex2
-*; #################################
-*;  Print double space
-*print_spacex2:
-*	call	print_space
-*; # print_space
-*; #################################
-*;  Print a space
-*print_space:
-*	ld	a, ' '
-*	jp	monlib_console_out
-*; # print_spaces_n
-*; #################################
-*;  Print n spaces
-*;	In:	B = Number of spaces
-*print_spaces_n:
-*	call	print_space
-*	dec	b
-*	jr	nz, print_spaces_n
-*print_spaces_n_exit:
-*	ret
+# print_colon_space
+#################################
+#  Print ': '
+print_colon_space:
+	mov.b	#':', %d0
+	jsr	console_out
+	jmp	print_space
 
-*; # print_dash
-*; #################################
-*;  Print '-'
-*print_dash:
-*	ld	a, '-'
-*	jp	monlib_console_out
-*; # print_dash_spaces
-*; #################################
-*;  Print ' - '
-*print_dash_spaces:
-*	call	print_space
-*	call	print_dash
-*	jr	print_space
-
-*; # print_colon_space
-*; #################################
-*;  Print ': '
-*print_colon_space:
-*	ld	a, ":"
-*	call	monlib_console_out
-*	jp	print_space
-
-*;cout_sp:acall	cout
-*;	ajmp	space
-*;	nop
-*;
-
-*; # print_newlinex2
-*; #################################
-*;  Print 2 new lines
-*print_newlinex2:					; Print two newlines
-*	call	print_newline
-*; # print_newline
-*; #################################
-*;  Print a new line
-*print_newline:
-*	ld	a, character_code_carriage_return
-*	call	monlib_console_out
-*	ld	a, character_code_linefeed
-*	call	monlib_console_out
-*	ret
+# print_newlinex2
+#################################
+#  Print 2 new lines
+print_newlinex2:
+	jsr	print_newline
+# print_newline
+#################################
+#  Print a new line
+print_newline:
+	mov.b	#ascii_carriage_return, %d0
+	jsr	console_out
+	mov.b	#ascii_linefeed, %d0
+	jsr	console_out
+	rts
 
 *; # print_hex16
 *; #################################
@@ -357,11 +297,13 @@ module_find_end:
 *	ld	a, h
 *	call	print_hex8
 *	ld	a, l
-*; # print_hex8
-*; #################################
-*;  Print 8 bit number as hex
-*; 	In:	A = 8-bit Integer
-*print_hex8:
+# print_hex8
+#################################
+#  Print 8 bit number as hex
+# 	In:	D1 = 8-bit Integer
+print_hex8:
+	
+
 *	push	af
 *	rrca
 *	rrca
@@ -511,12 +453,15 @@ module_find_end:
 *
 *	ret
 *
-*; # print_version
-*; #################################
-*;  Prints the version number
-*;	In:	D = Major version number
-*;		E = Minor version number
-*print_version:
+# print_version
+#################################
+#  Prints the version number
+#	In:	D1 = Version number
+print_version:
+	lea	str_version, %a0
+	jsr	print_str_simple
+	rts
+
 *	ld	a, 'v'
 *	call	monlib_console_out
 *	ld	a, d
@@ -526,72 +471,63 @@ module_find_end:
 *	ld	a, e
 *	call	print_dec8u
 *	ret
-*
-*; # print_str_simple
-*; #################################
-*;  Prints a null terminated string.
-*;  Retains the ability ability to print consecutive strings.
-*;	In:	HL = Pointer to string
-*print_str_simple:
-*	ld	a, (hl)					; Get next character
-*	inc	hl					; Increment pointer
-*	and	a					; Test if value is zero
-*	jr	z, print_str_simple_end			; Check whether NULL character
-*	call	monlib_console_out			; Print character
-*	jr	print_str_simple			; Loop
-*print_str_simple_end:
-*	ret
-*
-*print_str_simple_space:
-*	call	print_str_simple
-*	jp	print_space
-*
-*print_str_simple_newline:
-*	call	print_str_simple
-*	jp	print_newline
-*
-*; # print_str_repeat
-*; #################################
-*;  Prints a string of repeated character.
-*;  Format:	n(0) = Num. char. to print, n(1) = Character to print
-*;		Repeats until null character
-*;	In:	HL = Pointer to string
-*print_str_repeat:
-*	ld	a, (hl)
-*	inc	hl					; Increment pointer
-*	and	a
-*	jr	z, print_str_repeat_end
-*	ld	b, a					; Character count
-*	ld	c, (hl)					; Get character to print
-*	inc	hl					; Increment pointer
-*print_str_repeat_loop:
-*	ld	a, c
-*	call	monlib_console_out			; Print character
-*	djnz	print_str_repeat_loop
-*	jr	print_str_repeat
-*print_str_repeat_end:
-*	ret
-*
-*; # print_str
-*; #################################
-*;  Prints a null terminated string.
-*;  Retains the ability ability to print consecutive strings.
-*;	In:	HL = Pointer to string
-*print_str:
-*	ld	a, (hl)					; Get next character
-*	inc	hl					; Increment pointer
-*	and	a					; Test if value is zero
-*	jr	z, print_str_end			; Check whether NULL character
-*	push	af					; Save value
-*	and	0x7f					; Strip msb
-*	call	monlib_console_out			; Print character
-*	pop	af					; Restore value
-*	bit	7, a					; Test value msb
-*	jr	nz, print_str_end			; If msb set, stop
-*	jr	print_str				; Loop
-*print_str_end:
-*	ret
-*
+
+# print_str_simple
+#################################
+#  Prints a null terminated string.
+#  Retains the ability ability to print consecutive strings.
+#	In:	A0 = Pointer to string
+print_str_simple:
+	mov.b	(%a0)+, %d0				/* Get next character and increment pointer */
+	beq.b	print_str_simple_end			/* Check whether NULL character */
+	jsr	console_out				/* Print character */
+	bra.s	print_str_simple			/* Loop */
+print_str_simple_end:
+	rts
+
+print_str_simple_space:
+	jsr	print_str_simple
+	jmp	print_space
+
+print_str_simple_newline:
+	jsr	print_str_simple
+	jmp	print_newline
+
+# print_str_repeat
+#################################
+#  Prints a string of repeated character.
+#  Format:	n(0) = Num. char. to print, n(1) = Character to print
+#		Repeats until null character
+#	In:	A0 = Pointer to string
+print_str_repeat:
+	eor.l	%d1, %d1				/* Clear D1 for dbeq later */
+	mov.b	(%a0)+, %d1				/* Get character count and increment pointer */
+	beq.b	print_str_repeat_end			/* Check for EOL */
+	subi.w	#1, %d1					/* -1 for dbf */
+	mov.b	(%a0)+, %d0				/* Get character and increment pointer */
+print_str_repeat_loop:
+	jsr	console_out				/* Print character */
+	dbf	%d1, print_str_repeat_loop
+	bra.s	print_str_repeat
+print_str_repeat_end:
+	rts
+
+# print_str
+#################################
+#  Prints a null terminated string.
+#  Retains the ability ability to print consecutive strings.
+#	In:	A0 = Pointer to string
+print_str:
+	mov.b	(%a0), %d0				/* Get next character */
+	beq.s	print_str_end				/* Check for end of string */
+	and.b	#0x7f, %d0				/* Strip stop bit */
+	jsr	console_out				/* Print character */
+	btst	#7, (%a0)+				/* Test msb, increment pointer */
+	bne.s	print_str_end				/* If msb set, stop */
+	bra.s	print_str				/* Loop */
+print_str_end:
+	rts
+
 *; # print_cstr
 *; #################################
 *;  Prints compressed strings. A dictionary of 128 words is stored in 4
@@ -846,6 +782,57 @@ module_find_end:
 *
 *	ret
 *
+*# Math routines
+*###########################################################################
+*# math_divide_16b
+*#################################
+*#  Divides 16 bit number by another 16 bit number
+*#  From: http://map.grauw.nl/sources/external/z80bits.html
+*#	In:	BC = Dividend
+*#		DE = Divisor
+*#		HL = 0
+*#	Out:	BC = Quotient
+*#		HL = Remainder
+*math_divide_16b:
+*	ld	hl, 0x0000
+*	ld	a, 0x10
+*math_divide_16b_loop:
+*	db	 0xcb, 0x31				; Undocumented instruction: SLL  C
+*	;sll	c					; carry <- C <- 1
+*	rl	b					; carry <- B <- carry
+*	adc	hl, hl					; HL = HL + HL + carry
+*	sbc	hl, de					; HL = HL - (DE + carry)
+*	jr	nc, math_divide_16b_check
+*	add	hl, de					; HL = HL + DE
+*	dec	c					; C = C - 1
+*math_divide_16b_check:
+*	dec	a
+*	jr	nz, math_divide_16b_loop
+*	ret
+
+*; # math_bcd_2_hex
+*; #################################
+*;  Converts an 8 bit bcd encoded value to hex
+*;	In:	A = BCD value
+*;	Out:	A = Hex value
+*math_bcd_2_hex:
+*	ld	b, a					; Save value
+*	srl	b					; Shift upper nibble to lower
+*	srl	b
+*	srl	b
+*	srl	b
+*	and	0x0f					; Extract lower nibble
+*	ld	c, a					; Save for later
+*	xor	a					; Clear A
+*	cp	b					; Test 10s digit
+*	jr	z, math_bcd_2_hex_combine		; No 10s, so finish
+*math_bcd_2_hex_loop:
+*	add	0x0a					; Add 10
+*	djnz	math_bcd_2_hex_loop
+*math_bcd_2_hex_combine:
+*	add	c					; Combine values
+*	ret
+
 *; # String routines
 *; ###########################################################################
 *; # char_2_upper
@@ -2498,9 +2485,10 @@ module_find_end:
 *str_dnld11:		db	" ",133,132,157,14					;  unexpected hex digits\n
 *str_dnld12:		db	" ",133," non",132,157,14				;  unexpected non hex digits\n
 *str_dnld13:		db	31,151,155," detected",13,14				; No errors detected\n\n
-*
-*str_ny:			db	" (N/y): ",0
-*
+
+str_ny:			.asciz	" (N/y): "
+str_version:		.asciz	"Version: "
+
 *; ##########################################################################################################################################
 *; ##########################################################################################################################################
 *; ##########################################################################################################################################

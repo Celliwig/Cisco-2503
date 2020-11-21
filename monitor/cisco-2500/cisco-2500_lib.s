@@ -5,6 +5,11 @@ CISCO2500_LIB = monitor_start + 0x4000
 
 .org CISCO2500_LIB
 
+# Serial device
+.include "cisco-2500/scn2681_config.s"
+.include "cisco-2500/scn2681_io.s"
+
+
 ###########################################################################
 #                                                                         #
 #                               System Init                               #
@@ -37,7 +42,7 @@ system_init_delay_loop:
 	andi.w	#0xfffe, %d0
 	move.w	%d0, (%a0)
 
-	jmp	(%a7)							/* Return address is stored in A7 */
+	jmp	(%a6)							/* Return address is stored in A7 */
 
 ###########################################################################
 #                                                                         #
@@ -58,6 +63,9 @@ system_init_delay_loop:
 
 .org CISCO2500_LIB + 0x0240						/* executable code begins here */
 startup_cmd:
+	jsr	scn2681_init						/* Init DUART console */
+
+	rts
 
 startup_cmd_config:
 *	; Check for device config reset
