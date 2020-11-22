@@ -98,24 +98,23 @@ startup_cold:
 	move	%d0, %sr
 
 	/* Search for an init module */
-	lea	bootrom_start, %a0			/* Set search start */
-	lea	bootrom_start + bootrom_size, %a1	/* Set search end */
+	lea	bootrom_start, %a4			/* Set search start */
+	lea	bootrom_start + bootrom_size, %a5	/* Set search end */
 	lea	startup_cold_search_rtn, %a6		/* Set return address */
 
 startup_cold_search:
 	bra.s	module_find				/* Find next module */
 
 startup_cold_search_rtn:
-	cmp.b	#0, %d0					/* Check if it's an init module */
 	beq.s	startup_cold_end			/* If don't find a module, just continue boot */
 	cmp.b	#249, %d0				/* Check if it's an init module */
 	bne.s	startup_cold_search_next		/* It's not an init module, keep searching */
-	adda.l	#0x40, %a0				/* Add offset to module code */
+	adda.l	#0x40, %a4				/* Add offset to module code */
 	lea	startup_cold_end, %a6			/* Save return address in A7 */
-	jmp	(%a0)					/* Execute init module */
+	jmp	(%a4)					/* Execute init module */
 startup_cold_search_next:
-	adda.l	#0x100, %a0				/* Increment pointer */
-	cmp.l	%a1, %a0				/* Check if we've reached the end */
+	adda.l	#0x100, %a4				/* Increment pointer */
+	cmp.l	%a5, %a4				/* Check if we've reached the end */
 	blt.s	startup_cold_search			/* We're not at the end so keep searching */
 startup_cold_end:
 
@@ -126,14 +125,14 @@ startup_cold_end:
 startup_warm:
 	mov.l	#stack_ptr, %sp				/* Reset stack pointer */
 
-	lea	bootrom_start, %a0			/* Set search start */
+	lea	bootrom_start, %a4			/* Set search start */
 	mov.b	#253, %d1				/* Search for startup application */
 	bsr.s	module_search
 	cmp.b	#0, %d0
 	beq.s	startup_warm_end			/* No module found, so finish */
 
-	adda.l	#0x40, %a0				/* Add offset to module code */
-	jsr	(%a0)					/* Execute startup module */
+	adda.l	#0x40, %a4				/* Add offset to module code */
+	jsr	(%a4)					/* Execute startup module */
 startup_warm_end:
 
 # startup_final
@@ -143,17 +142,14 @@ startup_final:
 	jsr	print_newline
 	jsr	print_newline
 
-	lea	str_prompt9b, %a0
+	lea	str_logon1, %a0				/* Print greeting */
 	jsr	print_cstr
+	*lea	str_logon2				/* Print documentation notes */
+	*jsr	print_cstr
 
-*	ld	hl, str_logon1				; Print greeting
-*	call	print_cstr
-*	;ld	hl, str_logon2				; Print documentation notes
-*	;call	print_cstr
-*
-*	call	module_list_commands			; Print included commands
-*
-*	jp	menu_main				; Enter main menu
+	jsr	module_list_commands			/* Print included commands */
+
+*	jmp	menu_main				/* Enter main menu */
 
 startup_final_loop:
 	bra.s	startup_final_loop			/* For testing */
@@ -171,47 +167,47 @@ get_version:
 # module_find
 #################################
 #  Finds the next header in the external memory. (Has to be able to work without stack)
-#	In:	A0 = point to start of search (only MSB used)
-#		A1 = point to end of search
+#	In:	A4 = point to start of search
+#		A5 = point to end of search
 #		A6 = Return address
-#	Out:	A0 = location of next module
+#	Out:	A4 = location of next module
 #		D0 = module type, or unset if no module found
 module_find:
-	mov.l	%a0, %d0				/* Make sure we are on a boundary */
+	mov.l	%a4, %d0				/* Make sure we are on a boundary */
 	andi.l	#0xffffff00, %d0
-	mov.l	%d0, %a0
+	mov.l	%d0, %a4
 module_find_loop:
-	mov.l	%a0, %a2				/* Copy address */
-	cmp.b	#0xA5, (%a2)+				/* Check first byte */
+	mov.l	%a4, %a1				/* Copy address */
+	cmp.b	#0xA5, (%a1)+				/* Check first byte */
 	bne.s	module_find_next			/* If this doesn't match, check next range */
-	cmp.b	#0xE5, (%a2)+				/* Check second byte */
+	cmp.b	#0xE5, (%a1)+				/* Check second byte */
 	bne.s	module_find_next			/* If this doesn't match, check next range */
-	cmp.b	#0xE0, (%a2)+				/* Check third byte */
+	cmp.b	#0xE0, (%a1)+				/* Check third byte */
 	bne.s	module_find_next			/* If this doesn't match, check next range */
-	cmp.b	#0xA5, (%a2)+				/* Check fourth byte */
+	cmp.b	#0xA5, (%a1)+				/* Check fourth byte */
 	bne.s	module_find_next			/* If this doesn't match, check next range */
-	mov.b	(%a2), %d0				/* Get module type */
+	mov.b	(%a1), %d0				/* Get module type */
 	jmp	(%a6)					/* Resume execution from where we left off */
 module_find_next:
-	adda.l	#0x100, %a0				/* Increment address pointer */
-	cmp.l	%a1, %a0				/* Check if we've reached the end */
+	adda.l	#0x100, %a4				/* Increment address pointer */
+	cmp.l	%a5, %a4				/* Check if we've reached the end */
 	blt.s	module_find_loop
 module_find_end:
-	eor.l	%d0, %d0				/* Clear A to indicate no module */
+	eor.l	%d0, %d0				/* Clear D0 to indicate no module */
 	jmp	(%a6)					/* Resume execution from where we left off */
 
 # module_search
 #################################
 # Finds the next header in the external memory.
-#	In:	A0 = Address to start searching from
+#	In:	A4 = Address to start searching from
 #		D1 = Module type to search for
-#	Out:	A0 = location of next module
+#	Out:	A4 = location of next module
 #		D0 = Found module type (cleared on failure)
 module_search:
-	lea	module_search_mem_end, %a1		/* Set search end */
+	lea	module_search_mem_end, %a5		/* Set search end */
 	lea	module_search_reenter, %a6		/* Set return address */
 module_search_next:
-	cmp.l	%a1, %a0				/* Check if we've reached the end */
+	cmp.l	%a5, %a4				/* Check if we've reached the end */
 	bge.s	module_search_failed			/* We've reached the end, so we've failed to find a module */
 	jmp	module_find
 module_search_reenter:
@@ -219,7 +215,7 @@ module_search_reenter:
 	beq.s	module_search_failed			/* No module, exit */
 	cmp.b	%d1, %d0				/* Check if module type we're looking for */
 	beq.s	module_search_end			/* If they're the same, return */
-	adda.l	#0x100, %a0				/* Increment address pointer */
+	adda.l	#0x100, %a4				/* Increment address pointer */
 	bra.s	module_search_next			/* Continue search */
 module_search_failed:
 	eor.l	%d0, %d0				/* Clear D0 as we've failed */
@@ -272,23 +268,19 @@ char_2_upper_end:
 # string_length
 #################################
 #  Calculates the length of the string
-#	In:	HL = Pointer to string
-#	Out:	BC = String length
-*string_length:
-*	push	hl
-*	ld	bc, 0					; Clear count
-*string_length_loop:
-*	ld	a, (hl)					; Get byte to test
-*	and	a					; Set flags
-*	jr	z, string_length_end			; Have we reached the end
-*	inc	bc					; Increment count
-*	bit	7, a					; See if we have a multi-part string
-*	jr	nz, string_length_end
-*	inc	hl					; Increment pointer
-*	jr	string_length_loop
-*string_length_end:
-*	pop	hl
-*	ret
+#	In:	A0 = Pointer to string
+#	Out:	D0 = String length
+string_length:
+	eor.l	%d0, %d0				/* Clear D0 */
+string_length_loop:
+	mov.b	(%a0)+, %d1				/* Copy, check whether character is zero, increment pointer */
+	beq.s	string_length_end			/* EOL */
+	addi.w	#1, %d0					/* Increment character count */
+	btst	#7, %d1					/* See if we have a multi-part string */
+	bne.s	string_length_end
+	bra.s	string_length_loop			/* Loop */
+string_length_end:
+	rts
 
 # Print routines
 ###########################################################################
@@ -352,38 +344,42 @@ print_newline:
 	jsr	console_out
 	rts
 
-*; # print_hex16
-*; #################################
-*;  Print 16 bit number as hex
-*;	In:	HL = 16-bit Integer
-*print_hex16:
-*	ld	a, h
-*	call	print_hex8
-*	ld	a, l
+# print_hex32
+#################################
+#  Print 32 bit number as hex
+#	In:	D3 = 32-bit Integer
+print_hex32:
+	mov.l	%d3, %d2				/* Copy long */
+	swap	%d2					/* Swap top and bottom 16 bits */
+	jsr	print_hex16				/* Print top 2 bytes */
+	mov.l	%d3, %d2				/* Copy long */
+# print_hex16
+#################################
+#  Print 16 bit number as hex
+#	In:	D2 = 16-bit Integer
+print_hex16:
+	mov.w	%d2, %d1				/* Copy word */
+	lsr	#8, %d1					/* Shift top byte down */
+	jsr	print_hex8				/* Print top byte */
+	mov.w	%d2, %d1				/* Copy word */
 # print_hex8
 #################################
 #  Print 8 bit number as hex
 # 	In:	D1 = 8-bit Integer
 print_hex8:
-	
-
-*	push	af
-*	rrca
-*	rrca
-*	rrca
-*	rrca
-*	call	print_hex_digit
-*	pop	af
-*print_hex_digit:
-*	push	af
-*	and	0x0F
-*	add	a, 0x90
-*	daa
-*	adc	a, 0x40
-*	daa
-*	call	monlib_console_out
-*	pop	af
-*	ret
+	mov.b	%d1, %d0				/* Copy byte */
+	lsr	#4, %d0					/* Shift top nibble down */
+	jsr	print_hex_digit
+	mov.b	%d1, %d0				/* Copy byte */
+print_hex_digit:
+	and.b	#0xf, %d0				/* Extract bottom nibble */
+	add.b	#'0', %d0				/* Add base character */
+	cmp.b	#'9', %d0				/* Check whether it's in range 0-9 */
+	ble.s	print_hex_digit_out
+	add.b	#7, %d0
+print_hex_digit_out:
+	jsr	console_out				/* Print character */
+	rts
 
 *; # print_dec8u
 *; #################################
@@ -620,7 +616,7 @@ print_cstr_next:
 	bra.s	print_cstr_next
 print_cstr_check_13:
 	cmp.b	#13, %d0				/* Check for control code */
-	bne.b	print_cstr_check_14
+	bne.s	print_cstr_check_14
 	jsr	print_newline
 	bset	#1, %d2					/* No automatic space */
 	bra.s	print_cstr_next				/* Loop for next character */
@@ -651,7 +647,7 @@ print_cstr_end:
 #			bit 7 - Used to indicate top/bottom nibble
 dictionary_print_word:
 	andi.b	#0x7f, %d1				/* Clear msb of word index */
-	bset.l	#1, %d2					/* Check whether to print space */
+	bclr.l	#1, %d2					/* Check whether to print space */
 	bne.s	dictionary_print_word_search_setup
 	jsr	print_space				/* Print space */
 dictionary_print_word_search_setup:
@@ -1265,11 +1261,11 @@ dictionary_get_next_nibble_bottom:
 *	scf						; Clear Carry flag
 *	ccf
 *	ret
-*
-*; # Memory routines
-*; ###########################################################################
-*; # memory_copy
-*; #################################
+
+# Memory routines
+###########################################################################
+# memory_copy
+#################################
 *;  Copies a region of memory to another region
 *;	In:	BC = Source Address
 *;		DE = Destination Address
@@ -1308,84 +1304,80 @@ dictionary_get_next_nibble_bottom:
 *	scf						; Clear Carry flag
 *	ccf
 *	ret
-*
-*; # module_list_commands
-*; #################################
-*;  Print a list of additional commands
-*command_module_list_commands:
-*	ld	hl, str_tag_listm
-*	call	print_cstr				; Print message
-*module_list_commands:
-*	ld	hl, str_prompt9
-*	call	print_cstr
-*	ld	b, 21
-*	call	print_spaces_n
-*	;ld	hl, str_prompt9b
-*	call	print_cstr
-*
-*	ld	hl, mem_srch_start			; Set search start
-*	ld	de, mem_srch_end			; Set search end
-*module_list_commands_next:
-*	ld	ix, module_list_commands_reenter	; Set return address
-*	jr	module_find
-*module_list_commands_reenter:
-*	cp	0x00					; Check if we have a module
-*	jr	z, module_list_commands_exit		; If not, return
-*	ld	h, b					; Copy BC -> HL
-*	;ld	l, c					; Don't actually need C as it's overwritten
-*	push	de					; Save search end
-*	push	bc					; Save module pointer (Restored as HL)
-*
-*	call	print_spacex2
-*	ld	l, 0x20					; Offset to command name
-*	call	print_str				; Print command name
-*	ld	l, 0x20					; Reset offset
-*	call	string_length				; Get command name length
-*	ld	l, 0x0					; Reset offset
-*	ld	a, 33					; Calculate padding
-*	sub	c
-*	ld	b, a
-*	call	print_spaces_n				; Print padding
-*	call	print_hex16				; Print command address
-*	ld	b, 0x06
-*	call	print_spaces_n				; Print padding
-*	ld	l, 0x04					; Offset to command type
-*	ld	a, (hl)					; Get command type
-*
-*	ld	hl, str_type5				; Type unknown
-*module_list_commands_type_35:
-*	cp	35					; Program
-*	jr	nz, module_list_commands_type_249
-*	ld	hl, str_type2
-*	jr	module_list_commands_type_print
-*module_list_commands_type_249:
-*	cp	249					; Init
-*	jr	nz, module_list_commands_type_253
-*	ld	hl, str_type3
-*	jr	module_list_commands_type_print
-*module_list_commands_type_253:
-*	cp	253					; Startup command
-*	jr	nz, module_list_commands_type_254
-*	ld	hl, str_type4
-*	jr	module_list_commands_type_print
-*module_list_commands_type_254:
-*	cp	254					; External command
-*	jr	nz, module_list_commands_type_print
-*	ld	hl, str_type1
-*module_list_commands_type_print:
-*	call	print_cstr				; Print type
-*	call	print_newline
-*
-*	pop	hl					; Restore module pointer
-*	pop	de					; Restore search end
-*	ld	a, d					; Copy end search pointer MSB for compare
-*	cp	h					; Check whether we are at the end of the search space
-*	jr	z, module_list_commands_exit		; We've reached the end, so no more modules
-*	inc	h					; Increment pointer MSB
-*	jr	module_list_commands_next		; Continue search
-*module_list_commands_exit:
-*	jp	print_newline				; Finish
-*
+
+# module_list_commands
+#################################
+#  Print a list of additional commands
+command_module_list_commands:
+	lea	str_tag_listm, %a0
+	jsr	print_cstr				/* Print message */
+module_list_commands:
+	lea	str_prompt9, %a0
+	jsr	print_cstr
+	mov.w	#21, %d1
+	jsr	print_spaces_n
+	#lea	str_prompt9b, %a0
+	jsr	print_cstr
+
+	lea	module_search_mem_start, %a4		/* Set search start */
+	lea	module_search_mem_end, %a5		/* Set search end */
+module_list_commands_next:
+	lea	module_list_commands_reenter, %a6	/* Set return address */
+	bra.w	module_find				/* Find next module */
+module_list_commands_reenter:
+	beq.w	module_list_commands_exit		/* If not, return */
+
+	jsr	print_spacex2
+	mov.l	%a4, %d0				/* Reset offset to command name */
+	mov.b	#0x20, %d0
+	mov.l	%d0, %a0
+	jsr	print_str				/* Print command name */
+	mov.l	%a4, %d0				/* Reset offset to command name */
+	mov.b	#0x20, %d0
+	mov.l	%d0, %a0
+	jsr	string_length				/* Get command name length */
+	mov.w	#31, %d1				/* Need word here */
+	sub.b	%d0, %d1				/* Calculate padding */
+	jsr	print_spaces_n				/* Print padding */
+	mov.l	%a4, %d3				/* Reset offset to module start */
+	jsr	print_hex32				/* Print module address */
+	mov.w	#4, %d1
+	jsr	print_spaces_n				/* Print padding */
+	mov.l	%a4, %d0				/* Reset offset to command type */
+	mov.b	#0x04, %d0
+	mov.l	%d0, %a0
+	mov.b	(%a0), %d0				/* Get command type */
+
+	lea	str_type5, %a0				/* Type unknown */
+module_list_commands_type_35:
+	cmp.b	#35, %d0				/* Program */
+	bne.s	module_list_commands_type_249
+	lea	str_type2, %a0
+	bra.s	module_list_commands_type_print
+module_list_commands_type_249:
+	cmp.b	#249, %d0				/* Init */
+	bne.s	module_list_commands_type_253
+	lea	str_type3, %a0
+	bra.s	module_list_commands_type_print
+module_list_commands_type_253:
+	cmp.b	#253, %d0				/* Startup command */
+	bne.s	module_list_commands_type_254
+	lea	str_type4, %a0
+	bra.s	module_list_commands_type_print
+module_list_commands_type_254:
+	cmp.b	#254, %d0				/* External command */
+	bne.s	module_list_commands_type_print
+	lea	str_type1, %a0
+module_list_commands_type_print:
+	jsr	print_cstr				/* Print type */
+	jsr	print_newline
+
+	adda.l	#0x100, %a4				/* Increment address pointer */
+	cmp.l	%a5, %a4				/* Check if we've reached the end */
+	blt.w	module_list_commands_next		/* Loop */
+module_list_commands_exit:
+	jmp	print_newline				/* Finish */
+
 *; # Main routines
 *; ###########################################################################
 *
@@ -2382,94 +2374,118 @@ common_words:
 *str_reg_iy:		db	" IY =&",0
 *str_reg_sp:		db	" SP =&",0
 *str_reg_sra:		db	" SRA =&",0
-*
-*;str_logon1:		db	"Welcome",128," z80Mon v0.1",13,14			; Welcome string (OLD)
-*;str_logon2:	 	db	32,32,"See",148,"2.DOC,",148,"2.EQU",164
-*;			db	148,"2.HDR",180,213,141,".",14				; Documentation string
-*str_logon1:		db	"Welcome",128," z80Mon",14				; Welcome string
-*
-*;str_prompt1:		db	148,"2 Loc:",0						; Paulmon2 Loc: (OLD)
-*str_prompt1:		db	"z80Mon:",0						; z80Mon:
-*str_prompt2:		db	" >", 160						;  > abort run which program(	(must follow after prompt1)
-*;str_prompt3:		db	134,202,130,'(',0					; run which program(
-*;;str_prompt4:		db	"),",149,140,128,200,": ",0				; ), or esc to quit: (OLD)
-*str_prompt4:		db	",",149,31,140,": ",0					; , or Escape:
-*;str_prompt5:		db	31,151,130,195,"s",199,166,131,","
-*			db	186," JUMP",128,134,161,"r",130,13,14			; No program headers found in memory, use JUMP to run your program
-*str_prompt6:		db	13,13,31,135,131,129,": ",0				; \n\nNew memory location:
-*str_prompt7:		db	31,228,251," key: ",0					; Press any key:
-*;str_prompt8:		db	13,13,31,136,128,131,129," (",0				; \n\nJump to memory location ( (OLD)
-*str_prompt8:		db	13,13,31,136,128,131,129,0				; \n\nJump to memory location
-*;str_prompt9:		db	13,13,31,130,31,253,0					; \n\nProgram Name (OLD)
-*str_prompt9:		db	13,31,130,31,253,0					; \nProgram Name
+
+#str_logon1:		db	"Welcome",128," z80Mon v0.1",13,14			/* Welcome string (OLD) */
+#str_logon2:	 	db	32,32,"See",148,"2.DOC,",148,"2.EQU",164
+#			db	148,"2.HDR",180,213,141,".",14				/* Documentation string */
+str_logon1:		.ascii	"Welcome"						/* Welcome string */
+			dc.b	128
+			.ascii	" m68kMon"
+			dc.b	14
+#str_prompt1:		db	148,"2 Loc:",0						/* Paulmon2 Loc: (OLD) */
+str_prompt1:		.asciz	"m68kMon:"						/* m68kMon: */
+str_prompt2:		dc.b	' ','>',160						/*  > abort run which program(	(must follow after prompt1) */
+#str_prompt3:		db	134,202,130,'(',0					/* run which program( */
+#str_prompt4:		db	"),",149,140,128,200,": ",0				/* ), or esc to quit: (OLD) */
+str_prompt4:		dc.b	',',149,31,140,':',' ',0				/* , or Escape: */
+#str_prompt5:		db	31,151,130,195,"s",199,166,131,","
+#			db	186," JUMP",128,134,161,"r",130,13,14			/* No program headers found in memory, use JUMP to run your program */
+str_prompt6:		dc.b	13,13,31,135,131,129,':',' ',0				/* \n\nNew memory location: */
+str_prompt7:		dc.b	31,228,251,' ','k','e','y',':',' ',0			/* Press any key: */
+#str_prompt8:		db	13,13,31,136,128,131,129," (",0				/* \n\nJump to memory location ( (OLD) */
+str_prompt8:		dc.b	13,13,31,136,128,131,129,0				/* \n\nJump to memory location */
+#str_prompt9:		db	13,13,31,130,31,253,0					; \n\nProgram Name (OLD)
+str_prompt9:		dc.b	13,31,130,31,253,0					/* \nProgram Name */
 str_prompt9b:		dc.b	31,129,32,32,32,32,32,31,201,14				/* Location      Type	 (must follow prompt9) */
-*str_prompt10:		db	") ",31,135,31,178,": ",0				; ) New Value:
-*str_prompt11:		db	31,189,": ",0						; Port:
-*str_prompt12:		db	31,178,": ",0						; Value:
-*str_prompt14:		db	13,13,31,135,227,129,": ",0				; \n\nNew stack location:
-*str_prompt15:		db	31,228,251," key",180,212," page,",149,140,128,200,14	; Press any key for next page, or esc to quit
-*
-*str_type1:		db	31,154,158,0						; External command
-*str_type2:		db	31,130,0						; Program
-*str_type3:		db	"Init",0						; Init
-*str_type4:		db	31,143,31,226,31,170,0					; Start Up Code
-*str_type5:		db	"???",0							; ???
-*
-*str_tag_help2:		db	31,215,0						; Help
-*str_tag_help1: 		db	31,142,215,209,0					; This help list (these 11 _cmd string must be in order)
-*str_tag_listm:  	db	31,209,130,"s",0					; List Programs
-*;str_tag_run:  		db	31,134,130,0						; Run Program
-*str_tag_dnld: 		db	31,138,0						; Download
-*str_tag_upld: 		db	31,147,0						; Upload
-*str_tag_nloc: 		db	31,135,129,0						; New Location
-*str_tag_jump: 		db	31,136,128,131,129,0					; Jump to memory location
-*;str_tag_dump: 		db	31,132,219,154,131,0					; Hex dump external memory (OLD)
-*str_tag_hexdump: 	db	31,132,219,131,0					; Hex dump memory
-*str_tag_in:		db	"Read",166,189,0					; Read in port
-*str_tag_out:		db	31,225,128,189,0					; Write to port
-*str_tag_regdump: 	db	31,219,31,196,"s",0					; Dump Registers
-*;str_tag_edit: 		db	31,156,154,146,0					; Editing external ram (OLD)
-*str_tag_edit: 		db	31,216,31,146,0						; Edit Ram
-*str_tag_clrmem: 	db	31,237,131,0						; Clear memory
-*str_tag_stack:		db	31,240,227,129,0					; Change stack location
-*
-*str_help1:		db	13,13,"Standard",31,158,"s",14				; \n\nStandard Commands
-*str_help2:		db	31,218,31,244,"ed",31,158,"s",14			; User Installed Commands
-*;str_abort:		db	" ",31,158,31,160,"!",13,14				;  Command Abort!\n\n
-*str_abort:		db	" ",31,158,31,160,"!",14				;  Command Abort!\n
-*;str_runs:		db	13,134,"ning",130,":",13,14				; \nRunning program:\n\n
-*str_runs:		db	13,134,"ning",130," @",0				; \nRunning program @
-*
-*;str_edit1: 		db	13,13,31,156,154,146,",",140,128,200,14			; \n\nEditing external ram, esc to quit\n (OLD)
-*str_edit1: 		db	13,13,31,156,31,146,",",31,140,128,200,14		; \n\nEditing Ram, Esc to quit\n
-*str_edit2: 		db	"  ",31,156,193,",",142,129,247,13,14			;   Editing complete, this location unchanged\n\n
-*
-*str_start_addr:		db	31,143,31,254,": ",0
-*str_end_addr:		db	31,248,31,254,": ",0
-*str_sure:		db	31,185,161," sure?",0					; Are you sure?
-*str_clrcomp:		db	31,131,237,193,14					; Memory clear complete\n
-*
-*str_invalid:		db	"Invalid selection",14
-*
-*str_upld1: 		db	13,13,"Sending",31,152,132,137,172,32,32,0		; \n\nSending Intel hex file from
-*str_upld2:		db	" to ",0						; to
-*;str_upld2: 		db	" ",128,32,32,0						;  to
-*
-*str_dnld1: 		db	13,13,31,159," ascii",249,150,31,152,132,137		; \n\nBegin ascii transfer of Intel hex file
-*			db	",",149,140,128,160,13,14				; , or esc to abort \n\n
-*str_dnld2: 		db	13,31,138,160,"ed",13,14				; \nDownload aborted\n\n
-*str_dnld3: 		db	13,31,138,193,"d",13,14					; \nDownload completed\n\n
-*str_dnld4: 		db	13,"Summary:",14					; \nSummary:\n
-*str_dnld5: 		db	" ",198,"s",145,"d",14					;  lines received\n
-*str_dnld6a:		db	" ",139,145,"d",14					;  bytes received\n
-*str_dnld6b:		db	" ",139," written",14					;  bytes written\n
-*str_dnld7: 		db	31,155,":",14						; Errors:\n
-*str_dnld8: 		db	" ",139," unable",128," write",14			;  bytes unable to write\n
-*str_dnld9: 		db	32,32,"bad",245,"s",14					; bad checksums\n
-*str_dnld10:		db	" ",133,159,150,198,14					;  unexpected begin of line\n
-*str_dnld11:		db	" ",133,132,157,14					;  unexpected hex digits\n
-*str_dnld12:		db	" ",133," non",132,157,14				;  unexpected non hex digits\n
-*str_dnld13:		db	31,151,155," detected",13,14				; No errors detected\n\n
+str_prompt10:		dc.b	')',' ',31,135,31,178,':',' ',0				/* ) New Value: */
+str_prompt11:		dc.b	31,189,':',' ',0					/* Port: */
+str_prompt12:		dc.b	31,178,':',' ',0					/* Value: */
+str_prompt14:		dc.b	13,13,31,135,227,129,':',' ',0				/* \n\nNew stack location: */
+str_prompt15:		dc.b	31,228,251						/* Press any key for next page, or esc to quit */
+			.ascii	" key"
+			dc.b	180,212
+			.ascii	" page,"
+			dc.b	149,140,128,200,14
+
+str_type1:		dc.b	31,154,158,0						/* External command */
+str_type2:		dc.b	31,130,0						/* Program */
+str_type3:		.asciz	"Init"							/* Init */
+str_type4:		dc.b	31,143,31,226,31,170,0					/* Start Up Code */
+str_type5:		.asciz	"???"							/* ??? */
+
+str_tag_help2:		dc.b	31,215,0						/* Help */
+str_tag_help1: 		dc.b	31,142,215,209,0					/* This help list (these 11 _cmd string must be in order) */
+str_tag_listm:  	dc.b	31,209,130,'s',0					/* List Programs */
+#str_tag_run:  		dc.b	31,134,130,0						/* Run Program */
+str_tag_dnld: 		dc.b	31,138,0						/* Download */
+str_tag_upld: 		dc.b	31,147,0						/* Upload */
+str_tag_nloc: 		dc.b	31,135,129,0						/* New Location */
+str_tag_jump: 		dc.b	31,136,128,131,129,0					/* Jump to memory location */
+#str_tag_dump: 		dc.b	31,132,219,154,131,0					/* Hex dump external memory (OLD) */
+str_tag_hexdump: 	dc.b	31,132,219,131,0					/* Hex dump memory */
+str_tag_in:		.ascii	"Read"							/* Read in port */
+			dc.b	166,189,0
+str_tag_out:		dc.b	31,225,128,189,0					/* Write to port */
+str_tag_regdump: 	dc.b	31,219,31,196,'s',0					/* Dump Registers */
+#str_tag_edit: 		dc.b	31,156,154,146,0					/* Editing external ram (OLD) */
+str_tag_edit: 		dc.b	31,216,31,146,0						/* Edit Ram */
+str_tag_clrmem: 	dc.b	31,237,131,0						/* Clear memory */
+str_tag_stack:		dc.b	31,240,227,129,0					/* Change stack location */
+
+str_help1:		dc.b	13,13							/* \n\nStandard Commands */
+			.ascii	"Standard"
+			dc.b	31,158,'s',14
+str_help2:		dc.b	31,218,31,244,'e','d',31,158,'s',14			/* User Installed Commands */
+#str_abort:		dc.b	' ',31,158,31,160,'!',13,14				/*  Command Abort!\n\n */
+str_abort:		dc.b	' ',31,158,31,160,'!',14				/*  Command Abort!\n */
+#str_runs:		dc.b	13,134,'n','i','n','g',130,':',13,14			/* \nRunning program:\n\n */
+str_runs:		dc.b	13,134,'n','i','n','g',130,' ','@',0			/* \nRunning program @ */
+
+#str_edit1: 		dc.b	13,13,31,156,154,146,',',140,128,200,14			/* \n\nEditing external ram, esc to quit\n (OLD) */
+str_edit1: 		dc.b	13,13,31,156,31,146,',',31,140,128,200,14		/* \n\nEditing Ram, Esc to quit\n */
+str_edit2: 		dc.b	' ',' ',31,156,193,',',142,129,247,13,14		/*   Editing complete, this location unchanged\n\n */
+
+str_start_addr:		dc.b	31,143,31,254,':',' ',0
+str_end_addr:		dc.b	31,248,31,254,':',' ',0
+str_sure:		dc.b	31,185,161,' ','s','u','r','e','?',0			/* Are you sure? */
+str_clrcomp:		dc.b	31,131,237,193,14					/* Memory clear complete\n */
+
+str_invalid:		.ascii	"Invalid selection"
+			dc.b	14
+
+str_upld1: 		dc.b	13,13							/* \n\nSending Intel hex file from */
+			.ascii	"Sending"
+			dc.b	31,152,132,137,172,32,32,0
+str_upld2:		dc.b	' ','t','o',' ',0					/* to */
+#str_upld2: 		dc.b	' ',128,32,32,0						/*  to */
+
+str_dnld1: 		dc.b	13,13,31,159						/* \n\nBegin ascii transfer of Intel hex file */
+			.ascii	" ascii"
+			dc.b	249,150,31,152,132,137
+			dc.b	',',149,140,128,160,13,14				/* , or esc to abort \n\n */
+str_dnld2: 		dc.b	13,31,138,160,'e','d',13,14				/* \nDownload aborted\n\n */
+str_dnld3: 		dc.b	13,31,138,193,'d',13,14					/* \nDownload completed\n\n */
+str_dnld4: 		dc.b	13							/* \nSummary:\n */
+			.ascii	"Summary:"
+			dc.b	14
+str_dnld5: 		dc.b	' ',198,'s',145,'d',14					/*  lines received\n */
+str_dnld6a:		dc.b	' ',139,145,'d',14					/*  bytes received\n */
+str_dnld6b:		dc.b	' ',139							/*  bytes written\n */
+			.ascii	" written"
+			dc.b	14
+str_dnld7: 		dc.b	31,155,':',14						/* Errors:\n */
+str_dnld8: 		dc.b	' ',139							/*  bytes unable to write\n */
+			.ascii	" unable"
+			dc.b	128
+			.ascii	" write"
+			dc.b	14
+str_dnld9: 		dc.b	32,32,'b','a','d',245,'s',14				/* bad checksums\n */
+str_dnld10:		dc.b	' ',133,159,150,198,14					/*  unexpected begin of line\n */
+str_dnld11:		dc.b	' ',133,132,157,14					/*  unexpected hex digits\n */
+str_dnld12:		dc.b	' ',133,' ','n','o','n',132,157,14			/*  unexpected non hex digits\n */
+str_dnld13:		dc.b	31,151,155						/* No errors detected\n\n */
+			.ascii	" detected"
+			dc.b	13,14
 
 str_ny:			.asciz	" (N/y): "
 str_version:		.asciz	"Version: "
