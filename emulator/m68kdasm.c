@@ -3767,7 +3767,7 @@ unsigned int m68k_disassemble(char* str_buff, unsigned int pc, unsigned int cpu_
 	g_cpu_ir = read_imm_16();
 	g_opcode_type = 0;
 	g_instruction_table[g_cpu_ir]();
-	sprintf(str_buff, "%s%s", g_dasm_str, g_helper_str);
+	if (str_buff != NULL ) sprintf(str_buff, "%s%s", g_dasm_str, g_helper_str);
 	return COMBINE_OPCODE_FLAGS(g_cpu_pc - pc);
 }
 

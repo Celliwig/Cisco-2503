@@ -976,7 +976,7 @@ void print_usage() {
 //////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
 	FILE*		fh_bootrom;
-	int		fd_serial, key_press, tmp_opt;
+	int		fd_serial, key_press, tmp_opt, tmp_pc;
 	char		emu_step = 0, *bootrom_filename = NULL, *console_devname = NULL;
 	struct termios	serial_fd_opts;
 
@@ -1086,7 +1086,12 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 's') {
 			emu_status_message("Stepped");
 			emu_step = 1;						// Execute one instruction
-//		} else if (key_press == 'S') {
+		} else if (key_press == 'S') {
+			tmp_pc = m68k_get_reg(NULL, M68K_REG_PC);
+			// Calculate next address and set it as a breakpoint
+			emu_breakpoint = tmp_pc + m68k_disassemble(NULL, tmp_pc, C2503_CPU);
+			emu_status_message("Step Over");
+			emu_step = -1;						// Run
 		} else if (key_press == 'U') {
 			emu_show_duart = emu_show_duart ^ true;			// Toggle DUART window
 		} else if (key_press == 'd') {
