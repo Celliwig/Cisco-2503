@@ -14,6 +14,7 @@
 
 # Map console routines from monitor to library
 ###########################################################################
+.equiv	console_in, scn2681_in_A
 .equiv	console_out, scn2681_out_A
 ###########################################################################
 
@@ -61,7 +62,7 @@
 *
 *; # Monitor Variables
 *; ###########################################################################
-*z80mon_default_addr:
+*MONITOR_ADDR_CURRENT:
 *	dw	0x1000
 *z80mon_temp:
 *z80mon_temp1:
@@ -149,10 +150,7 @@ startup_final:
 
 	jsr	module_list_commands			/* Print included commands */
 
-*	jmp	menu_main				/* Enter main menu */
-
-startup_final_loop:
-	bra.s	startup_final_loop			/* For testing */
+	jmp	menu_main				/* Enter main menu */
 
 # get_version
 #################################
@@ -211,7 +209,6 @@ module_search_next:
 	bge.s	module_search_failed			/* We've reached the end, so we've failed to find a module */
 	jmp	module_find
 module_search_reenter:
-	cmp.b	#0, %d0
 	beq.s	module_search_failed			/* No module, exit */
 	cmp.b	%d1, %d0				/* Check if module type we're looking for */
 	beq.s	module_search_end			/* If they're the same, return */
@@ -220,6 +217,7 @@ module_search_reenter:
 module_search_failed:
 	eor.l	%d0, %d0				/* Clear D0 as we've failed */
 module_search_end:
+	and.b	%d0, %d0				/* Set status bits appropriately */
 	rts
 
 # String routines
@@ -826,88 +824,27 @@ dictionary_get_next_nibble_bottom:
 *	pop	af
 *
 *	ret
-*
-*# Math routines
-*###########################################################################
-*# math_divide_16b
-*#################################
-*#  Divides 16 bit number by another 16 bit number
-*#  From: http://map.grauw.nl/sources/external/z80bits.html
-*#	In:	BC = Dividend
-*#		DE = Divisor
-*#		HL = 0
-*#	Out:	BC = Quotient
-*#		HL = Remainder
-*math_divide_16b:
-*	ld	hl, 0x0000
-*	ld	a, 0x10
-*math_divide_16b_loop:
-*	db	 0xcb, 0x31				; Undocumented instruction: SLL  C
-*	;sll	c					; carry <- C <- 1
-*	rl	b					; carry <- B <- carry
-*	adc	hl, hl					; HL = HL + HL + carry
-*	sbc	hl, de					; HL = HL - (DE + carry)
-*	jr	nc, math_divide_16b_check
-*	add	hl, de					; HL = HL + DE
-*	dec	c					; C = C - 1
-*math_divide_16b_check:
-*	dec	a
-*	jr	nz, math_divide_16b_loop
-*	ret
 
-*; # math_bcd_2_hex
-*; #################################
-*;  Converts an 8 bit bcd encoded value to hex
-*;	In:	A = BCD value
-*;	Out:	A = Hex value
-*math_bcd_2_hex:
-*	ld	b, a					; Save value
-*	srl	b					; Shift upper nibble to lower
-*	srl	b
-*	srl	b
-*	srl	b
-*	and	0x0f					; Extract lower nibble
-*	ld	c, a					; Save for later
-*	xor	a					; Clear A
-*	cp	b					; Test 10s digit
-*	jr	z, math_bcd_2_hex_combine		; No 10s, so finish
-*math_bcd_2_hex_loop:
-*	add	0x0a					; Add 10
-*	djnz	math_bcd_2_hex_loop
-*math_bcd_2_hex_combine:
-*	add	c					; Combine values
-*	ret
+# Input routines
+###########################################################################
+# input_character_filter
+#################################
+#  Routine replaces character sequences for up/down/left/right & PageUp/PageDown
+#  with values noted below.
+#	Return Value	Key		Escape Sequence
+#	11 (^K)		Up		1B 5B 41
+#	10 (^J)		Down		1B 5B 42
+#	21 (^U)		Right		1B 5B 43
+#	8 (^H)		Left		1B 5B 44
+#	25 (^Y)		PageUp		1B 5B 35 7E
+#	26 (^Z)		PageDown	1B 5B 36 7E
+#
+#	Out:	D0 = ASCII character code
+input_character_filter:
+	jsr	console_in				/* Get character if there is one */
+input_character_filter_end:
+	rts
 
-*; # Input routines
-*; ###########################################################################
-*; # input_character_filter
-*; #################################
-*;  Routine replaces character sequences for up/down/left/right & PageUp/PageDown
-*;  with values noted below.
-*;	Return Value	Key		Escape Sequence
-*;	11 (^K)		Up		1B 5B 41
-*;	10 (^J)		Down		1B 5B 42
-*;	21 (^U)		Right		1B 5B 43
-*;	8 (^H)		Left		1B 5B 44
-*;	25 (^Y)		PageUp		1B 5B 35 7E
-*;	26 (^Z)		PageDown	1B 5B 36 7E
-*;
-*;	Out:	A = ASCII character code
-*;	Carry flag set is character value
-*input_character_filter:
-*	call	monlib_console_in			; Get character if there is one
-*;	jnc	input_character_filter_end		; No character available, so finish
-*;
-*;	cp	character_code_escape			; Compare character to Escape character
-*;	jr	nz, input_character_filter_end		; It's not, so finish
-*
-*	; Need serial port!!!
-*	; So just pass through
-*
-*input_character_filter_end:
-*	ret
-*
-*
 *;input_character_filter:
 *;	jnb	ri, cinf1
 *;	lcall	cin
@@ -1000,7 +937,7 @@ dictionary_get_next_nibble_bottom:
 *;	pop	acc
 *;	mov	r2, a
 *;	ret
-*
+
 *; # input_hex8_preloaded
 *; #################################
 *;  Routine to enter up to 2 digit hexadecimal number
@@ -1163,7 +1100,7 @@ dictionary_get_next_nibble_bottom:
 *input_hex_complete_end:
 *	scf						; Set Carry flag
 *	ret
-*
+
 *; # input_addrs_start_end
 *; #################################
 *;  Routine to get a start and end address
@@ -1205,7 +1142,7 @@ dictionary_get_next_nibble_bottom:
 *	call	print_newline
 *	ld	hl, str_invalid
 *	jp	print_cstr
-*
+
 *; # input_str
 *; #################################
 *;  Input a string of upto buffer size - 1. Null terminates string.
@@ -1280,7 +1217,7 @@ dictionary_get_next_nibble_bottom:
 *	or	h					; See if we've reached zero
 *	jr	nz, memory_copy				; If there are remaining bytes to copy
 *	ret
-*
+
 *; # memory_copy_verify
 *; #################################
 *;  Verifies a region of memory against another region
@@ -1305,6 +1242,59 @@ dictionary_get_next_nibble_bottom:
 *	ccf
 *	ret
 
+# Math routines
+###########################################################################
+*# math_divide_16b
+*#################################
+*#  Divides 16 bit number by another 16 bit number
+*#  From: http://map.grauw.nl/sources/external/z80bits.html
+*#	In:	BC = Dividend
+*#		DE = Divisor
+*#		HL = 0
+*#	Out:	BC = Quotient
+*#		HL = Remainder
+*math_divide_16b:
+*	ld	hl, 0x0000
+*	ld	a, 0x10
+*math_divide_16b_loop:
+*	db	 0xcb, 0x31				; Undocumented instruction: SLL  C
+*	;sll	c					; carry <- C <- 1
+*	rl	b					; carry <- B <- carry
+*	adc	hl, hl					; HL = HL + HL + carry
+*	sbc	hl, de					; HL = HL - (DE + carry)
+*	jr	nc, math_divide_16b_check
+*	add	hl, de					; HL = HL + DE
+*	dec	c					; C = C - 1
+*math_divide_16b_check:
+*	dec	a
+*	jr	nz, math_divide_16b_loop
+*	ret
+
+*; # math_bcd_2_hex
+*; #################################
+*;  Converts an 8 bit bcd encoded value to hex
+*;	In:	A = BCD value
+*;	Out:	A = Hex value
+*math_bcd_2_hex:
+*	ld	b, a					; Save value
+*	srl	b					; Shift upper nibble to lower
+*	srl	b
+*	srl	b
+*	srl	b
+*	and	0x0f					; Extract lower nibble
+*	ld	c, a					; Save for later
+*	xor	a					; Clear A
+*	cp	b					; Test 10s digit
+*	jr	z, math_bcd_2_hex_combine		; No 10s, so finish
+*math_bcd_2_hex_loop:
+*	add	0x0a					; Add 10
+*	djnz	math_bcd_2_hex_loop
+*math_bcd_2_hex_combine:
+*	add	c					; Combine values
+*	ret
+
+# Main routines
+###########################################################################
 # module_list_commands
 #################################
 #  Print a list of additional commands
@@ -1328,13 +1318,11 @@ module_list_commands_reenter:
 	beq.w	module_list_commands_exit		/* If not, return */
 
 	jsr	print_spacex2
-	mov.l	%a4, %d0				/* Reset offset to command name */
-	mov.b	#0x20, %d0
-	mov.l	%d0, %a0
+	mov.l	%a4, %a0				/* Reset offset to command name */
+	adda.w	#0x20, %a0
 	jsr	print_str				/* Print command name */
-	mov.l	%a4, %d0				/* Reset offset to command name */
-	mov.b	#0x20, %d0
-	mov.l	%d0, %a0
+	mov.l	%a4, %a0				/* Reset offset to command name */
+	adda.w	#0x20, %a0
 	jsr	string_length				/* Get command name length */
 	mov.w	#31, %d1				/* Need word here */
 	sub.b	%d0, %d1				/* Calculate padding */
@@ -1343,9 +1331,8 @@ module_list_commands_reenter:
 	jsr	print_hex32				/* Print module address */
 	mov.w	#4, %d1
 	jsr	print_spaces_n				/* Print padding */
-	mov.l	%a4, %d0				/* Reset offset to command type */
-	mov.b	#0x04, %d0
-	mov.l	%d0, %a0
+	mov.l	%a4, %a0				/* Reset offset to command type */
+	adda.w	#0x04, %a0
 	mov.b	(%a0), %d0				/* Get command type */
 
 	lea	str_type5, %a0				/* Type unknown */
@@ -1378,97 +1365,89 @@ module_list_commands_type_print:
 module_list_commands_exit:
 	jmp	print_newline				/* Finish */
 
-*; # Main routines
-*; ###########################################################################
-*
-*; # command_help_line_print
-*; #################################
-*;  Prints a line of help text
-*;	In:	B = Command key
-*;		HL = Command help string
-*command_help_line_print:
-*	call	print_spacex2
-*	ld	a, b
-*	call	monlib_console_out
-*	call	print_dash_spaces
-*	call	print_cstr
-*	jp	print_newline
-*
-*; # command_help
-*; #################################
-*;  Prints help text
-*command_help:
-*	ld	hl, str_tag_help2
-*	call	print_cstr				; Print message
-*command_help_internal_commands:
-*	ld	hl, str_help1
-*	call	print_cstr
-*
-*	ld	b, command_key_help
-*	ld	hl, str_tag_help1
-*	call	command_help_line_print
-*	ld	b, command_key_listm
-*	;ld	hl, str_tag_listm
-*	call	command_help_line_print
-*	;ld	b, command_key_run
-*	;;ld	hl, str_tag_run
-*	;call	command_help_line_print
-*	ld	b, command_key_download
-*	;ld	hl, str_tag_dnld
-*	call	command_help_line_print
-*	ld	b, command_key_upload
-*	;ld	hl, str_tag_upld
-*	call	command_help_line_print
-*	ld	b, command_key_new_locat
-*	;ld	hl, str_tag_nloc
-*	call	command_help_line_print
-*	ld	b, command_key_jump
-*	;ld	hl, str_tag_jump
-*	call	command_help_line_print
-*	ld	b, command_key_hexdump
-*	;ld	hl, str_tag_hexdump
-*	call	command_help_line_print
-*	ld	b, command_key_in
-*	;ld	hl, str_tag_in
-*	call	command_help_line_print
-*	ld	b, command_key_out
-*	;ld	hl, str_tag_out
-*	call	command_help_line_print
-*	ld	b, command_key_regdump
-*	;ld	hl, str_tag_regdump
-*	call	command_help_line_print
-*	ld	b, command_key_edit
-*	;ld	hl, str_tag_edit
-*	call	command_help_line_print
-*	ld	b, command_key_clrmem
-*	;ld	hl, str_tag_clrm
-*	call	command_help_line_print
-*	ld	b, command_key_stack
-*	;ld	hl, str_tag_stack
-*	call	command_help_line_print
-*
-*command_help_external_commands:
-*	ld	hl, str_help2
-*	call	print_cstr
-*	ld	hl, mem_srch_start			; Set search start
-*command_help_external_commands_loop:
-*	ld	a, 0xfe					; Search for external command
-*	call	module_search
-*	jr	nc, command_help_end			; No command found so finish
-*	call	print_spacex2
-*	ld	l, 0x05					; Offset to module command character
-*	ld	a, (hl)					; Get module command character
-*	call	monlib_console_out			; Print character
-*	call	print_dash_spaces
-*	ld	l, 0x20					; Offset to module name
-*	call	print_str				; Print module name
-*	call	print_newline
-*	inc	h					; Increment module search start address
-*	jr	command_help_external_commands_loop	; Loop around again
-*
-*command_help_end:
-*	jp	print_newline				; Print newline and return
-*
+# command_help_line_print
+#################################
+#  Prints a line of help text
+#	In:	D1 = Command key
+#		A0 = Command help string
+command_help_line_print:
+	jsr	print_spacex2
+	mov.b	%d1, %d0
+	jsr	console_out
+	jsr	print_dash_spaces
+	jsr	print_cstr
+	jmp	print_newline
+
+# command_help
+#################################
+#  Prints help text
+command_help:
+	lea	str_tag_help2, %a0
+	jsr	print_cstr				/* Print message */
+command_help_internal_commands:
+	lea	str_help1, %a0
+	jsr	print_cstr
+
+	mov.b	#command_key_help, %d1
+	lea	str_tag_help1, %a0
+	jsr	command_help_line_print
+	mov.b	#command_key_listm, %d1
+	lea	str_tag_listm, %a0
+	jsr	command_help_line_print
+#	mov.b	#command_key_run, %d1
+#	lea	str_tag_run, %a0
+#	jsr	command_help_line_print
+	mov.b	#command_key_download, %d1
+	lea	str_tag_dnld, %a0
+	jsr	command_help_line_print
+	mov.b	#command_key_upload, %d1
+	lea	str_tag_upld, %a0
+	jsr	command_help_line_print
+	mov.b	#command_key_new_locat, %d1
+	lea	str_tag_nloc, %a0
+	jsr	command_help_line_print
+	mov.b	#command_key_jump, %d1
+	lea	str_tag_jump, %a0
+	jsr	command_help_line_print
+	mov.b	#command_key_hexdump, %d1
+	lea	str_tag_hexdump, %a0
+	jsr	command_help_line_print
+	mov.b	#command_key_regdump, %d1
+	lea	str_tag_regdump, %a0
+	jsr	command_help_line_print
+	mov.b	#command_key_edit, %d1
+	lea	str_tag_edit, %a0
+	jsr	command_help_line_print
+	mov.b	#command_key_clrmem, %d1
+	lea	str_tag_clrmem, %a0
+	jsr	command_help_line_print
+	mov.b	#command_key_stack, %d1
+	lea	str_tag_stack, %a0
+	jsr	command_help_line_print
+
+command_help_external_commands:
+	lea	str_help2, %a0
+	jsr	print_cstr
+	lea	module_search_mem_start, %a4		/* Set search start */
+command_help_external_commands_loop:
+	mov.b	#0xfe, %d1				/* Search for external command */
+	jsr	module_search
+	beq.s	command_help_end			/* No command found so finish */
+	jsr	print_spacex2
+	mov.l	%a4, %a0				/* Offset to module command character */
+	adda.w	#0x5, %a0
+	mov.b	(%a0), %d0				/* Get module command character */
+	jsr	console_out				/* Print character */
+	jsr	print_dash_spaces
+	mov.l	%a4, %a0				/* Offset to module command name */
+	adda.w	#0x20, %a0
+	jsr	print_str				/* Print module name */
+	jsr	print_newline
+	adda.w	#0x100, %a4				/* Increment module search start address */
+	bra.s	command_help_external_commands_loop
+command_help_end:
+	jmp	print_newline				/* Print newline and return */
+
 *; # command_location_new
 *; #################################
 *;  Sets the monitor pointer to where default operations are performed
@@ -1480,9 +1459,9 @@ module_list_commands_exit:
 *	call	print_cstr
 *	call	input_hex16				; Get value
 *	jp	nc, print_abort				; If escaped, print abort message
-*	ld	(z80mon_default_addr), de		; Save value
+*	ld	(MONITOR_ADDR_CURRENT), de		; Save value
 *	jp	print_newline
-*
+
 *; # command_stack_change
 *; #################################
 *;  Sets the monitor pointer to where default operations are performed
@@ -1497,7 +1476,7 @@ module_list_commands_exit:
 *	ex	de, hl					; Move to the needed register
 *	ld	sp, hl					; Set stack pointer
 *	rst	16					; Restart monitor
-*
+
 *; # command_jump
 *; #################################
 *;  Request an address, and jump to the code at that location
@@ -1509,7 +1488,7 @@ module_list_commands_exit:
 *	call	print_cstr
 *	ld	hl, str_prompt4
 *	call	print_cstr
-*	ld	bc, (z80mon_default_addr)
+*	ld	bc, (MONITOR_ADDR_CURRENT)
 *	call	input_hex16_preloaded
 *	jr	c, command_jump_prep
 *	jp	print_abort
@@ -1526,8 +1505,7 @@ module_list_commands_exit:
 *	push	bc					; In case there's a RET at the end of the code
 *command_jump_brkpnt:
 *	jp	(hl)					; Execute startup module
-*
-*
+
 *; # command_hexdump
 *; #################################
 *;  Dump memory at the default location
@@ -1535,7 +1513,7 @@ module_list_commands_exit:
 *	ld	hl, str_tag_hexdump
 *	call	print_cstr				; Print message
 *
-*	ld	hl, (z80mon_default_addr)
+*	ld	hl, (MONITOR_ADDR_CURRENT)
 *	ld	de, 0x0600
 *
 *	call	print_newline
@@ -1569,7 +1547,7 @@ module_list_commands_exit:
 *	jr	command_hexdump_line_print
 *command_hexdump_end:
 *	ret
-*
+
 *; # command_edit
 *; #################################
 *;  Basic memory editor
@@ -1579,7 +1557,7 @@ module_list_commands_exit:
 *
 *	ld	hl, str_edit1
 *	call	print_cstr
-*	ld	hl, (z80mon_default_addr)		; Get default address
+*	ld	hl, (MONITOR_ADDR_CURRENT)		; Get default address
 *command_edit_loop:
 *	call	print_hex16				; Print address
 *	call	print_colon_space
@@ -1591,9 +1569,9 @@ module_list_commands_exit:
 *	ld	(hl), e					; Save editted value back to memory
 *	call	print_newline
 *	inc	hl					; Increment memory pointer
-*	ld	(z80mon_default_addr), hl		; Save memory pointer as default
+*	ld	(MONITOR_ADDR_CURRENT), hl		; Save memory pointer as default
 *	jr	command_edit_loop
-*
+
 *; # command_clear_mem
 *; #################################
 *;  Clears a region of memory
@@ -1634,7 +1612,7 @@ module_list_commands_exit:
 *command_clear_mem_inc:
 *	inc	bc
 *	jr	command_clear_mem_loop
-*
+
 *;; # command_run
 *;; #################################
 *;;  Lists module with id code (35), and provides the ability to run them.
@@ -1724,59 +1702,7 @@ module_list_commands_exit:
 *;	ld	l, 0x40					; Set offset to program code
 *;command_run_brkpnt:
 *;	jp	(hl)					; Execute program code
-*
-*; # command_port_in
-*; #################################
-*;  Displays the contents of a particular port
-*command_port_in:
-*	ld	hl, str_tag_in
-*	call	print_cstr				; Print message
-*
-*	call	print_newlinex2
-*	ld	hl, str_prompt11
-*	call	print_cstr
-*	call	input_hex8				; Get port address
-*	jr	c, command_port_in_cont			; Check if escape pressed
-*	jp	print_abort
-*command_port_in_cont:
-*	ld	c, e
-*	in	a, (c)					; Read port
-*	push	af					; Save value
-*	call	print_newline
-*	ld	hl, str_prompt12
-*	call	print_cstr
-*	pop	af
-*	call	print_hex8				; Print value
-*	call	print_newline
-*	ret
-*
-*; # command_port_out
-*; #################################
-*;  Writes data to a particular port
-*command_port_out:
-*	ld	hl, str_tag_out
-*	call	print_cstr				; Print message
-*
-*	call	print_newlinex2
-*	ld	hl, str_prompt11
-*	call	print_cstr
-*	call	input_hex8				; Get port address
-*	jr	c, command_port_out_cont1		; Check if escape pressed
-*	jp	print_abort
-*command_port_out_cont1:
-*	push	de					; Save port address
-*	call	print_newline
-*	ld	hl, str_prompt12
-*	call	print_cstr
-*	call	input_hex8
-*	jr	c, command_port_out_cont2		; Check if escape pressed
-*	jp	print_abort
-*command_port_out_cont2:
-*	pop	bc					; Restore port address
-*	out	(c), e					; Write value to port
-*	call	print_newline
-*	ret
-*
+
 *; # command_upload
 *; #################################
 *;  Uploads a selected section of memory
@@ -1901,7 +1827,7 @@ module_list_commands_exit:
 *	call	print_hex8
 *	call	print_newline
 *	ret
-*
+
 *; # command_download_alt
 *; #################################
 *;  Downloads an Intel format hex file
@@ -2170,7 +2096,7 @@ module_list_commands_exit:
 *
 *command_download_summary_finish:
 *	jp	print_newline
-*
+
 *; A short delay since most terminal emulation programs
 *; won't be ready to receive anything immediately after
 *; they've transmitted a file... even on a fast Pentium(tm)
@@ -2181,59 +2107,60 @@ module_list_commands_exit:
 *	dec	bc
 *	jr	nz, download_delay_loop
 *	ret
-*
-*; # menu_main
-*; #################################
-*;  Implements interactive menu
-*menu_main:
-*	; First we print out the prompt, which isn't as simple
-*	; as it may seem, since external code can add to the
-*	; prompt, so we've got to find and execute all of 'em.
-*	ld	hl, str_prompt1				; First part of the prompt
-*	call	print_cstr
-*	ld	hl, (z80mon_default_addr)		; Get current address
-*	call	print_hex16
-*	ld	hl, str_prompt2				; Second part of the prompt
-*	call	print_str
-*
-*	call	input_character_filter			; Get character input
-*
-*	cp	':'					; Check for ':' from pushing a HEX file from a terminal
-*	jr	nz, menu_main_push_address
-*	call	command_download_alt
-*	jr	menu_main
-*
-*menu_main_push_address:
-*	call	char_2_upper				; Convert to uppercase to simplify matching
-*	ld	bc, menu_main
-*	push	bc					; Push menu_main address to stack to make returning easier
-*	push	af					; Save command character
-*
-*menu_main_external_commands:
-*	ld	hl, mem_srch_start			; Set search start
-*menu_main_external_commands_loop:
-*	ld	a, 0xfe					; Search for startup application
-*	call	module_search
-*	jr	nc, menu_main_builtin_commands		; No command found so procede with builtin commands
-*	pop	bc					; Restore command character
-*	ld	l, 0x05					; Offset to module command character
-*	ld	a, (hl)					; Get module command character
-*	cp	b					; Are they the same character?
-*	jr	z, menu_main_external_commands_exec	; Execute external command
-*	push	bc					; Store command character again
-*	inc	h					; Increment module search start address
-*	jr	menu_main_external_commands_loop	; Loop around again
-*menu_main_external_commands_exec:
-*	call	print_space
-*	ld	l, 0x20					; Offset to module command name
-*	call	print_str				; Print module command name
-*	call	print_newline
-*	ld	l, 0x40					; Offset to module code
-*	xor	a
-*	jp	(hl)
-*
-*menu_main_builtin_commands:
-*	pop	af					; Restore command character
+
+# menu_main
+#################################
+#  Implements interactive menu
+menu_main:
+	# First we print out the prompt, which isn't as simple
+	# as it may seem, since external code can add to the
+	# prompt, so we've got to find and execute all of 'em.
+	lea	str_prompt1, %a0			/* First part of the prompt */
+	jsr	print_cstr
+	mov.l	MONITOR_ADDR_CURRENT, %d3		/* Get current address */
+	jsr	print_hex32
+	lea	str_prompt2, %a0			/* Second part of the prompt */
+	jsr	print_str
+
+	jsr	input_character_filter			/* Get character input */
+
+#	cmp.b	#':', %d0				/* Check for ':' from pushing a HEX file from a terminal */
+#	bne.s	menu_main_push_address
+#	jsr	command_download_alt
+#	bra.s	menu_main
+
+menu_main_push_address:
+	jsr	char_2_upper				/* Convert to uppercase to simplify matching */
+	lea	menu_main, %a0
+	mov.l	%a0, -(%sp)				/* Push menu_main address to stack to make returning easier */
+	mov.b	%d0, %d4				/* Save command character */
+
+#menu_main_external_commands:
+#	mov.l	module_search_mem_end, %a4		/* Set search start */
+#menu_main_external_commands_loop:
+#	mov.b	#0xfe, %d1				/* Search for external command */
+#	jsr	module_search
+#	beq.s	menu_main_builtin_commands		/* No command found so procede with builtin commands */
+#	mov.l	%a4, %a0				/* Make offset to command character */
+#	adda.w	#0x5, %a0
+#	cmp.b	(%a0), %d4				/* Are they the same character? */
+#	beq.s	menu_main_external_commands_exec	/* Execute external command */
+#	adda.w	#0x100, %a4				/* Increment module search start address */
+#	bra.s	menu_main_external_commands_loop	/* Loop */
+#menu_main_external_commands_exec:
+#	jsr	print_space
+#	mov.l	%a4, %a0				/* Make offset to command name */
+#	adda.w	#0x20, %a0
+#	jsr	print_str				/* Print module command name */
+#	jsr	print_newline
+#	mov.l	%a4, %a0				/* Make offset to module code */
+#	adda.w	#0x40, %a0
+#	jmp	(%a0)					/* Execute external command */
+
+menu_main_builtin_commands:
+	cmp.b	#command_key_help, %d4			/* Check if help key */
+	beq.w	command_help				/* Run command */
+
 *	cp	command_key_help			; Check if help key
 *	jp	z, command_help				; Run command
 *	cp	command_key_listm			; Check if list modules key
@@ -2262,9 +2189,9 @@ module_list_commands_exit:
 *	jp	z, command_upload			; Run command
 *	cp	command_key_download			; Check if download key
 *	jp	z, command_download			; Run command
-*
-*menu_main_end:
-*	jp	print_newline				; This will return to menu_main
+
+menu_main_end:
+	jmp	print_newline				/* This will return to menu_main */
 
 # Fixed data structures
 ###########################################################################
