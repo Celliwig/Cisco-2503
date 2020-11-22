@@ -713,117 +713,140 @@ dictionary_get_next_nibble_bottom:
 *	ld	hl, str_abort
 *	jp	print_cstr
 
-*; # print_registers
-*; #################################
-*;  Print out the contents of all registers (without altering them!)
-*command_print_registers:
-*	ld	hl, str_tag_regdump
-*	call	print_cstr				; Print message
-*print_registers:
-*	ld	(z80mon_temp1), sp			; Save stack pointer address
-*	ex	(sp), hl				; Swap HL <-> return address
-*	ld	(z80mon_temp2), hl			; Save return address
-*	ex	(sp), hl				; Swap return address <-> HL
-*
-*	push	af					; Make a copy of all registers
-*	push	bc					; Need to restore them later
-*	push	de
-*	push	hl
-*	ex	af, af'					; Swap AF for shadow registers
-*	exx						; Swap for shadow registers
-*	push	af					; Make a copy of all registers
-*	push	bc					; Need to restore them later
-*	push	de
-*	push	hl
-*	push	ix
-*	push	iy
-*
-*	; Now push a copy of everything on to the stack to print (in the order we're going to read)
-*	push	iy
-*	push	hl
-*	push	de
-*	push	bc
-*	push	af
-*	ex	af, af'
-*	exx
-*	push	ix
-*	push	hl
-*	push	de
-*	push	bc
-*	push	af
-*
-*	; Print registers
-*	call	print_newline
-*	ld	hl, str_reg_af1
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	ld	hl, str_reg_bc1
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	ld	hl, str_reg_de1
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	ld	hl, str_reg_hl1
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	ld	hl, str_reg_ix
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	call	print_newline
-*
-*	; Print shadow registers
-*	ld	hl, str_reg_af2
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	ld	hl, str_reg_bc2
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	ld	hl, str_reg_de2
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	ld	hl, str_reg_hl2
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	ld	hl, str_reg_iy
-*	call	print_str
-*	pop	hl
-*	call	print_hex16
-*	call	print_newline
-*
-*	; Print additional registers
-*	ld	hl, str_reg_sra
-*	call	print_str
-*	ld	hl, (z80mon_temp2)
-*	call	print_hex16
-*	ld	hl, str_reg_sp
-*	call	print_str
-*	ld	hl, (z80mon_temp1)
-*	call	print_hex16
-*	call	print_newline
-*
-*	pop	iy					; Restore shadow register contents
-*	pop	ix
-*	pop	hl
-*	pop	de
-*	pop	bc
-*	pop	af
-*	exx						; Exchange
-*	ex	af, af'
-*	pop	hl					; Restore register contents
-*	pop	de
-*	pop	bc
-*	pop	af
-*
-*	ret
+# print_registers
+#################################
+#  Print out the contents of all registers (without altering them!)
+command_print_registers:
+print_registers:
+	# Save stack pointer in memory
+	mov.l	%sp, MONITOR_ADDR_TEMP1			/* Save stack pointer */
+
+	# Save a copy to restore later (in case this is used in an ISR)
+	# Save special registers
+	move	%sr, -(%sp)				/* Save status register */
+
+	# Save address registers
+	mov.l	%a6, -(%sp)				/* Save A6 pointer address */
+	mov.l	%a5, -(%sp)				/* Save A5 pointer address */
+	mov.l	%a4, -(%sp)				/* Save A4 pointer address */
+	mov.l	%a3, -(%sp)				/* Save A3 pointer address */
+	mov.l	%a2, -(%sp)				/* Save A2 pointer address */
+	mov.l	%a1, -(%sp)				/* Save A1 pointer address */
+	mov.l	%a0, -(%sp)				/* Save A0 pointer address */
+
+	# Save data registers
+	mov.l	%d7, -(%sp)				/* Save D7 pointer address */
+	mov.l	%d6, -(%sp)				/* Save D6 pointer address */
+	mov.l	%d5, -(%sp)				/* Save D5 pointer address */
+	mov.l	%d4, -(%sp)				/* Save D4 pointer address */
+	mov.l	%d3, -(%sp)				/* Save D3 pointer address */
+	mov.l	%d2, -(%sp)				/* Save D2 pointer address */
+	mov.l	%d1, -(%sp)				/* Save D1 pointer address */
+	mov.l	%d0, -(%sp)				/* Save D0 pointer address */
+
+	# Copy for display
+	# Save special registers
+	move	%sr, -(%sp)				/* Save status register */
+
+	# Save address registers
+	mov.l	%a6, -(%sp)				/* Save A6 pointer address */
+	mov.l	%a5, -(%sp)				/* Save A5 pointer address */
+	mov.l	%a4, -(%sp)				/* Save A4 pointer address */
+	mov.l	%a3, -(%sp)				/* Save A3 pointer address */
+	mov.l	%a2, -(%sp)				/* Save A2 pointer address */
+	mov.l	%a1, -(%sp)				/* Save A1 pointer address */
+	mov.l	%a0, -(%sp)				/* Save A0 pointer address */
+
+	# Save data registers
+	mov.l	%d7, -(%sp)				/* Save D7 pointer address */
+	mov.l	%d6, -(%sp)				/* Save D6 pointer address */
+	mov.l	%d5, -(%sp)				/* Save D5 pointer address */
+	mov.l	%d4, -(%sp)				/* Save D4 pointer address */
+	mov.l	%d3, -(%sp)				/* Save D3 pointer address */
+	mov.l	%d2, -(%sp)				/* Save D2 pointer address */
+	mov.l	%d1, -(%sp)				/* Save D1 pointer address */
+	mov.l	%d0, -(%sp)				/* Save D0 pointer address */
+
+	jsr	print_newline
+
+	# Print data registers
+	mov.w	#0, %d4
+	jsr	print_newline
+	mov.w	#2, %d1
+	jsr	print_spaces_n
+print_registers_dreg_loop:
+	mov.b	#'D', %d0				/* Print 'D' */
+	jsr	console_out
+	mov.b	%d4, %d0				/* Register count */
+	jsr	print_hex_digit
+	jsr	print_colon_space			/* Print ': ' */
+	mov.l	(%sp)+, %d3				/* Pop value */
+	jsr	print_hex32
+	mov.w	#3, %d1					/* Print spaces */
+	jsr	print_spaces_n
+	add.b	#1, %d4					/* Increment count */
+	cmp.b	#8, %d4
+	blt.s	print_registers_dreg_loop
+
+	# Print address registers
+	mov.w	#0, %d4
+	jsr	print_newline
+	mov.w	#2, %d1
+	jsr	print_spaces_n
+print_registers_areg_loop:
+	mov.b	#'A', %d0				/* Print 'D' */
+	jsr	console_out
+	mov.b	%d4, %d0				/* Register count */
+	jsr	print_hex_digit
+	jsr	print_colon_space			/* Print ': ' */
+	mov.l	(%sp)+, %d3				/* Pop value */
+	jsr	print_hex32
+	mov.w	#3, %d1					/* Print spaces */
+	jsr	print_spaces_n
+	add.b	#1, %d4					/* Increment count */
+	cmp.b	#7, %d4
+	blt.s	print_registers_areg_loop
+
+	# Print additional registers
+	jsr	print_newline
+	mov.w	#2, %d1
+	jsr	print_spaces_n
+	lea	str_reg_sr, %a0				/* Print 'SR: ' */
+	jsr	print_str
+	mov.w	(%sp)+, %d3				/* Pop value */
+	jsr	print_hex16
+	mov.w	#3, %d1					/* Print spaces */
+	jsr	print_spaces_n
+	lea	str_reg_sp, %a0				/* Print 'SP: ' */
+	jsr	print_str
+	mov.l	MONITOR_ADDR_TEMP1, %d3			/* Pop value */
+	jsr	print_hex32
+	jsr	print_newline
+
+	# Restore register contents
+	# Restore data registers
+	mov.l	(%sp)+, %d0				/* Restore D0 pointer address */
+	mov.l	(%sp)+, %d1				/* Restore D1 pointer address */
+	mov.l	(%sp)+, %d2				/* Restore D2 pointer address */
+	mov.l	(%sp)+, %d3				/* Restore D3 pointer address */
+	mov.l	(%sp)+, %d4				/* Restore D4 pointer address */
+	mov.l	(%sp)+, %d5				/* Restore D5 pointer address */
+	mov.l	(%sp)+, %d6				/* Restore D6 pointer address */
+	mov.l	(%sp)+, %d7				/* Restore D7 pointer address */
+
+	# Restore address registers
+	mov.l	(%sp)+, %a0				/* Restore A0 pointer address */
+	mov.l	(%sp)+, %a1				/* Restore A1 pointer address */
+	mov.l	(%sp)+, %a2				/* Restore A2 pointer address */
+	mov.l	(%sp)+, %a3				/* Restore A3 pointer address */
+	mov.l	(%sp)+, %a4				/* Restore A4 pointer address */
+	mov.l	(%sp)+, %a5				/* Restore A5 pointer address */
+	mov.l	(%sp)+, %a6				/* Restore A6 pointer address */
+
+	# Restore special registers
+	move	(%sp)+, %sr				/* Save status register */
+
+	rts
 
 # Input routines
 ###########################################################################
@@ -2160,13 +2183,12 @@ menu_main_push_address:
 menu_main_builtin_commands:
 	cmp.b	#command_key_help, %d4			/* Check if help key */
 	beq.w	command_help				/* Run command */
+	cmp.b	#command_key_listm, %d4			/* Check if list modules key */
+	beq.w	command_module_list_commands		/* Run command */
+	cmp.b	#command_key_regdump, %d4		/* Check if list modules key */
+	beq.w	command_print_registers			/* Run command */
 
-*	cp	command_key_help			; Check if help key
-*	jp	z, command_help				; Run command
-*	cp	command_key_listm			; Check if list modules key
-*	jp	z, command_module_list_commands		; Run command
-*	cp	command_key_regdump			; Check if dump registers key
-*	jp	z, command_print_registers		; Run command
+
 *	cp	command_key_new_locat			; Check if new location key
 *	jp	z, command_location_new			; Run command
 *	cp	command_key_stack			; Check if changestack location key
@@ -2286,21 +2308,11 @@ common_words:
 	dc.b	0x9f, 0xc6, 0x50, 0xb3, 0x01, 0xd3, 0x4d, 0x71
 	dc.b	0x07, 0x4c, 0x56, 0x02
 
-*; # List of strings
-*; #################################
-*; Strings used to dump register contents
-*str_reg_af1:		db	" AF =&",0
-*str_reg_af2:		db	" AF'=&",0
-*str_reg_bc1:		db	" BC =&",0
-*str_reg_bc2:		db	" BC'=&",0
-*str_reg_de1:		db	" DE =&",0
-*str_reg_de2:		db	" DE'=&",0
-*str_reg_hl1:		db	" HL =&",0
-*str_reg_hl2:		db	" HL'=&",0
-*str_reg_ix:		db	" IX =&",0
-*str_reg_iy:		db	" IY =&",0
-*str_reg_sp:		db	" SP =&",0
-*str_reg_sra:		db	" SRA =&",0
+# List of strings
+#################################
+# Strings used to dump register contents
+str_reg_sp:		.asciz	"SP: "
+str_reg_sr:		.asciz	"SR: "
 
 #str_logon1:		db	"Welcome",128," z80Mon v0.1",13,14			/* Welcome string (OLD) */
 #str_logon2:	 	db	32,32,"See",148,"2.DOC,",148,"2.EQU",164
