@@ -238,30 +238,25 @@ char_2_upper_end:
 
 # char_2_hex
 #################################
-#  Converts (if possible) a character (A-Z/0-9) to hex value
-#	In:	A = ASCII character
-#	Out:	A = Hex value
+#  Converts (if possible) a character (A-F/0-9) to hex value
+#    Must be uppercase!!!
+#	In:	D0 = ASCII character
+#	Out:	D0 = Hex value
 #		Carry set if value valid, not otherwise
-*char_2_hex:
-*	add	a, 208
-*	jr	nc, char_2_hex_not
-*	add	a, 246
-*	jr	c, char_2_hex_maybe
-*	add	a, 10
-*	scf						; Set Carry flag
-*	ret
-*char_2_hex_maybe:
-*	add	a, 249
-*	jr	nc, char_2_hex_not
-*	add	a, 250
-*	jr	c, char_2_hex_not
-*	add	a, 16
-*	scf						; Set Carry flag
-*	ret
-*char_2_hex_not:
-*	scf						; Clear Carry flag
-*	ccf
-*	ret
+char_2_hex:
+	sub.b	#'0', %d0				/* Remove initial offset for 0-9 */
+	bcs.s	char_2_hex_error			/* < '0', error */
+	cmp.b	#10, %d0				/* Check if less than 10 */
+	blt.s	char_2_hex_finish			/* If so, then finish */
+	sub.b	#7, %d0					/* Remove secondary offset for A-F */
+	cmp.b	#0x10, %d0				/* Check if less than 16 */
+	blt.s	char_2_hex_finish			/* If so, then finish */
+char_2_hex_error:
+	andi.b	#0xfe, %ccr				/* Invalid value */
+	rts
+char_2_hex_finish:
+	ori.b	#0x01, %ccr				/* Valid value */
+	rts
 
 # string_length
 #################################
@@ -706,12 +701,12 @@ dictionary_get_next_nibble_bottom:
 	and.b	#0x0f, %d0
 	rts
 
-*; # print_abort
-*; #################################
-*;  Print the abort string
-*print_abort:
-*	ld	hl, str_abort
-*	jp	print_cstr
+# print_abort
+#################################
+#  Print the abort string
+print_abort:
+	lea	str_abort, %a0
+	jmp	print_cstr
 
 # print_registers
 #################################
@@ -961,168 +956,161 @@ input_character_filter_end:
 *;	mov	r2, a
 *;	ret
 
-*; # input_hex8_preloaded
-*; #################################
-*;  Routine to enter up to 2 digit hexadecimal number
-*;	In:	B = Preload value
-*;	Out:	DE = Hex value
-*;		Carry flag set if value valid
-*input_hex8_preloaded:
-*	ld	a, b					; Get first digit
-*	srl	a					; Shift top nible to the bottom
-*	srl	a
-*	srl	a
-*	srl	a
-*	push	af					; Push digit onto the stack
-*	call	print_hex_digit				; Print digit
-*	ld	a, b					; Get second digit
-*	and	0x0f					; Remove top nibble
-*	push	af					; Push digit onto the stack
-*	call	print_hex_digit				; Print digit
-*
-*	ld	b, 0x02					; Set digit count to max
-*	ld	c, 0x02					; Max. enterable digits
-*	jr	input_hex_get_char
-*; # input_hex8
-*; #################################
-*;  Routine to enter up to 2 digit hexadecimal number
-*;	Out:	DE = Hex value
-*;		Carry flag set if value valid
-*input_hex8:
-*	ld	b, 0x00					; Clear digit count
-*	ld	c, 0x02					; Max. enterable digits
-*	jr	input_hex_get_char
-*; # input_hex16_preloaded
-*; #################################
-*;  Routine to enter up to 4 digit hexadecimal number
-*;	In:	BC = Preload value
-*;	Out:	DE = Hex value
-*;		Carry flag set if value valid
-*input_hex16_preloaded:
-*	ld	a, b					; Get first digit
-*	srl	a					; Shift top nible to the bottom
-*	srl	a
-*	srl	a
-*	srl	a
-*	push	af					; Push digit onto the stack
-*	call	print_hex_digit				; Print digit
-*	ld	a, b					; Get second digit
-*	and	0x0f					; Remove top nibble
-*	push	af					; Push digit onto the stack
-*	call	print_hex_digit				; Print digit
-*
-*	ld	a, c					; Get third digit
-*	srl	a					; Shift top nible to the bottom
-*	srl	a
-*	srl	a
-*	srl	a
-*	push	af					; Push digit onto the stack
-*	call	print_hex_digit				; Print digit
-*	ld	a, c					; Get fourth digit
-*	and	0x0f					; Remove top nibble
-*	push	af					; Push digit onto the stack
-*	call	print_hex_digit				; Print digit
-*
-*	ld	b, 0x04					; Set digit count to max
-*	ld	c, 0x04					; Max. enterable digits
-*	jr	input_hex_get_char
-*; # input_hex16
-*; #################################
-*;  Routine to enter up to 4 digit hexadecimal number
-*;	Out:	DE = Hex value
-*;		Carry flag set if value valid
-*input_hex16:
-*	ld	b, 0x00					; Clear digit count
-*	ld	c, 0x04					; Max. enterable digits
-*; # input_hex_get_char
-*; #################################
-*;  Base routine to enter hex ASCII digit(s), and convert that to the equivalent hex value.
-*;	In:	B = Current digit count
-*;		C = Maximum number of digits
-*;	Out:	DE = Hex value
-*;		Carry flag set if value valid
-*input_hex_get_char:
-*	call	input_character_filter			; Get character
-*	call	char_2_upper
-*input_hex_process_char:
-*	ld	d, a					; Copy character
-*
-*	cp	character_code_escape			; Check whether character is escape key
-*	jr	z, input_hex_abort
-*	cp	character_code_backspace		; Check whether character is backspace key
-*	jr	z, input_hex_delete_digit
-*	cp	character_code_delete			; Check whether character is delete key
-*	jr	z, input_hex_delete_digit
-*	cp	character_code_carriage_return		; Check whether character is CR key
-*	jr	z, input_hex_complete
-*
-*	ld	a, b					; Check that number of digits
-*	sub	c					; Is less than (n)
-*	jr	nc, input_hex_get_char			; Already have (n) digits, so just loop
-*	ld	a, d					; Reload character
-*	call	char_2_hex				; Convert ASCII to hex
-*	jr	nc, input_hex_get_char			; Character not valid hex digit so loop
-*	push	af					; Push hex value on to stack
-*	inc	b					; Increment digit count
-*	ld	a, d					; Reload character
-*	call	monlib_console_out			; Output character
-*	jr	input_hex_get_char
-*input_hex_delete_digit:
-*	ld	a, b					; Check if there are digits to delete
-*	cp	0x00
-*	jr	z, input_hex_get_char			; No existing digits, so just wait for next character
-*	ld	a, d					; Reload character
-*	call	monlib_console_out			; Update display
-*	pop	af					; Pop digit from stack
-*	dec	b					; Decrement digit count
-*	jr	input_hex_get_char
-*input_hex_abort:
-*	xor	a					; Clear A
-*	cp	b					; Check if there's anything to remove from the stack
-*	jr	z, input_hex_abort_end			; Nothing to pop, so finish
-*input_hex_abort_loop:
-*	pop	af					; Pop digit
-*	djnz	input_hex_abort_loop			; Keep looping until all digits removed
-*input_hex_abort_end:
-*	ld	de, 0x0000				; Zero register
-*	scf						; Clear Carry flag
-*	ccf
-*	ret
-*input_hex_complete:
-*	ld	de, 0x0000				; Zero register
-*	ld	c, b					; Swap number of digits
-*	ld	b, 4					; Total number of shifts
-*	xor	a					; Clear A
-*	cp	c					; Check if there's anything to remove from the stack
-*	jr	z, input_hex_complete_end		; Nothing to pop, so finish
-*input_hex_complete_loop:
-*	; Make some room for a nibble
-*	srl	d					; Right shift into Carry MSB (bit 1)
-*	rr	e
-*	srl	d					; Right shift into Carry MSB (bit 2)
-*	rr	e
-*	srl	d					; Right shift into Carry MSB (bit 3)
-*	rr	e
-*	srl	d					; Right shift into Carry MSB (bit 4)
-*	rr	e
-*
-*	xor	a					; Clear A
-*	cp	c					; Check whether we have all the digits
-*	jr	z, input_hex_complete_check_remainder
-*	; Add digit
-*	pop	af					; Pop digit
-*	sla	a					; Shit digit in to upper nibble
-*	sla	a
-*	sla	a
-*	sla	a
-*	or	d					; OR bits from D (LSB) and shifted digit
-*	ld	d, a					; Save combined digit
-*	dec	c					; Decrement digit count
-*input_hex_complete_check_remainder:
-*	djnz	input_hex_complete_loop			; Keep looping until all digits moved
-*input_hex_complete_end:
-*	scf						; Set Carry flag
-*	ret
+# input_hex8_preloaded
+#################################
+#  Routine to enter up to 2 digit hexadecimal number
+#	In:	D3 = Preload value
+#	Out:	D0 = Hex value
+#		Carry flag set if value valid
+input_hex8_preloaded:
+	eor.b	%d1, %d1				/* Clear digit count */
+	mov.b	#2, %d2					/* Set max digits */
+input_hex8_preloaded_loop:
+	rol.b	#4, %d3					/* Rotate to digit */
+	mov.b	%d3, %d0				/* Copy digit */
+	andi.b	#0xf, %d0				/* Get nibble */
+	mov.b	%d0, -(%sp)				/* Push value onto stack */
+	jsr	print_hex_digit
+	addi.b	#1, %d1					/* Increment digit count */
+	cmp.b	%d2, %d1
+	bne.s	input_hex8_preloaded_loop		/* Loop through digits */
+	bra.s	input_hex_get_char
+# input_hex8
+#################################
+#  Routine to enter up to 2 digit hexadecimal number
+#	Out:	D0 = Hex value
+#		Carry flag set if value valid
+input_hex8:
+	eor.b	%d1, %d1				/* Clear digit count */
+	mov.b	#2, %d2					/* Set max digits */
+	bra.s	input_hex_get_char
+# input_hex16_preloaded
+#################################
+#  Routine to enter up to 4 digit hexadecimal number
+#	In:	D3 = Preload value (word)
+#	Out:	D0 = Hex value
+#		Carry flag set if value valid
+input_hex16_preloaded:
+	eor.b	%d1, %d1				/* Clear digit count */
+	mov.b	#4, %d2					/* Set max digits */
+input_hex16_preloaded_loop:
+	rol.w	#4, %d3					/* Rotate to digit */
+	mov.b	%d3, %d0				/* Copy digit */
+	andi.b	#0xf, %d0				/* Get nibble */
+	mov.b	%d0, -(%sp)				/* Push value onto stack */
+	jsr	print_hex_digit
+	addi.b	#1, %d1					/* Increment digit count */
+	cmp.b	%d2, %d1
+	bne.s	input_hex16_preloaded_loop		/* Loop through digits */
+	bra.s	input_hex_get_char
+# input_hex16
+#################################
+#  Routine to enter up to 4 digit hexadecimal number
+#	Out:	D0 = Hex value
+#		Carry flag set if value valid
+input_hex16:
+	eor.b	%d1, %d1				/* Clear digit count */
+	mov.b	#4, %d2					/* Set max digits */
+	bra.s	input_hex_get_char
+# input_hex32_preloaded
+#################################
+#  Routine to enter up to 8 digit hexadecimal number
+#	In:	D3 = Preload value (long)
+#	Out:	D0 = Hex value
+#		Carry flag set if value valid
+input_hex32_preloaded:
+	eor.b	%d1, %d1				/* Clear digit count */
+	mov.b	#8, %d2					/* Set max digits */
+input_hex32_preloaded_loop:
+	rol.l	#4, %d3					/* Rotate to digit */
+	mov.b	%d3, %d0				/* Copy digit */
+	andi.b	#0xf, %d0				/* Get nibble */
+	mov.b	%d0, -(%sp)				/* Push value onto stack */
+	jsr	print_hex_digit
+	addi.b	#1, %d1					/* Increment digit count */
+	cmp.b	%d2, %d1
+	bne.s	input_hex32_preloaded_loop		/* Loop through digits */
+	bra.s	input_hex_get_char
+# input_hex32
+#################################
+#  Routine to enter up to 8 digit hexadecimal number
+#	Out:	D0 = Hex value
+#		Carry flag set if value valid
+input_hex32:
+	eor.b	%d1, %d1				/* Clear digit count */
+	mov.b	#8, %d2					/* Set max digits */
+# input_hex_get_char
+#################################
+#  Base routine to enter hex ASCII digit(s), and convert that to the equivalent hex value.
+#	In:	D1 = Current digit count
+#		D2 = Maximum number of digits
+#	Out:	D0 = Hex value
+#		Carry flag set if value valid
+input_hex_get_char:
+	jsr	input_character_filter			/* Get character */
+	jsr	char_2_upper
+input_hex_process_char:
+	mov.b	%d0, %d3				/* Copy character */
+
+	cmp.b	#ascii_escape, %d0			/* Check whether character is escape key */
+	beq.s	input_hex_abort
+	cmp.b	#ascii_backspace, %d0			/* Check whether character is backspace key */
+	beq.s	input_hex_delete_digit
+	cmp.b	#ascii_delete, %d0			/* Check whether character is delete key */
+	beq.s	input_hex_delete_digit
+	cmp.b	#ascii_carriage_return, %d0		/* Check whether character is CR key */
+	beq.s	input_hex_complete
+	cmp.b	#ascii_linefeed, %d0			/* Check whether character is CR key */
+	beq.s	input_hex_complete
+
+	cmp.b	%d2, %d1				/* Check that number of digits is less than (n) */
+	beq.s	input_hex_get_char			/* Already have (n) digits, so just loop */
+	jsr	char_2_hex				/* Convert ASCII to hex */
+	bcc.s	input_hex_get_char			/* Character not valid hex digit so loop */
+	mov.b	%d0, -(%sp)				/* Push hex value on to stack */
+	addi.b	#1, %d1					/* Increment digit count */
+	mov.b	%d3, %d0				/* Reload character */
+	jsr	console_out				/* Output character */
+	bra.s	input_hex_get_char			/* Loop */
+input_hex_delete_digit:
+	and.b	%d1, %d1				/* Check if there are digits to delete */
+	beq.s	input_hex_get_char			/* No existing digits, so just wait for next character */
+	jsr	console_out				/* Back 1 character */
+	mov.b	#' ', %d0				/* Overwrite character */
+	jsr	console_out
+	mov.b	#ascii_backspace, %d0			/* Back 1 character again */
+	jsr	console_out
+	mov.b	(%sp)+, %d0				/* Pop digit from stack */
+	subi.b	#1, %d1					/* Decrement digit count */
+	bra.s	input_hex_get_char			/* Loop */
+input_hex_abort:
+	and.b	%d1, %d1				/* Check if there's anything to remove from the stack */
+	beq.s	input_hex_abort_end			/* Nothing to pop, so finish */
+input_hex_abort_loop:
+	mov.b	(%sp)+, %d0				/* Pop digit */
+	subi.b	#1, %d1					/* Decrement digit count */
+	bne.s	input_hex_abort_loop			/* Keep looping until all digits removed */
+input_hex_abort_end:
+	eor.l	%d0, %d0				/* Zero return register */
+	and.b	#0xfe, %ccr				/* Invalid value */
+	rts
+input_hex_complete:
+	eor.l	%d0, %d0				/* Zero return register */
+	mov.b	%d1, %d2				/* Copy count, and check if there's anything to remove from the stack */
+	beq.s	input_hex_complete_end			/* Nothing to pop, so finish */
+input_hex_complete_stack_loop:
+	mov.b	(%sp)+, %d3				/* Pop digit */
+	or.b	%d3, %d0				/* Merge numbers */
+	ror.l	#4, %d0					/* Make some room for a nibble */
+	subi.b	#1, %d1					/* Decrement digit count */
+	bne.s	input_hex_complete_stack_loop		/* Loop for remaining digits */
+input_hex_complete_shift_loop:
+	rol.l	#4, %d0					/* Move digits back in to poistion */
+	subi.b	#1, %d2
+	bne.s	input_hex_complete_shift_loop
+input_hex_complete_end:
+	ori.b	#0x01, %ccr				/* Valid value */
+	rts
 
 *; # input_addrs_start_end
 *; #################################
@@ -1471,19 +1459,20 @@ command_help_external_commands_loop:
 command_help_end:
 	jmp	print_newline				/* Print newline and return */
 
-*; # command_location_new
-*; #################################
-*;  Sets the monitor pointer to where default operations are performed
-*command_location_new:
-*	ld	hl, str_tag_nloc
-*	call	print_cstr				; Print message
-*
-*	ld	hl, str_prompt6				; Print location prompt
-*	call	print_cstr
-*	call	input_hex16				; Get value
-*	jp	nc, print_abort				; If escaped, print abort message
-*	ld	(MONITOR_ADDR_CURRENT), de		; Save value
-*	jp	print_newline
+# command_location_new
+#################################
+#  Sets the monitor pointer to where default operations are performed
+command_location_new:
+	lea	str_tag_nloc, %a0
+	jsr	print_cstr				/* Print message */
+
+	lea	str_prompt6, %a0			/* Print location prompt */
+	jsr	print_cstr
+	mov.l	MONITOR_ADDR_CURRENT, %d3		/* Preload current address */
+	jsr	input_hex32_preloaded			/* Get value */
+	bcc.w	print_abort				/* If escaped, print abort message */
+	mov.l	%d0, MONITOR_ADDR_CURRENT		/* Save value */
+	jmp	print_newline
 
 *; # command_stack_change
 *; #################################
@@ -2187,10 +2176,10 @@ menu_main_builtin_commands:
 	beq.w	command_module_list_commands		/* Run command */
 	cmp.b	#command_key_regdump, %d4		/* Check if list modules key */
 	beq.w	command_print_registers			/* Run command */
+	cmp.b	#command_key_new_locat, %d4		/* Check if new location key */
+	beq.w	command_location_new			/* Run command */
 
 
-*	cp	command_key_new_locat			; Check if new location key
-*	jp	z, command_location_new			; Run command
 *	cp	command_key_stack			; Check if changestack location key
 *	jp	z, command_stack_change			; Run command
 *	cp	command_key_jump			; Check if jump key
@@ -2376,7 +2365,7 @@ str_help1:		dc.b	13,13							/* \n\nStandard Commands */
 			dc.b	31,158,'s',14
 str_help2:		dc.b	31,218,31,244,'e','d',31,158,'s',14			/* User Installed Commands */
 #str_abort:		dc.b	' ',31,158,31,160,'!',13,14				/*  Command Abort!\n\n */
-str_abort:		dc.b	' ',31,158,31,160,'!',14				/*  Command Abort!\n */
+str_abort:		dc.b	13,' ',31,158,31,160,'!',14				/* \n Command Abort!\n */
 #str_runs:		dc.b	13,134,'n','i','n','g',130,':',13,14			/* \nRunning program:\n\n */
 str_runs:		dc.b	13,134,'n','i','n','g',130,' ','@',0			/* \nRunning program @ */
 
