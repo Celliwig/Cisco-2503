@@ -1685,130 +1685,141 @@ command_clear_mem_loop:
 *;command_run_brkpnt:
 *;	jp	(hl)					; Execute program code
 
-*; # command_upload
-*; #################################
-*;  Uploads a selected section of memory
-*command_upload:
-*	ld	hl, str_tag_upld
-*	call	print_cstr				; Print message
-*
-*	call	input_addrs_start_end
-*	push	de					; Save addresses
-*	push	bc					; print_cstr trashes everything
-*	ld	hl, str_upld1
-*	call	print_cstr
-*	pop	de					; Restore address
-*	ld	h, d					; Copy DE->HL
-*	ld	l, e
-*	call	print_hex16				; Print start address
-*	ld	hl, str_upld2
-*	call	print_str				; Use str not cstr as it only trashes HL
-*	pop	bc					; Restore address
-*	push	bc					; Save addresses again
-*	push	de
-*	ld	h, b					; Copy BC->HL
-*	ld	l, c
-*	call	print_hex16				; Print end address
-*	call	print_newline
-*	ld	hl, str_prompt7
-*	call	print_cstr
-*	call	monlib_console_in			; Get character
-*	cp	character_code_escape			; Check if escape
-*	jr	nz, command_upload_send
-*	pop	bc					; Pop saved addresses
-*	pop	de
-*	jp	print_abort
-*command_upload_send:
-*	call	print_newline
-*	pop	de					; Pop saved addresses
-*	pop	hl
-*	inc	hl
-*command_upload_send_calc_remain:
-*	push	hl					; Store end address
-*	sbc	hl, de
-*	ld	a, h					; Check value
-*	and	a
-*	jr	nz, command_upload_send_line_16
-*	ld	a, l					; Check value
-*	and	0xf0
-*	jr	nz, command_upload_send_line_16
-*	ld	b, l
-*	pop	hl
-*	jr	command_upload_send_line_n
-*command_upload_send_line_16:
-*	ld	b, 0x10
-*	pop	hl
-*command_upload_send_line_n:
-*	call	command_upload_intel_hex_line
-*
-*	ld	a, h					; Check remaining
-*	cp	d
-*	jr	nz, command_upload_send_calc_remain
-*	ld	a, l					; Check remaining
-*	sub	e
-*	jr	z, command_upload_send_eof
-*	jr	nc, command_upload_send_calc_remain
-*
-*command_upload_send_eof:
-*	call	command_upload_intel_hex_line_eof
-*
-*	ret
-*
-*; Writes a line of data in intel hex format
-*; B = Number of bytes to output
-*; HL = Pointer to area of memory to read
-*command_upload_intel_hex_line:
-*	ld	c, 0x00					; Zero C (checksum value)
-*
-*	ld	a, ':'					; line start character
-*	call	monlib_console_out
-*
-*	ld	a, b					; Get byte count
-*	call	print_hex8
-*	add	c					; Add to checksum
-*	ld	c, a					; Save checksum
-*
-*	ld	a, d					; Get address high byte
-*	call	print_hex8
-*	add	c					; Add to checksum
-*	ld	c, a					; Save checksum
-*
-*	ld	a, e					; Get address low byte
-*	call	print_hex8
-*	add	c					; Add to checksum
-*	ld	c, a					; Save checksum
-*
-*	ld	a, 0x00					; Data type
-*	call	print_hex8
-*command_upload_intel_hex_line_loop:
-*	ld	a, (de)					; Get byte from memory
-*	call	print_hex8
-*	add	c					; Add to checksum
-*	ld	c, a					; Save checksum
-*	inc	de
-*	djnz	command_upload_intel_hex_line_loop	; Loop remain bytes on line
-*command_upload_intel_hex_line_checksum:
-*	cpl						; Complement A
-*	add	0x01					; Add 1
-*	call	print_hex8				; Print checksum
-*	call	print_newline
-*	ret
-*
-*; Writes out an Intel hex format EOF
-*command_upload_intel_hex_line_eof:
-*	; Intel hex file EOF
-*	ld	a, ':'					; line start character
-*	call	monlib_console_out
-*	xor	a					; Clear A
-*	call	print_hex8
-*	call	print_hex8
-*	call	print_hex8
-*	inc	a
-*	call	print_hex8
-*	ld	a, 0xff
-*	call	print_hex8
-*	call	print_newline
-*	ret
+# command_upload_srec
+#################################
+#  Uploads a selected section of memory in SREC format
+command_upload_srec:
+	lea	str_tag_upld, %a0
+	jsr	print_cstr				/* Print message */
+
+	jsr	input_addrs_start_end
+	lea	str_upld1, %a0
+	jsr	print_cstr
+	mov.l	%a4, %d3
+	jsr	print_hex32				/* Print start address */
+	lea	str_upld2, %a0
+	jsr	print_str
+	mov.l	%a5, %d3
+	jsr	print_hex32				/* Print end address */
+	jsr	print_newline
+	lea	str_prompt7, %a0
+	jsr	print_cstr
+	jsr	console_in				/* Get character */
+	cmp.b	#ascii_escape, %d0			/* Check if escape */
+	beq.w	print_abort
+command_upload_srec_send:
+	jsr	print_newline
+	jsr	command_upload_srec_S0			/* Print SREC header */
+	mov.l	%a4, %a0				/* Working copy of start address */
+command_upload_srec_send_calc_remaining:
+	cmp.l	%a5, %a0				/* Check start address against end address */
+	bgt.s	command_upload_srec_finish
+	mov.l	%a0, %a1				/* Calculate default end address */
+	adda	#0x1f, %a1
+	mov.l	%a5, %d0				/* Calculate remaining bytes */
+	sub.l	%a0, %d0
+	cmp.l	#0x1f, %d0				/* Check remaining bytes */
+	bgt.s	command_upload_srec_send_record
+	mov.l	%a5, %a1				/* Set end address (from end address) */
+command_upload_srec_send_record:
+	jsr	command_upload_srec_S3			/* Send data */
+	bra.s	command_upload_srec_send_calc_remaining
+command_upload_srec_finish:
+	jsr	command_upload_srec_S7			/* Send start address */
+	rts
+
+# Output SREC header
+#################################
+#  Outputs a SREC header
+command_upload_srec_S0:
+	mov.b	#'S', %d0				/* Header character */
+	jsr	console_out
+	mov.b	#'0', %d0				/* Header type */
+	jsr	console_out
+	eor.w	%d4, %d4				/* Clear register to calculate checksum */
+	lea	str_upld_srec_hdr, %a0			/* Calculate header length */
+	jsr	string_length
+	mov.b	%d0, %d1
+	addq.b	#4, %d1
+	mov.b	%d1, %d4				/* First part of checksum */
+	jsr	print_hex8				/* Print length in bytes */
+	eor.w	%d1, %d1				/* Clear register to load byte into */
+	jsr	print_hex8				/* Print address */
+	jsr	print_hex8
+	lea	str_upld_srec_hdr, %a0
+command_upload_srec_S0_loop:
+	mov.b	(%a0)+, %d1				/* Get header byte */
+	beq.s	command_upload_srec_S0_finish
+	add.w	%d1, %d4				/* Add byte to the checksum value */
+	jsr	print_hex8
+	bra.s	command_upload_srec_S0_loop		/* Loop */
+command_upload_srec_S0_finish:
+	eor.b	%d1, %d1
+	jsr	print_hex8				/* Null character for string */
+	mov.b	#0xff, %d1				/* Calculate checksum */
+	sub.b	%d4, %d1
+	jsr	print_hex8
+	jsr	print_newline
+	rts
+
+# Output SREC data
+#################################
+#  Output an address range in SREC format
+#	Out:	A0 = Start address
+#		A1 = End address
+command_upload_srec_S3:
+	mov.b	#'S', %d0				/* Header character */
+	jsr	console_out
+	mov.b	#'3', %d0				/* Header type */
+	jsr	console_out
+	eor.w	%d4, %d4				/* Clear register to calculate checksum */
+	mov.l	%a1, %d3				/* Copy end address */
+	sub.l	%a0, %d3				/* End address - Start address (number of bytes to copy - 1) */
+	mov.b	%d3, %d1
+	add.b	#6, %d1					/* Byte count = (end - start) + 1(byte of memory) + 4(address) + 1(checksum) */
+	mov.b	%d1, %d4				/* First part of checksum */
+	jsr	print_hex8				/* Print length in bytes */
+	mov.l	%a0, %d2				/* Copy start address to shift */
+	mov.w	#3, %d5					/* Number of shifts to output address */
+	eor.w	%d1, %d1				/* Clear D1 for add.w */
+command_upload_srec_S3_addr_loop:
+	rol.l	#8, %d2					/* Shift byte of start address */
+	mov.b	%d2, %d1				/* Copy LSB */
+	add.w	%d1, %d4				/* Add to checksum */
+	jsr	print_hex8
+	dbf	%d5, command_upload_srec_S3_addr_loop
+command_upload_srec_S3_data_loop:
+	mov.b	(%a0)+, %d1				/* Get byte of memory */
+	add.w	%d1, %d4				/* Add byte to the checksum value */
+	jsr	print_hex8
+	dbf	%d3, command_upload_srec_S3_data_loop	/* Loop over remaining data */
+command_upload_srec_S3_finish:
+	mov.b	#0xff, %d1				/* Calculate checksum */
+	sub.b	%d4, %d1
+	jsr	print_hex8
+	jsr	print_newline
+	rts
+
+# Output SREC start address
+#################################
+#  Outputs a SREC start address record
+command_upload_srec_S7:
+	mov.b	#'S', %d0				/* Header character */
+	jsr	console_out
+	mov.b	#'7', %d0				/* Header type */
+	jsr	console_out
+	eor.w	%d4, %d4				/* Clear register to calculate checksum */
+	mov.w	#5, %d1
+	add.w	%d1, %d4				/* Add byte count */
+	jsr	print_hex8
+	eor.l	%d3, %d3				/* Clear register */
+	jsr	print_hex32
+command_upload_srec_S7_finish:
+	mov.b	#0xff, %d1				/* Calculate checksum */
+	sub.b	%d4, %d1
+	jsr	print_hex8
+	jsr	print_newline
+	rts
 
 *; # command_download_alt
 *; #################################
@@ -2158,12 +2169,10 @@ menu_main_builtin_commands:
 	beq.w	command_edit				/* Run command */
 	cmp.b	#command_key_clrmem, %d4		/* Check if clear memory key */
 	beq.w	command_clear_mem			/* Run command */
-
-
-*	cp	command_key_upload			; Check if upload key
-*	jp	z, command_upload			; Run command
-*	cp	command_key_download			; Check if download key
-*	jp	z, command_download			; Run command
+	cmp.b	#command_key_upload, %d4		/* Check if upload key */
+	beq.w	command_upload_srec			/* Run command */
+#	cmp.b	#command_key_download, %d4		/* Check if download key */
+#	beq.w	command_download			/* Run command */
 
 menu_main_end:
 	jmp	print_newline				/* This will return to menu_main */
@@ -2339,17 +2348,18 @@ str_edit2: 		dc.b	' ',' ',31,156,193,',',142,129,247,13,14		/*   Editing complet
 
 str_start_addr:		dc.b	31,143,31,254,':',' ',0
 str_end_addr:		dc.b	31,248,31,254,':',' ',0
-str_sure:		dc.b	31,185,161,' ','s','u','r','e','?',0			/* Are you sure? */
+str_sure:		dc.b	31,185,161,' ','s','u','r','e','?',' ',0		/* Are you sure?  */
 str_clrcomp:		dc.b	31,131,237,193,14					/* Memory clear complete\n */
 
 str_invalid:		.ascii	"Invalid selection"
 			dc.b	14
 
 str_upld1: 		dc.b	13,13							/* \n\nSending Intel hex file from */
-			.ascii	"Sending"
-			dc.b	31,152,132,137,172,32,32,0
+			.ascii	"Sending SREC"
+			dc.b	137,172,32,32,0
 str_upld2:		dc.b	' ','t','o',' ',0					/* to */
 #str_upld2: 		dc.b	' ',128,32,32,0						/*  to */
+str_upld_srec_hdr:	.asciz	"m68kMon SREC"
 
 str_dnld1: 		dc.b	13,13,31,159						/* \n\nBegin ascii transfer of Intel hex file */
 			.ascii	" ascii"
