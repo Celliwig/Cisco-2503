@@ -1514,47 +1514,42 @@ command_jump:
 command_jump_brkpnt:
 	jmp	(%a6)					/* Execute code */
 
-*; # command_hexdump
-*; #################################
-*;  Dump memory at the default location
-*command_hexdump:
-*	ld	hl, str_tag_hexdump
-*	call	print_cstr				; Print message
-*
-*	ld	hl, (MONITOR_ADDR_CURRENT)
-*	ld	de, 0x0600
-*
-*	call	print_newline
-*command_hexdump_line_print:
-*	ld	e, 0x08					; Number of bytes per line
-*	call	print_spacex2
-*	call	print_hex16
-*	call	print_colon_space
-*command_hexdump_line_print_loop:
-*	ld	a, (hl)
-*	call	print_hex8
-*	inc	hl
-*	ld	a, (hl)
-*	call	print_hex8
-*	inc	hl
-*	call	print_spacex2
-*	dec	e					; Decrement line byte count
-*	jr	nz, command_hexdump_line_print_loop
-*	call	print_newline
-*	dec	d					; Decrement line count
-*	jr	nz, command_hexdump_line_print
-*
-*	push	hl
-*	ld	hl, str_prompt15
-*	call	print_cstr
-*	pop	hl
-*	call	input_character_filter			; Next page or quit
-*	cp	character_code_escape			; Check if quit
-*	jr	z, command_hexdump_end
-*	ld	de, 0x600				; Another 0x600 bytes
-*	jr	command_hexdump_line_print
-*command_hexdump_end:
-*	ret
+# command_hexdump
+#################################
+#  Dump memory at the default location
+command_hexdump:
+	lea	str_tag_hexdump, %a0
+	jsr	print_cstr				/* Print message */
+	jsr	print_newline
+
+	mov.l	MONITOR_ADDR_CURRENT, %a4
+
+command_hexdump_page_print:
+	mov.w	#0x07, %d5				/* Number of bytes to print */
+command_hexdump_line_print:
+	mov.w	#0x07, %d4				/* Number of bytes per line */
+	jsr	print_spacex2
+	mov.l	%a4, %d3
+	jsr	print_hex32
+	jsr	print_colon_space
+command_hexdump_line_print_loop:
+	mov.b	(%a4)+, %d1				/* Get byte of memory */
+	jsr	print_hex8
+	mov.b	(%a4)+, %d1				/* Get byte of memory */
+	jsr	print_hex8
+	jsr	print_spacex2
+	dbf	%d4, command_hexdump_line_print_loop
+	jsr	print_newline
+	dbf	%d5, command_hexdump_line_print
+
+	lea	str_prompt15, %a0
+	jsr	print_cstr
+	jsr	input_character_filter
+	cmp.b	#ascii_escape, %d0			/* Check if quit */
+	beq.s	command_hexdump_end
+	bra.s	command_hexdump_page_print		/* Loop */
+command_hexdump_end:
+	rts
 
 *; # command_edit
 *; #################################
@@ -2179,9 +2174,10 @@ menu_main_builtin_commands:
 	cmp.b	#command_key_jump, %d4			/* Check if jump key */
 	beq.w	command_jump				/* Run command */
 
+	cmp.b	#command_key_hexdump, %d4		/* Check if hexdump key */
+	beq.w	command_hexdump				/* Run command */
 
-*	cp	command_key_hexdump			; Check if hexdump key
-*	jp	z, command_hexdump			; Run command
+
 *	cp	command_key_edit			; Check if edit key
 *	jp	z, command_edit				; Run command
 *	cp	command_key_clrmem			; Check if clear memory key
