@@ -504,7 +504,7 @@ print_hex_digit_out:
 *	call	print_hex_digit
 *
 *	ret
-*
+
 # print_version
 #################################
 #  Prints the version number
@@ -959,7 +959,7 @@ input_character_filter_end:
 # input_hex8_preloaded
 #################################
 #  Routine to enter up to 2 digit hexadecimal number
-#	In:	D3 = Preload value
+#	In:	D3 = Preload value (byte)
 #	Out:	D0 = Hex value
 #		Carry flag set if value valid
 input_hex8_preloaded:
@@ -1551,29 +1551,28 @@ command_hexdump_line_print_loop:
 command_hexdump_end:
 	rts
 
-*; # command_edit
-*; #################################
-*;  Basic memory editor
-*command_edit:
-*	ld	hl, str_tag_edit
-*	call	print_cstr				; Print message
-*
-*	ld	hl, str_edit1
-*	call	print_cstr
-*	ld	hl, (MONITOR_ADDR_CURRENT)		; Get default address
-*command_edit_loop:
-*	call	print_hex16				; Print address
-*	call	print_colon_space
-*	ld	b, (hl)					; Load memory contents
-*	call	input_hex8_preloaded			; Edit loaded value
-*	jr	c, command_edit_save			; Check if Escape was pressed
-*	jp	print_abort
-*command_edit_save:
-*	ld	(hl), e					; Save editted value back to memory
-*	call	print_newline
-*	inc	hl					; Increment memory pointer
-*	ld	(MONITOR_ADDR_CURRENT), hl		; Save memory pointer as default
-*	jr	command_edit_loop
+# command_edit
+#################################
+#  Basic memory editor
+command_edit:
+	lea	str_tag_edit, %a0
+	jsr	print_cstr				/* Print message */
+
+	lea	str_edit1, %a0
+	jsr	print_cstr
+	mov.l	MONITOR_ADDR_CURRENT, %a4		/* Get default address */
+command_edit_loop:
+	mov.l	%a4, %d3
+	jsr	print_hex32				/* Print address */
+	jsr	print_colon_space
+	mov.b	(%a4), %d3				/* Load memory contents */
+	jsr	input_hex8_preloaded			/* Edit loaded value */
+	bcc.w	print_abort				/* Check if Escape was pressed */
+command_edit_save:
+	mov.b	%d0, (%a4)+				/* Save editted value, increment pointer */
+	mov.l	%a4, MONITOR_ADDR_CURRENT		/* Save memory pointer as default */
+	jsr	print_newline
+	bra.s	command_edit_loop			/* Loop */
 
 *; # command_clear_mem
 *; #################################
@@ -2173,21 +2172,15 @@ menu_main_builtin_commands:
 	beq.w	command_stack_change			/* Run command */
 	cmp.b	#command_key_jump, %d4			/* Check if jump key */
 	beq.w	command_jump				/* Run command */
-
 	cmp.b	#command_key_hexdump, %d4		/* Check if hexdump key */
 	beq.w	command_hexdump				/* Run command */
+	cmp.b	#command_key_edit, %d4			/* Check if edit key */
+	beq.w	command_edit				/* Run command */
+
+#	cmp.b	#command_key_clrmem, %d4		/* Check if clear memory key */
+#	beq.w	command_clear_mem				/* Run command */
 
 
-*	cp	command_key_edit			; Check if edit key
-*	jp	z, command_edit				; Run command
-*	cp	command_key_clrmem			; Check if clear memory key
-*	jp	z, command_clear_mem			; Run command
-*	;cp	command_key_run				; Check if run key
-*	;jp	z, command_run				; Run command
-*	cp	command_key_in				; Check if in key
-*	jp	z, command_port_in			; Run command
-*	cp	command_key_out				; Check if out key
-*	jp	z, command_port_out			; Run command
 *	cp	command_key_upload			; Check if upload key
 *	jp	z, command_upload			; Run command
 *	cp	command_key_download			; Check if download key
