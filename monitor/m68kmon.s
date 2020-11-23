@@ -1112,47 +1112,38 @@ input_hex_complete_end:
 	ori.b	#0x01, %ccr				/* Valid value */
 	rts
 
-*; # input_addrs_start_end
-*; #################################
-*;  Routine to get a start and end address
-*;	Out:	BC = Start Address
-*;		DE = End Address
-*input_addrs_start_end:
-*	call	print_newlinex2
-*	ld	hl, str_start_addr
-*	call	print_cstr
-*	call	input_hex16				; Get start address
-*	jr	c, input_addrs_start_end_next_addr	; If it's valid, get next address
-*	pop	af					; Dump return address off stack
-*	jp	print_abort				; So when this returns, it returns to the menu
-*input_addrs_start_end_next_addr:
-*	push	de					; Store start address
-*	call	print_newline
-*	ld	hl, str_end_addr
-*	call	print_cstr
-*	call	input_hex16
-*	jr	c, input_addrs_start_end_check
-*	pop	af					; Dump start address
-*	pop	af					; Dump return address off stack
-*	jp	print_abort				; So when this returns, it returns to the menu
-*input_addrs_start_end_check:
-*	pop	bc
-*
-*	; Check end address is greater (or equal) than start address
-*	ld	a, d
-*	cp	b
-*	jr	c, input_addrs_start_end_invalid	; End MSB is greater than start MSB, so just finish
-*	jr	nz, input_addrs_start_end_finish	; D > B, so finish
-*	ld	a, e
-*	cp	c
-*	jr	c, input_addrs_start_end_invalid
-*input_addrs_start_end_finish:
-*	jp	print_newline
-*input_addrs_start_end_invalid:
-*	pop	af					; Dump return address off stack
-*	call	print_newline
-*	ld	hl, str_invalid
-*	jp	print_cstr
+# input_addrs_start_end
+#################################
+#  Routine to get a start and end address
+#	Out:	A4 = Start Address
+#		A5 = End Address
+input_addrs_start_end:
+	jsr	print_newlinex2
+	lea	str_start_addr, %a0
+	jsr	print_cstr
+	jsr	input_hex32				/* Get start address */
+	bcs.s	input_addrs_start_end_next_addr		/* If it's valid, get next address */
+	mov.l	(%sp)+, %d0				/* Dump return address off stack */
+	bra.w	print_abort				/* So when this returns, it returns to the menu */
+input_addrs_start_end_next_addr:
+	mov.l	%d0, %a4				/* Store start address */
+	jsr	print_newline
+	lea	str_end_addr, %a0
+	jsr	print_cstr
+	jsr	input_hex32
+	bcs.s	input_addrs_start_end_check
+	mov.l	(%sp)+, %d0				/* Dump return address off stack */
+	bra.w	print_abort				/* So when this returns, it returns to the menu */
+input_addrs_start_end_check:
+	mov.l	%d0, %a5
+	cmp.l	%a5, %a4				/* Check end address is greater (or equal) than start address */
+	bgt.s	input_addrs_start_end_invalid
+	bra.w	print_newline
+input_addrs_start_end_invalid:
+	mov.l	(%sp)+, %d0				/* Dump return address off stack */
+	jsr	print_newline
+	lea	str_invalid, %a0
+	bra.w	print_cstr
 
 *; # input_str
 *; #################################
@@ -1574,46 +1565,35 @@ command_edit_save:
 	jsr	print_newline
 	bra.s	command_edit_loop			/* Loop */
 
-*; # command_clear_mem
-*; #################################
-*;  Clears a region of memory
-*command_clear_mem:
-*	ld	hl, str_tag_clrmem
-*	call	print_cstr				; Print message
-*
-*	call	input_addrs_start_end
-*	ld	(z80mon_temp1), bc			; Save start/end address
-*	ld	(z80mon_temp2), de			; They're about to be trashed
-*	ld	hl, str_sure
-*	call	print_cstr
-*	call	input_character_filter			; Get response
-*	call	char_2_upper
-*	cp	'Y'					; Compare key to 'Y'
-*	jr	z, command_clear_mem_do
-*	ld	a, 'N'
-*	call	monlib_console_out
-*	jp	print_newlinex2
-*command_clear_mem_do:
-*	ld	a, 'Y'
-*	call	monlib_console_out
-*	call	print_newline
-*	ld	bc, (z80mon_temp1)			; Reload start/end addresses
-*	ld	de, (z80mon_temp2)
-*command_clear_mem_loop:
-*	xor	a					; Clear A
-*	ld	(bc), a					; Clear current memory address
-*	ld	a, b					; Check address MSB
-*	cp	d
-*	jr	nz, command_clear_mem_inc
-*	ld	a, c					; Check address LSB
-*	cp	e
-*	jr	nz, command_clear_mem_inc
-*	ld	hl, str_clrcomp
-*	call	print_cstr
-*	ret
-*command_clear_mem_inc:
-*	inc	bc
-*	jr	command_clear_mem_loop
+# command_clear_mem
+#################################
+#  Clears a region of memory
+command_clear_mem:
+	lea	str_tag_clrmem, %a0
+	jsr	print_cstr				/* Print message */
+
+	jsr	input_addrs_start_end
+	lea	str_sure, %a0
+	jsr	print_cstr
+	jsr	input_character_filter			/* Get response */
+	jsr	char_2_upper
+	cmp.b	#'Y', %d0				/* Compare key to 'Y' */
+	beq.s	command_clear_mem_do
+	mov.b	#'N', %d0
+	jsr	console_out
+	jmp	print_newlinex2
+command_clear_mem_do:
+	mov.b	#'Y', %d0
+	jsr	console_out
+	jsr	print_newline
+	eor.b	%d0, %d0				/* Clear D0 */
+command_clear_mem_loop:
+	mov.b	%d0, (%a4)+				/* Clear memory, increment pointer */
+	cmp.l	%a5, %a4				/* Compare start/end addresses */
+	ble.s	command_clear_mem_loop
+	lea	str_clrcomp, %a0
+	jsr	print_cstr
+	rts
 
 *;; # command_run
 *;; #################################
@@ -2176,9 +2156,8 @@ menu_main_builtin_commands:
 	beq.w	command_hexdump				/* Run command */
 	cmp.b	#command_key_edit, %d4			/* Check if edit key */
 	beq.w	command_edit				/* Run command */
-
-#	cmp.b	#command_key_clrmem, %d4		/* Check if clear memory key */
-#	beq.w	command_clear_mem				/* Run command */
+	cmp.b	#command_key_clrmem, %d4		/* Check if clear memory key */
+	beq.w	command_clear_mem			/* Run command */
 
 
 *	cp	command_key_upload			; Check if upload key
