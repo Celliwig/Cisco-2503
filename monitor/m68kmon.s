@@ -1474,49 +1474,45 @@ command_location_new:
 	mov.l	%d0, MONITOR_ADDR_CURRENT		/* Save value */
 	jmp	print_newline
 
-*; # command_stack_change
-*; #################################
-*;  Sets the monitor pointer to where default operations are performed
-*command_stack_change:
-*	ld	hl, str_tag_stack
-*	call	print_cstr				; Print message
-*
-*	ld	hl, str_prompt14			; Print location prompt
-*	call	print_cstr
-*	call	input_hex16				; Get value
-*	jp	nc, print_abort				; If escaped, print abort message
-*	ex	de, hl					; Move to the needed register
-*	ld	sp, hl					; Set stack pointer
-*	rst	16					; Restart monitor
+# command_stack_change
+#################################
+#  Sets the monitor pointer to where default operations are performed
+command_stack_change:
+	lea	str_tag_stack, %a0
+	jsr	print_cstr				/* Print message */
 
-*; # command_jump
-*; #################################
-*;  Request an address, and jump to the code at that location
-*command_jump:
-*	ld	hl, str_tag_jump
-*	call	print_cstr				; Print message
-*
-*	ld	hl, str_prompt8
-*	call	print_cstr
-*	ld	hl, str_prompt4
-*	call	print_cstr
-*	ld	bc, (MONITOR_ADDR_CURRENT)
-*	call	input_hex16_preloaded
-*	jr	c, command_jump_prep
-*	jp	print_abort
-*command_jump_prep:
-*	push	de
-*	ld	hl, str_runs
-*	call	print_cstr
-*	pop	hl
-*	call	print_hex16
-*	call	print_newline
-*
-*	ld	bc, 0x0010				; Reset address (RST 16: z80Mon final startup)
-*	push	bc					; Push reset address on stack
-*	push	bc					; In case there's a RET at the end of the code
-*command_jump_brkpnt:
-*	jp	(hl)					; Execute startup module
+	lea	str_prompt14, %a0			/* Print location prompt */
+	jsr	print_cstr
+	jsr	input_hex32				/* Get value */
+	bcc.w	print_abort				/* If escaped, print abort message */
+	mov.l	%d0, %sp				/* Set stack pointer */
+	jmp	startup_final
+
+# command_jump
+#################################
+#  Request an address, and jump to the code at that location
+command_jump:
+	lea	str_tag_jump, %a0
+	jsr	print_cstr				/* Print message */
+
+	lea	str_prompt8, %a0
+	jsr	print_cstr
+	lea	str_prompt4, %a0
+	jsr	print_cstr
+	mov.l	MONITOR_ADDR_CURRENT, %d3
+	jsr	input_hex32_preloaded
+	bcc.w	print_abort				/* If escaped, print abort message */
+	mov.l	%d0, %a6				/* Copy address */
+	lea	str_runs, %a0
+	jsr	print_cstr
+	mov.l	%a6, %d3
+	jsr	print_hex32
+	jsr	print_newline
+
+	lea	startup_warm, %a0			/* Push reset address on stack */
+	mov.l	%a0, -(%sp)				/* In case there's a RTS at the end of the code */
+command_jump_brkpnt:
+	jmp	(%a6)					/* Execute code */
 
 *; # command_hexdump
 *; #################################
@@ -2178,12 +2174,12 @@ menu_main_builtin_commands:
 	beq.w	command_print_registers			/* Run command */
 	cmp.b	#command_key_new_locat, %d4		/* Check if new location key */
 	beq.w	command_location_new			/* Run command */
+	cmp.b	#command_key_stack, %d4			/* Check if set stack key */
+	beq.w	command_stack_change			/* Run command */
+	cmp.b	#command_key_jump, %d4			/* Check if jump key */
+	beq.w	command_jump				/* Run command */
 
 
-*	cp	command_key_stack			; Check if changestack location key
-*	jp	z, command_stack_change			; Run command
-*	cp	command_key_jump			; Check if jump key
-*	jp	z, command_jump				; Run command
 *	cp	command_key_hexdump			; Check if hexdump key
 *	jp	z, command_hexdump			; Run command
 *	cp	command_key_edit			; Check if edit key
