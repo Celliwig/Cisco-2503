@@ -1145,61 +1145,56 @@ input_addrs_start_end_invalid:
 	lea	str_invalid, %a0
 	bra.w	print_cstr
 
-*; # input_str
-*; #################################
-*;  Input a string of upto buffer size - 1. Null terminates string.
-*;	In:	B = Size of input buffer
-*;		DE = Pointer to string buffer
-*;	Out:	A = Character count
-*;		Carry flag set if value valid
-*input_str:
-*	dec	b					; Max number of characters is buffer size - 1, to accept null character at end
-*	ld	c, 0x00					; Byte count
-*input_str_get_char:
-*	call    input_character_filter                  ; Get character
-*
-*	cp	character_code_escape			; Check whether character is escape key
-*	jr	z, input_str_abort
-*	cp	character_code_backspace		; Check whether character is backspace key
-*	jr	z, input_str_delete_char
-*	cp	character_code_delete			; Check whether character is delete key
-*	jr	z, input_str_delete_char
-*	cp	character_code_carriage_return		; Check whether character is CR key
-*	jr	z, input_str_complete
-*
-*	ex	af, af'
-*	ld	a, b					; Get buffer size
-*	cp	c					; Compare to byte count
-*	jr	z, input_str_get_char			; If equal, do nothing
-*	ex	af, af'
-*	ld	(de), a					; Copy character to string buffer
-*	call	monlib_console_out
-*	inc	de					; Increment string buffer pointer
-*	inc	c					; Increment byte count
-*	jr	input_str_get_char
-*input_str_delete_char:
-*	xor	a
-*	cp	c					; Check if there are characters to delete
-*	jr	z, input_str_get_char			; No existing characters, so just wait for next character
-*	ld	a, character_code_backspace
-*	call	monlib_console_out			; Back 1 character
-*	ld	a, " "
-*	call	monlib_console_out			; Blank character
-*	ld	a, character_code_backspace
-*	call	monlib_console_out			; Back 1 character
-*	dec	de					; Decrement string buffer pointer
-*	dec	c					; Decrement byte count
-*	jr	input_str_get_char
-*input_str_complete:
-*	xor	a					; Clear A
-*	ld	(de), a					; Write null character to buffer
-*	ld	a, c
-*	scf						; Set Carry flag
-*	ret
-*input_str_abort:
-*	scf						; Clear Carry flag
-*	ccf
-*	ret
+# input_str
+#################################
+#  Input a string of upto buffer size - 1. Null terminates string.
+#	In:	A4 = Pointer to string buffer
+#		D4 = Size of input buffer (size: byte)
+#	Out:	D1 = Character count (size: byte)
+#		Carry flag set if value valid
+input_str:
+	sub.b	#1, %d4					/* Max number of characters is buffer size - 1, to accept null character at end */
+	eor.w	%d1, %d1				/* Clear byte count */
+	mov.l	%a4, %a0				/* Make working copy of buffer pointer */
+input_str_get_char:
+	jsr	input_character_filter			/* Get character */
+
+	cmp.b	#ascii_escape, %d0			/* Check whether character is escape key */
+	beq.s	input_str_abort
+	cmp.b	#ascii_backspace, %d0			/* Check whether character is backspace key */
+	beq.s	input_str_delete_char
+	cmp.b	#ascii_delete, %d0			/* Check whether character is delete key */
+	beq.s	input_str_delete_char
+	cmp.b	#ascii_carriage_return, %d0		/* Check whether character is CR key */
+	beq.s	input_str_complete
+	cmp.b	#ascii_linefeed, %d0			/* Check whether character is CR key */
+	beq.s	input_str_complete
+
+	cmp.b	%d4, %d1				/* Character count to max. characters */
+	beq.s	input_str_get_char			/* If equal, do nothing */
+	mov.b	%d0, (%a0)+				/* Copy character to string buffer */
+	jsr	console_out				/* Print character */
+	addq.b	#1, %d1					/* Increment byte count */
+	bra.s	input_str_get_char
+input_str_delete_char:
+	and.b	%d1, %d1				/* Check if there are characters to delete */
+	beq.s	input_str_get_char			/* No existing characters, so just wait for next character */
+	jsr	console_out				/* Back 1 character */
+	mov.b	#' ', %d0
+	jsr	console_out				/* Overwrite character */
+	mov.b	#ascii_backspace, %d0
+	jsr	console_out				/* Back 1 character again */
+	suba.l	#1, %a0					/* Decrement string buffer pointer */
+	subq.b	#1, %d1					/* Decrement byte count */
+	bra.s	input_str_get_char
+input_str_complete:
+	eor.b	%d0, %d0				/* Clear register */
+	mov.b	%d0, (%a0)				/* Write null character to buffer */
+	ori.b	#0x01, %ccr				/* Valid value */
+	rts
+input_str_abort:
+	and.b	#0xfe, %ccr				/* Invalid value */
+	rts
 
 # Memory routines
 ###########################################################################
@@ -1828,10 +1823,18 @@ command_upload_srec_S7_finish:
 *command_download_alt:
 *	call	command_download_init
 *	jr	command_download_line_start
-*; # command_download
-*; #################################
-*;  Downloads an Intel format hex file
-*command_download:
+# command_download
+#################################
+#  Downloads an Intel format hex file
+command_download:
+	jsr	print_newline
+
+	mov.l	#0x0600, %a4
+	mov.b	#0xff, %d4
+	jsr	input_str
+	rts
+
+
 *	ld	hl, str_tag_dnld
 *	call	print_cstr				; Print message
 *
@@ -2171,8 +2174,8 @@ menu_main_builtin_commands:
 	beq.w	command_clear_mem			/* Run command */
 	cmp.b	#command_key_upload, %d4		/* Check if upload key */
 	beq.w	command_upload_srec			/* Run command */
-#	cmp.b	#command_key_download, %d4		/* Check if download key */
-#	beq.w	command_download			/* Run command */
+	cmp.b	#command_key_download, %d4		/* Check if download key */
+	beq.w	command_download			/* Run command */
 
 menu_main_end:
 	jmp	print_newline				/* This will return to menu_main */
