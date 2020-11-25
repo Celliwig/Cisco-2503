@@ -211,6 +211,44 @@ bool mem_bootrom_init(FILE *fhandle) {
 	return true;
 }
 
+// Initialise boot flash ROM with contents from 2 files
+bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2) {
+	unsigned char tmp_store1[C2503_BOOTROM_SIZE/2], tmp_store2[C2503_BOOTROM_SIZE/2], tmp_byte;
+	unsigned int rom_ptr, tmp_size_1 = 0, tmp_size_2 = 0;
+
+	if ((tmp_size_1 = fread(tmp_store1, 1, C2503_BOOTROM_SIZE, fhandle1)) <= 0) return false;
+	if ((tmp_size_2 = fread(tmp_store2, 1, C2503_BOOTROM_SIZE, fhandle2)) <= 0) return false;
+	if (tmp_size_1 != tmp_size_2) return false;
+
+	for (rom_ptr = 0; rom_ptr < tmp_size_1; rom_ptr++) {
+		tmp_byte = 0;						/* Zero byte */
+		// Reverse byte FW2
+		if (tmp_store2[rom_ptr] & 0x01) tmp_byte |= 0x80;
+		if (tmp_store2[rom_ptr] & 0x02) tmp_byte |= 0x40;
+		if (tmp_store2[rom_ptr] & 0x04) tmp_byte |= 0x20;
+		if (tmp_store2[rom_ptr] & 0x08) tmp_byte |= 0x10;
+		if (tmp_store2[rom_ptr] & 0x10) tmp_byte |= 0x08;
+		if (tmp_store2[rom_ptr] & 0x20) tmp_byte |= 0x04;
+		if (tmp_store2[rom_ptr] & 0x40) tmp_byte |= 0x02;
+		if (tmp_store2[rom_ptr] & 0x80) tmp_byte |= 0x01;
+		g_bootrom[(rom_ptr * 2)] = tmp_byte;
+
+		tmp_byte = 0;						/* Zero byte */
+		// Reverse byte FW1
+		if (tmp_store1[rom_ptr] & 0x01) tmp_byte |= 0x80;
+		if (tmp_store1[rom_ptr] & 0x02) tmp_byte |= 0x40;
+		if (tmp_store1[rom_ptr] & 0x04) tmp_byte |= 0x20;
+		if (tmp_store1[rom_ptr] & 0x08) tmp_byte |= 0x10;
+		if (tmp_store1[rom_ptr] & 0x10) tmp_byte |= 0x08;
+		if (tmp_store1[rom_ptr] & 0x20) tmp_byte |= 0x04;
+		if (tmp_store1[rom_ptr] & 0x40) tmp_byte |= 0x02;
+		if (tmp_store1[rom_ptr] & 0x80) tmp_byte |= 0x01;
+		g_bootrom[(rom_ptr * 2) + 1] = tmp_byte;
+	}
+
+	return true;
+}
+
 bool mem_bootrom_read_byte(unsigned address, unsigned int *value) {
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \

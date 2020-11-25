@@ -968,6 +968,7 @@ void emu_win_destroy() {
 void print_usage() {
 	printf("Usage: cisco_2503 -b <ROM file> -s <serial device> \n");
 	printf("	-b <ROM file>		Initial boot ROM file.\n");
+	printf("	-1/-2 <ROM file>	Use upper/lower bit swapped ROM files.\n");
 	printf("	-s <serial device>	Device to connect to, to provide serial emulation.\n");
 	exit(-1);
 }
@@ -975,14 +976,20 @@ void print_usage() {
 // Main loop
 //////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
-	FILE*		fh_bootrom;
+	FILE		*fh_bootrom1, *fh_bootrom2;
 	int		fd_serial, key_press, tmp_opt, tmp_pc;
-	char		emu_step = 0, *bootrom_filename = NULL, *console_devname = NULL;
+	char		emu_step = 0, *bootrom_filename = NULL, *bootrom_filename_fw1 = NULL, *bootrom_filename_fw2 = NULL, *console_devname = NULL;
 	struct termios	serial_fd_opts;
 
 	opterr = 0;
-	while ((tmp_opt = getopt(argc, argv, "b:s:")) != -1) {
+	while ((tmp_opt = getopt(argc, argv, "b:s:1:2:")) != -1) {
 		switch (tmp_opt) {
+			case '1':
+				bootrom_filename_fw1 = optarg;
+				break;
+			case '2':
+				bootrom_filename_fw2 = optarg;
+				break;
 			case 'b':
 				bootrom_filename = optarg;
 				break;
@@ -996,17 +1003,36 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Check if all needed paramters supplied
-	if (bootrom_filename == NULL) {
+	if ((bootrom_filename == NULL) && ((bootrom_filename_fw1 == NULL) || (bootrom_filename_fw2 == NULL))) {
 		print_usage();
 	}
 
-	if ((fh_bootrom = fopen(bootrom_filename, "rb")) == NULL) {
-		printf("Unable to open %s\n", bootrom_filename);
-		exit(-1);
+	if (bootrom_filename != NULL) {
+		if ((fh_bootrom1 = fopen(bootrom_filename, "rb")) == NULL) {
+			printf("Unable to open %s\n", bootrom_filename);
+			exit(-1);
+		} else {
+			if (!mem_bootrom_init(fh_bootrom1)) {
+				printf("Error reading %s\n", bootrom_filename);
+				exit(-1);
+			}
+		}
 	}
-	if (!mem_bootrom_init(fh_bootrom)) {
-		printf("Error reading %s\n", bootrom_filename);
-		exit(-1);
+
+	if ((bootrom_filename_fw1 != NULL) && (bootrom_filename_fw2 != NULL)) {
+		if ((fh_bootrom1 = fopen(bootrom_filename_fw1, "rb")) == NULL) {
+			printf("Unable to open %s\n", bootrom_filename_fw1);
+			exit(-1);
+		}
+		if ((fh_bootrom2 = fopen(bootrom_filename_fw2, "rb")) == NULL) {
+			printf("Unable to open %s\n", bootrom_filename_fw2);
+			exit(-1);
+		}
+
+		if (!mem_bootrom_split_init(fh_bootrom1, fh_bootrom2)) {
+			printf("Error reading split ROM\n");
+			exit(-1);
+		}
 	}
 
 	// Open console serial device, if it's been specified
