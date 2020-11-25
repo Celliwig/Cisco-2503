@@ -42,6 +42,12 @@ system_init_delay_loop:
 	andi.w	#0xfffe, %d0
 	move.w	%d0, (%a0)
 
+	/* Copy exception vector table */
+	mov.l	#0x01000000, %a0
+	mov.l	#0x010003ff, %a1
+	mov.l	#0x00000000, %a2
+	jsr	memory_copy
+
 	jmp	(%a6)							/* Return address is stored in A7 */
 
 ###########################################################################
@@ -63,6 +69,9 @@ system_init_delay_loop:
 
 .org CISCO2500_LIB + 0x0240						/* executable code begins here */
 startup_cmd:
+	# Configure variables
+	mov.l	#0x00001000, MONITOR_ADDR_CURRENT			/* Set current address */
+
 	jsr	scn2681_init						/* Init DUART console */
 
 	rts
@@ -85,23 +94,23 @@ startup_cmd_config:
 *
 *	rst	16							; Continue boot
 
-*; ###########################################################################
-*; #                                                                         #
-*; #                             System Config                               #
-*; #                                                                         #
-*; ###########################################################################
-*
-*orgmem  nc100_cmd_base+0x0200
-*	db	0xA5,0xE5,0xE0,0xA5					; signiture bytes
-*	db	254,'!',0,0						; id (254=cmd)
-*	db	0,0,0,0							; prompt code vector
-*	db	0,0,0,0							; reserved
-*	db	0,0,0,0							; reserved
-*	db	0,0,0,0							; reserved
-*	db	0,0,0,0							; user defined
-*	db	255,255,255,255						; length and checksum (255=unused)
-*	db	"System config",0
-*
-*orgmem  nc100_cmd_base+0x0240
-*include	"nc100/setup.asm"
+############################################################################
+##                                                                         #
+##                             System Config                               #
+##                                                                         #
+############################################################################
+#
+#.org CISCO2500_LIB + 0x0300
+#	dc.b	0xA5,0xE5,0xE0,0xA5					/* signiture bytes */
+#	dc.b	254,'!',0,0						/* id (254=cmd) */
+#	dc.b	0,0,0,0							/* prompt code vector */
+#	dc.b	0,0,0,0							/* reserved */
+#	dc.b	0,0,0,0							/* reserved */
+#	dc.b	0,0,0,0							/* reserved */
+#	dc.b	0,0,0,0							/* user defined */
+#	dc.b	255,255,255,255						/* length and checksum (255=unused) */
+#	.asciz	"System config"
+#
+#.org CISCO2500_LIB + 0x0340
+#.include	"nc100/setup.asm"
 
