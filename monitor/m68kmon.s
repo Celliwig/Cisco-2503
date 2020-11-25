@@ -1200,20 +1200,30 @@ input_str_abort:
 ###########################################################################
 # memory_copy
 #################################
-*;  Copies a region of memory to another region
-*;	In:	BC = Source Address
-*;		DE = Destination Address
-*;		HL = Num. bytes
-*memory_copy:
-*	ld	a, (bc)					; Get byte to copy
-*	ld	(de), a					; Save byte
-*	inc	bc					; Increment pointers
-*	inc	de
-*	dec	hl					; Decrement byte count
-*	ld	a, l
-*	or	h					; See if we've reached zero
-*	jr	nz, memory_copy				; If there are remaining bytes to copy
-*	ret
+#  Copies a region of memory to another region
+#	In:	A0 = Source Start Address
+#		A1 = Source End Address
+#		A2 = Destination Address
+memory_copy:
+	cmp.l	%a1, %a0
+	bgt.s	memory_copy_finish			/* Check if source is greater than destination */
+	mov.l	%a1, %d0
+	sub.l	%a0, %d0				/* Calculate number of bytes to copy */
+	add.l	#1, %d0					/* If src addr == dst addr, still copying 1 byte */
+memory_copy_long_loop:
+	cmp.l	#4, %d0					/* Check if there are more than 4 bytes to copy */
+	blt.s	memory_copy_byte_loop
+	mov.l	(%a0)+, (%a2)+				/* Copy 4 bytes */
+	sub.l	#4, %d0					/* Subtract 4 from byte count */
+	bra.s	memory_copy_long_loop			/* Loop */
+memory_copy_byte_loop:
+	tst.b	%d0					/* Check if there are any more bytes to copy */
+	beq.s	memory_copy_finish
+	mov.b	(%a0)+, (%a2)+				/* Copy byte */
+	sub.b	#1, %d0					/* Subtract from byte count */
+	bra.s	memory_copy_byte_loop			/* Loop */
+memory_copy_finish:
+	rts
 
 *; # memory_copy_verify
 *; #################################
