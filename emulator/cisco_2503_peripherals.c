@@ -4,6 +4,7 @@
 #include <stdbool.h>
 //#include <time.h>
 #include <unistd.h>
+#include <termios.h>
 #include "cisco_2503.h"
 #include "cisco_2503_peripherals.h"
 
@@ -706,6 +707,78 @@ void io_duart_core_channelB_serial_device(int device) {
 	scn2681_channelB_serial_device_fd = device;
 }
 
+void io_duart_core_channel_fd_set_mode1(int fd_device, unsigned char register_val) {
+	struct termios options;
+
+	// Check if FD valid
+	if (scn2681_channelA_serial_device_fd == -1) return;
+
+	// Get current serial port configuration
+	tcgetattr(fd_device, &options);
+
+	// Clear existing options
+	options.c_cflag &= ~PARENB;
+	options.c_cflag &= ~CSTOPB;
+	options.c_cflag &= ~CSIZE;
+
+	// Set symbol length
+	switch (register_val & 0x03) {
+		case 0:
+			options.c_cflag |= CS5;
+			break;
+		case 1:
+			options.c_cflag |= CS6;
+			break;
+		case 2:
+			options.c_cflag |= CS7;
+			break;
+		case 3:
+			options.c_cflag |= CS8;
+			break;
+	}
+
+	// Set parity type
+	if (register_val & 0x04) options.c_cflag |= PARODD;
+
+	// Parity enabled
+	if ((register_val & 0x18) < 0x10) {
+		options.c_cflag |= PARENB;
+	}
+
+	// Set current serial port configuration
+	tcsetattr(fd_device, TCSANOW, &options);
+}
+
+void io_duart_core_channel_fd_set_baud(int fd_device, unsigned char baud_selection, unsigned int brg_set_select) {
+	struct termios options;
+	unsigned char ispeed, ospeed, *brg_set;
+
+	unsigned char brg_set0[16] = {B50, B110, B134, B200, B300, B600, B1200, B0, B2400, B4800, B0, B9600, B38400, B0, B0, B0};
+	unsigned char brg_set1[16] = {B75, B110, B134, B150, B300, B600, B1200, B0, B2400, B4800, B1800, B9600, B19200, B0, B0, B0};
+
+	// Check if FD valid
+	if (scn2681_channelA_serial_device_fd == -1) return;
+
+	if (brg_set_select) {
+		brg_set = brg_set1;
+	} else {
+		brg_set = brg_set0;
+	}
+
+	ispeed = brg_set[(baud_selection & 0xF0) >> 4];
+	ospeed = brg_set[(baud_selection & 0x0F)];
+
+	// Get current serial port configuration
+	tcgetattr(fd_device, &options);
+
+	// Set baud rate
+	cfsetispeed(&options, ispeed);
+	cfsetospeed(&options, ospeed);
+
+	// Set current serial port configuration
+	tcsetattr(fd_device, TCSANOW, &options);
+}
+
 // Read DUART core registers directly (for instrumentation)
 //////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char io_duart_core_get_reg(enum scn2681_core_reg regname) {
@@ -1228,12 +1301,19 @@ bool io_duart_write_byte(unsigned address, unsigned int value) {
 				if (scn2681_channelA_mode2_selected) {
 					scn2681_channelA_mode2 = value;
 				} else {
+					// Only bother updating serial settings if they've changed
+					if ((value ^ scn2681_channelA_mode1) & 0x1F) {
+						io_duart_core_channel_fd_set_mode1(scn2681_channelA_serial_device_fd, value);
+					}
 					scn2681_channelA_mode1 = value;
 				}
 				if (!scn2681_channelA_mode2_selected) scn2681_channelA_mode2_selected = true;
 				break;
 			case SCN2681_REG_WR_CLOCK_SELECT_A:		// Channel A: Clock Select Register
 				scn2681_channelA_clock_select = value;
+				io_duart_core_channel_fd_set_baud(scn2681_channelA_serial_device_fd,
+									scn2681_channelA_clock_select,
+									scn2681_auxiliary_control & SCN2681_REG_AUX_CONTROL_BRG_SET_SELECT);
 				break;
 			case SCN2681_REG_WR_COMMAND_A:			// Channel A: Command Register
 				scn2681_channelA_command = value;
@@ -1272,12 +1352,19 @@ bool io_duart_write_byte(unsigned address, unsigned int value) {
 				if (scn2681_channelB_mode2_selected) {
 					scn2681_channelB_mode2 = value;
 				} else {
+					// Only bother updating serial settings if they've changed
+					if ((value ^ scn2681_channelB_mode1) & 0x1F) {
+						io_duart_core_channel_fd_set_mode1(scn2681_channelB_serial_device_fd, value);
+					}
 					scn2681_channelB_mode1 = value;
 				}
 				if (!scn2681_channelB_mode2_selected) scn2681_channelB_mode2_selected = true;
 				break;
 			case SCN2681_REG_WR_CLOCK_SELECT_B:		// Channel B: Clock Select Register
 				scn2681_channelB_clock_select = value;
+				io_duart_core_channel_fd_set_baud(scn2681_channelB_serial_device_fd,
+									scn2681_channelB_clock_select,
+									scn2681_auxiliary_control & SCN2681_REG_AUX_CONTROL_BRG_SET_SELECT);
 				break;
 			case SCN2681_REG_WR_COMMAND_B:			// Channel B: Command Register
 				scn2681_channelB_command = value;
