@@ -699,12 +699,40 @@ int		\
 
 // Sets a file handler to use as a serial device for channel
 //////////////////////////////////////////////////////////////////////////////////////////////
-void io_duart_core_channelA_serial_device(int device) {
-	scn2681_channelA_serial_device_fd = device;
+void io_duart_core_channelA_serial_device(int fd_device) {
+	struct termios options;
+
+	scn2681_channelA_serial_device_fd = fd_device;
+
+	// Check if FD valid
+	if (fd_device == -1) return;
+
+	// Get current serial port configuration
+	tcgetattr(fd_device, &options);
+
+	// Enable hardware flow control
+	options.c_cflag |= CRTSCTS;
+
+	// Set current serial port configuration
+	tcsetattr(fd_device, TCSANOW, &options);
 }
 
-void io_duart_core_channelB_serial_device(int device) {
-	scn2681_channelB_serial_device_fd = device;
+void io_duart_core_channelB_serial_device(int fd_device) {
+	struct termios options;
+
+	scn2681_channelB_serial_device_fd = fd_device;
+
+	// Check if FD valid
+	if (fd_device == -1) return;
+
+	// Get current serial port configuration
+	tcgetattr(fd_device, &options);
+
+	// Enable hardware flow control
+	options.c_cflag |= CRTSCTS;
+
+	// Set current serial port configuration
+	tcsetattr(fd_device, TCSANOW, &options);
 }
 
 void io_duart_core_channel_fd_set_mode1(int fd_device, unsigned char register_val) {
