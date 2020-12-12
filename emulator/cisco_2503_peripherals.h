@@ -188,11 +188,12 @@ bool io_counter_write_long(unsigned address, unsigned int value);
 #define SCN2681_REG_COMMAND_MISC_BREAK_START	6<<4			// Start Break
 #define SCN2681_REG_COMMAND_MISC_BREAK_STOP	7<<4			// Stop Break
 
+#define SCN2681_REG_RX_FIFO_SIZE		3			// Number of character slots in Rx FIFO
 // SCN2681 DUART RX FIFO Status Bits
-#define SCN2681_REG_RD_RX_A_FIFO_PARITY_ERR	1<<8			// Parity error associated with this byte
-#define SCN2681_REG_RD_RX_A_FIFO_FRAMING_ERR	1<<9			// Framing error associated with this byte
-#define SCN2681_REG_RD_RX_A_FIFO_RECEIVED_BRK	1<<10			// Received break associated with this byte
-#define SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE	1<<15			// This is a valid byte
+#define SCN2681_REG_RX_FIFO_PARITY_ERR		1<<8			// Parity error associated with this byte
+#define SCN2681_REG_RX_FIFO_FRAMING_ERR		1<<9			// Framing error associated with this byte
+#define SCN2681_REG_RX_FIFO_RECEIVED_BRK	1<<10			// Received break associated with this byte
+#define SCN2681_REG_RX_FIFO_VALID_BYTE		1<<15			// This is a valid byte
 
 // SCN2681 DUART Auxiliary Control Register (W)
 #define SCN2681_REG_AUX_CONTROL_INT_DELTA_IP0	1<<0			// IP0 Delta Interrupt: 0 - Off / 1 - On

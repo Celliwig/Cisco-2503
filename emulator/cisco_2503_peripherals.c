@@ -5,6 +5,7 @@
 //#include <time.h>
 #include <unistd.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 #include "cisco_2503.h"
 #include "cisco_2503_peripherals.h"
 
@@ -649,11 +650,11 @@ bool io_counter_write_long(unsigned address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 bool		\
 		// Channel A
-		scn2681_channelA_mode2_selected, \
+		scn2681_channelA_mode2_selected, scn2681_channelA_rx_rts_enabled, \
 		scn2681_channelA_rx_enabled, scn2681_channelA_rx_rsr_empty, scn2681_channelA_rx_status_overrun, \
 		scn2681_channelA_tx_enabled, scn2681_channelA_tx_thr_empty, scn2681_channelA_tx_tsr_empty, \
 		// Channel B
-		scn2681_channelB_mode2_selected, \
+		scn2681_channelB_mode2_selected, scn2681_channelB_rx_rts_enabled, \
 		scn2681_channelB_rx_enabled, scn2681_channelB_rx_rsr_empty, scn2681_channelB_rx_status_overrun, \
 		scn2681_channelB_tx_enabled, scn2681_channelB_tx_thr_empty, scn2681_channelB_tx_tsr_empty;
 
@@ -683,11 +684,11 @@ unsigned char	\
 
 unsigned int	\
 		// Channel A
-		scn2681_channelA_rx_fifo[3],
+		scn2681_channelA_rx_fifo[SCN2681_REG_RX_FIFO_SIZE],
 		scn2681_channelA_rx_rsr_ticks, \
 		scn2681_channelA_tx_tsr_ticks, \
 		// Channel B
-		scn2681_channelB_rx_fifo[3],
+		scn2681_channelB_rx_fifo[SCN2681_REG_RX_FIFO_SIZE],
 		scn2681_channelB_rx_rsr_ticks, \
 		scn2681_channelB_tx_tsr_ticks;
 
@@ -699,28 +700,30 @@ int		\
 
 // Sets a file handler to use as a serial device for channel
 //////////////////////////////////////////////////////////////////////////////////////////////
-void io_duart_core_channelA_serial_device(int fd_device) {
-	struct termios options;
-
-	scn2681_channelA_serial_device_fd = fd_device;
+void io_duart_core_channel_fd_set_RTS(int fd_device) {
+	unsigned int status;
 
 	// Check if FD valid
 	if (fd_device == -1) return;
 
-	// Get current serial port configuration
-	tcgetattr(fd_device, &options);
-
-	// Enable hardware flow control
-	options.c_cflag |= CRTSCTS;
-
-	// Set current serial port configuration
-	tcsetattr(fd_device, TCSANOW, &options);
+	ioctl(fd_device, TIOCMGET, &status);
+	status |= TIOCM_RTS;
+	ioctl(fd_device, TIOCMSET, &status);
 }
 
-void io_duart_core_channelB_serial_device(int fd_device) {
-	struct termios options;
+void io_duart_core_channel_fd_clear_RTS(int fd_device) {
+	unsigned int status;
 
-	scn2681_channelB_serial_device_fd = fd_device;
+	// Check if FD valid
+	if (fd_device == -1) return;
+
+	ioctl(fd_device, TIOCMGET, &status);
+	status &= ~TIOCM_RTS;
+	ioctl(fd_device, TIOCMSET, &status);
+}
+
+void io_duart_core_channel_fd_set_hwflow(int fd_device) {
+	struct termios options;
 
 	// Check if FD valid
 	if (fd_device == -1) return;
@@ -739,7 +742,7 @@ void io_duart_core_channel_fd_set_mode1(int fd_device, unsigned char register_va
 	struct termios options;
 
 	// Check if FD valid
-	if (scn2681_channelA_serial_device_fd == -1) return;
+	if (fd_device == -1) return;
 
 	// Get current serial port configuration
 	tcgetattr(fd_device, &options);
@@ -775,6 +778,11 @@ void io_duart_core_channel_fd_set_mode1(int fd_device, unsigned char register_va
 
 	// Set current serial port configuration
 	tcsetattr(fd_device, TCSANOW, &options);
+
+	// Make sure RTS signal is enabled if RTS control is disabled
+	if ((register_val & SCN2681_REG_MODE1_RX_RTS) == 0) {
+		io_duart_core_channel_fd_set_RTS(fd_device);
+	}
 }
 
 void io_duart_core_channel_fd_set_baud(int fd_device, unsigned char baud_selection, unsigned int brg_set_select) {
@@ -785,7 +793,7 @@ void io_duart_core_channel_fd_set_baud(int fd_device, unsigned char baud_selecti
 	unsigned char brg_set1[16] = {B75, B110, B134, B150, B300, B600, B1200, B0, B2400, B4800, B1800, B9600, B19200, B0, B0, B0};
 
 	// Check if FD valid
-	if (scn2681_channelA_serial_device_fd == -1) return;
+	if (fd_device == -1) return;
 
 	if (brg_set_select) {
 		brg_set = brg_set1;
@@ -805,6 +813,16 @@ void io_duart_core_channel_fd_set_baud(int fd_device, unsigned char baud_selecti
 
 	// Set current serial port configuration
 	tcsetattr(fd_device, TCSANOW, &options);
+}
+
+void io_duart_core_channelA_serial_device(int fd_device) {
+	scn2681_channelA_serial_device_fd = fd_device;
+	io_duart_core_channel_fd_set_hwflow(fd_device);
+}
+
+void io_duart_core_channelB_serial_device(int fd_device) {
+	scn2681_channelB_serial_device_fd = fd_device;
+	io_duart_core_channel_fd_set_hwflow(fd_device);
 }
 
 // Read DUART core registers directly (for instrumentation)
@@ -1008,6 +1026,7 @@ void io_duart_core_channelA_rx_reset() {
 	scn2681_channelA_rx_rsr_ticks = 0;
 	scn2681_channelA_rx_rsr_empty = true;
 	scn2681_channelA_rx_status_overrun = false;
+	scn2681_channelA_rx_rts_enabled = false;
 }
 
 // Tx
@@ -1055,6 +1074,7 @@ void io_duart_core_channelB_rx_reset() {
 	scn2681_channelB_rx_rsr_ticks = 0;
 	scn2681_channelB_rx_rsr_empty = true;
 	scn2681_channelB_rx_status_overrun = false;
+	scn2681_channelB_rx_rts_enabled = false;
 }
 
 // Tx
@@ -1123,6 +1143,7 @@ void io_duart_core_init() {
 //////////////////////////////////////////////////////////////////////////////////////////////
 void io_duart_core_clock_tick() {
 	char	tmp_buffer;
+	unsigned char i;
 
 	// Channel A Registers
 	// Read one byte (if available) from serial device
@@ -1133,18 +1154,37 @@ void io_duart_core_clock_tick() {
 		}
 		scn2681_channelA_rx_rsr = tmp_buffer;
 		scn2681_channelA_rx_rsr_empty = false;
+
+		// Check whether to set RTS signal
+		if (scn2681_channelA_mode1 & SCN2681_REG_MODE1_RX_RTS) {
+			// Check if the FIFO is full of valid bytes
+			for (i = 0; i < SCN2681_REG_RX_FIFO_SIZE; i++) {
+				if (!(scn2681_channelA_rx_fifo[i] & SCN2681_REG_RX_FIFO_VALID_BYTE)) break;
+			}
+			if (i == SCN2681_REG_RX_FIFO_SIZE) {
+				if (scn2681_channelA_rx_rts_enabled) {
+					io_duart_core_channel_fd_clear_RTS(scn2681_channelA_serial_device_fd);
+					scn2681_channelA_rx_rts_enabled = false;
+				}
+			} else {
+				if (!scn2681_channelA_rx_rts_enabled) {
+					io_duart_core_channel_fd_set_RTS(scn2681_channelA_serial_device_fd);
+					scn2681_channelA_rx_rts_enabled = true;
+				}
+			}
+		}
 	}
 	// Push Rx shift register to FIFO
 	if (!scn2681_channelA_rx_rsr_empty) {
 		scn2681_channelA_rx_rsr_ticks++;
 		if (scn2681_channelA_rx_rsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
 			// Check if there is already a byte in the next buffer
-			if (!(scn2681_channelA_rx_fifo[scn2681_channelA_rx_wr_idx] & SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE)) {
-				scn2681_channelA_rx_fifo[scn2681_channelA_rx_wr_idx] = scn2681_channelA_rx_rsr | SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE;
+			if (!(scn2681_channelA_rx_fifo[scn2681_channelA_rx_wr_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE)) {
+				scn2681_channelA_rx_fifo[scn2681_channelA_rx_wr_idx] = scn2681_channelA_rx_rsr | SCN2681_REG_RX_FIFO_VALID_BYTE;
 				// Increment FIFO index
 				scn2681_channelA_rx_wr_idx++;
 				// Reset FIFO index if it overflows
-				if (scn2681_channelA_rx_wr_idx > 2) scn2681_channelA_rx_wr_idx = 0;
+				if (scn2681_channelA_rx_wr_idx >= SCN2681_REG_RX_FIFO_SIZE) scn2681_channelA_rx_wr_idx = 0;
 				scn2681_channelA_rx_rsr_empty = true;
 				scn2681_channelA_rx_rsr_ticks = 0;
 			}
@@ -1180,18 +1220,37 @@ void io_duart_core_clock_tick() {
 		}
 		scn2681_channelB_rx_rsr = tmp_buffer;
 		scn2681_channelB_rx_rsr_empty = false;
+
+		// Check whether to set RTS signal
+		if (scn2681_channelB_mode1 & SCN2681_REG_MODE1_RX_RTS) {
+			// Check if the FIFO is full of valid bytes
+			for (i = 0; i < SCN2681_REG_RX_FIFO_SIZE; i++) {
+				if (!(scn2681_channelB_rx_fifo[i] & SCN2681_REG_RX_FIFO_VALID_BYTE)) break;
+			}
+			if (i == SCN2681_REG_RX_FIFO_SIZE) {
+				if (scn2681_channelB_rx_rts_enabled) {
+					io_duart_core_channel_fd_clear_RTS(scn2681_channelB_serial_device_fd);
+					scn2681_channelB_rx_rts_enabled = false;
+				}
+			} else {
+				if (!scn2681_channelB_rx_rts_enabled) {
+					io_duart_core_channel_fd_set_RTS(scn2681_channelB_serial_device_fd);
+					scn2681_channelB_rx_rts_enabled = true;
+				}
+			}
+		}
 	}
 	// Push Rx shift register to FIFO
 	if (!scn2681_channelB_rx_rsr_empty) {
 		scn2681_channelB_rx_rsr_ticks++;
 		if (scn2681_channelB_rx_rsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
 			// Check if there is already a byte in the next buffer
-			if (!(scn2681_channelB_rx_fifo[scn2681_channelB_rx_wr_idx] & SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE)) {
-				scn2681_channelB_rx_fifo[scn2681_channelB_rx_wr_idx] = scn2681_channelB_rx_rsr | SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE;
+			if (!(scn2681_channelB_rx_fifo[scn2681_channelB_rx_wr_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE)) {
+				scn2681_channelB_rx_fifo[scn2681_channelB_rx_wr_idx] = scn2681_channelB_rx_rsr | SCN2681_REG_RX_FIFO_VALID_BYTE;
 				// Increment FIFO index
 				scn2681_channelB_rx_wr_idx++;
 				// Reset FIFO index if it overflows
-				if (scn2681_channelB_rx_wr_idx > 2) scn2681_channelB_rx_wr_idx = 0;
+				if (scn2681_channelB_rx_wr_idx >= SCN2681_REG_RX_FIFO_SIZE) scn2681_channelB_rx_wr_idx = 0;
 				scn2681_channelB_rx_rsr_empty = true;
 				scn2681_channelB_rx_rsr_ticks = 0;
 			}
@@ -1235,8 +1294,8 @@ bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 				break;
 			case SCN2681_REG_RD_STATUS_A:			// Channel A: Status Register
 				*value = scn2681_channelA_status;
-				if (scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] & SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE) *value = *value | SCN2681_REG_STATUS_RX_RDY;
-				if ((scn2681_channelA_rx_rd_idx == scn2681_channelA_rx_wr_idx) && (scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] & SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE)) *value = *value | SCN2681_REG_STATUS_FFULL;
+				if (scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE) *value = *value | SCN2681_REG_STATUS_RX_RDY;
+				if ((scn2681_channelA_rx_rd_idx == scn2681_channelA_rx_wr_idx) && (scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE)) *value = *value | SCN2681_REG_STATUS_FFULL;
 				if (scn2681_channelA_tx_thr_empty) *value = *value | SCN2681_REG_STATUS_TX_RDY;
 				if (scn2681_channelA_tx_thr_empty & scn2681_channelA_tx_tsr_empty) *value = *value | SCN2681_REG_STATUS_TX_EMT;
 				if (scn2681_channelA_rx_status_overrun) *value = *value | SCN2681_REG_STATUS_OVERRUN_ERROR;
@@ -1246,7 +1305,7 @@ bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 				break;
 			case SCN2681_REG_RD_RX_A:			// Channel A: RX Register
 				*value = 0;
-				if (scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] & SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE) {
+				if (scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE) {
 					// Get value, stripping status flags
 					*value = 0xff & scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx];
 					// Reset flags
@@ -1279,8 +1338,8 @@ bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 				break;
 			case SCN2681_REG_RD_STATUS_B:			// Channel B: Status Register
 				*value = scn2681_channelB_status;
-				if (scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] & SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE) *value = *value | SCN2681_REG_STATUS_RX_RDY;
-				if ((scn2681_channelB_rx_rd_idx == scn2681_channelB_rx_wr_idx) && (scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] & SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE)) *value = *value | SCN2681_REG_STATUS_FFULL;
+				if (scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE) *value = *value | SCN2681_REG_STATUS_RX_RDY;
+				if ((scn2681_channelB_rx_rd_idx == scn2681_channelB_rx_wr_idx) && (scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE)) *value = *value | SCN2681_REG_STATUS_FFULL;
 				if (scn2681_channelB_tx_thr_empty) *value = *value | SCN2681_REG_STATUS_TX_RDY;
 				if (scn2681_channelB_tx_thr_empty & scn2681_channelB_tx_tsr_empty) *value = *value | SCN2681_REG_STATUS_TX_EMT;
 				if (scn2681_channelB_rx_status_overrun) *value = *value | SCN2681_REG_STATUS_OVERRUN_ERROR;
@@ -1290,7 +1349,7 @@ bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 				break;
 			case SCN2681_REG_RD_RX_B:			// Channel B: RX Register
 				*value = 0;
-				if (scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] & SCN2681_REG_RD_RX_A_FIFO_VALID_BYTE) {
+				if (scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE) {
 					// Get value, stripping status flags
 					*value = 0xff & scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx];
 					// Reset flags
