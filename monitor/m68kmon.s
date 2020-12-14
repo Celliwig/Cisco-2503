@@ -94,29 +94,29 @@
 # hardware is initialised.
 startup_cold:
 	/* Basic initialisation */
-	move	%sr, %d0				/* Disable external interrupts */
+	move	%sr, %d0						/* Disable external interrupts */
 	or.l	#0x0700, %d0
 	move	%d0, %sr
 
 	/* Search for an init module */
-	lea	bootrom_start, %a4			/* Set search start */
-	lea	bootrom_start + bootrom_size, %a5	/* Set search end */
-	lea	startup_cold_search_rtn, %a6		/* Set return address */
+	lea	bootrom_start, %a4					/* Set search start */
+	lea	bootrom_start + bootrom_size, %a5			/* Set search end */
+	lea	startup_cold_search_rtn, %a6				/* Set return address */
 
 startup_cold_search:
-	bra.s	module_find				/* Find next module */
+	bra.s	module_find						/* Find next module */
 
 startup_cold_search_rtn:
-	beq.s	startup_cold_end			/* If don't find a module, just continue boot */
-	cmp.b	#249, %d0				/* Check if it's an init module */
-	bne.s	startup_cold_search_next		/* It's not an init module, keep searching */
-	adda.l	#0x40, %a4				/* Add offset to module code */
-	lea	startup_cold_end, %a6			/* Save return address in A7 */
-	jmp	(%a4)					/* Execute init module */
+	beq.s	startup_cold_end					/* If don't find a module, just continue boot */
+	cmp.b	#249, %d0						/* Check if it's an init module */
+	bne.s	startup_cold_search_next				/* It's not an init module, keep searching */
+	adda.l	#0x40, %a4						/* Add offset to module code */
+	lea	startup_cold_end, %a6					/* Save return address in A7 */
+	jmp	(%a4)							/* Execute init module */
 startup_cold_search_next:
-	adda.l	#0x100, %a4				/* Increment pointer */
-	cmp.l	%a5, %a4				/* Check if we've reached the end */
-	blt.s	startup_cold_search			/* We're not at the end so keep searching */
+	adda.l	#0x100, %a4						/* Increment pointer */
+	cmp.l	%a5, %a4						/* Check if we've reached the end */
+	blt.s	startup_cold_search					/* We're not at the end so keep searching */
 startup_cold_end:
 
 # startup_warm
@@ -124,16 +124,18 @@ startup_cold_end:
 # This code is executed once basic system is initialised
 # It's assumed that a stack is available at this point
 startup_warm:
-	mov.l	#stack_ptr, %sp				/* Reset stack pointer */
+	mov.l	#stack_ptr, %sp						/* Reset stack pointer */
 
-	lea	bootrom_start, %a4			/* Set search start */
-	mov.b	#253, %d1				/* Search for startup application */
+	bset.b	#MONITOR_CONFIG_PRINT, (MONITOR_ADDR_ATTRIBUTES1)	/* Printing is enabled */
+
+	lea	bootrom_start, %a4					/* Set search start */
+	mov.b	#253, %d1						/* Search for startup application */
 	bsr.s	module_search
 	cmp.b	#0, %d0
-	beq.s	startup_warm_end			/* No module found, so finish */
+	beq.s	startup_warm_end					/* No module found, so finish */
 
-	adda.l	#0x40, %a4				/* Add offset to module code */
-	jsr	(%a4)					/* Execute startup module */
+	adda.l	#0x40, %a4						/* Add offset to module code */
+	jsr	(%a4)							/* Execute startup module */
 startup_warm_end:
 
 # startup_final
@@ -143,14 +145,14 @@ startup_final:
 	jsr	print_newline
 	jsr	print_newline
 
-	lea	str_logon1, %a0				/* Print greeting */
+	lea	str_logon1, %a0						/* Print greeting */
 	jsr	print_cstr
-	*lea	str_logon2				/* Print documentation notes */
+	*lea	str_logon2						/* Print documentation notes */
 	*jsr	print_cstr
 
-	jsr	module_list_commands			/* Print included commands */
+	jsr	module_list_commands					/* Print included commands */
 
-	jmp	menu_main				/* Enter main menu */
+	jmp	menu_main						/* Enter main menu */
 
 # get_version
 #################################
@@ -171,28 +173,28 @@ get_version:
 #	Out:	A4 = location of next module
 #		D0 = module type, or unset if no module found
 module_find:
-	mov.l	%a4, %d0				/* Make sure we are on a boundary */
+	mov.l	%a4, %d0						/* Make sure we are on a boundary */
 	andi.l	#0xffffff00, %d0
 	mov.l	%d0, %a4
 module_find_loop:
-	mov.l	%a4, %a1				/* Copy address */
-	cmp.b	#0xA5, (%a1)+				/* Check first byte */
-	bne.s	module_find_next			/* If this doesn't match, check next range */
-	cmp.b	#0xE5, (%a1)+				/* Check second byte */
-	bne.s	module_find_next			/* If this doesn't match, check next range */
-	cmp.b	#0xE0, (%a1)+				/* Check third byte */
-	bne.s	module_find_next			/* If this doesn't match, check next range */
-	cmp.b	#0xA5, (%a1)+				/* Check fourth byte */
-	bne.s	module_find_next			/* If this doesn't match, check next range */
-	mov.b	(%a1), %d0				/* Get module type */
-	jmp	(%a6)					/* Resume execution from where we left off */
+	mov.l	%a4, %a1						/* Copy address */
+	cmp.b	#0xA5, (%a1)+						/* Check first byte */
+	bne.s	module_find_next					/* If this doesn't match, check next range */
+	cmp.b	#0xE5, (%a1)+						/* Check second byte */
+	bne.s	module_find_next					/* If this doesn't match, check next range */
+	cmp.b	#0xE0, (%a1)+						/* Check third byte */
+	bne.s	module_find_next					/* If this doesn't match, check next range */
+	cmp.b	#0xA5, (%a1)+						/* Check fourth byte */
+	bne.s	module_find_next					/* If this doesn't match, check next range */
+	mov.b	(%a1), %d0						/* Get module type */
+	jmp	(%a6)							/* Resume execution from where we left off */
 module_find_next:
-	adda.l	#0x100, %a4				/* Increment address pointer */
-	cmp.l	%a5, %a4				/* Check if we've reached the end */
+	adda.l	#0x100, %a4						/* Increment address pointer */
+	cmp.l	%a5, %a4						/* Check if we've reached the end */
 	blt.s	module_find_loop
 module_find_end:
-	eor.l	%d0, %d0				/* Clear D0 to indicate no module */
-	jmp	(%a6)					/* Resume execution from where we left off */
+	eor.l	%d0, %d0						/* Clear D0 to indicate no module */
+	jmp	(%a6)							/* Resume execution from where we left off */
 
 # module_search
 #################################
@@ -202,22 +204,22 @@ module_find_end:
 #	Out:	A4 = location of next module
 #		D0 = Found module type (cleared on failure)
 module_search:
-	lea	module_search_mem_end, %a5		/* Set search end */
-	lea	module_search_reenter, %a6		/* Set return address */
+	lea	module_search_mem_end, %a5				/* Set search end */
+	lea	module_search_reenter, %a6				/* Set return address */
 module_search_next:
-	cmp.l	%a5, %a4				/* Check if we've reached the end */
-	bge.s	module_search_failed			/* We've reached the end, so we've failed to find a module */
+	cmp.l	%a5, %a4						/* Check if we've reached the end */
+	bge.s	module_search_failed					/* We've reached the end, so we've failed to find a module */
 	jmp	module_find
 module_search_reenter:
-	beq.s	module_search_failed			/* No module, exit */
-	cmp.b	%d1, %d0				/* Check if module type we're looking for */
-	beq.s	module_search_end			/* If they're the same, return */
-	adda.l	#0x100, %a4				/* Increment address pointer */
-	bra.s	module_search_next			/* Continue search */
+	beq.s	module_search_failed					/* No module, exit */
+	cmp.b	%d1, %d0						/* Check if module type we're looking for */
+	beq.s	module_search_end					/* If they're the same, return */
+	adda.l	#0x100, %a4						/* Increment address pointer */
+	bra.s	module_search_next					/* Continue search */
 module_search_failed:
-	eor.l	%d0, %d0				/* Clear D0 as we've failed */
+	eor.l	%d0, %d0						/* Clear D0 as we've failed */
 module_search_end:
-	and.b	%d0, %d0				/* Set status bits appropriately */
+	and.b	%d0, %d0						/* Set status bits appropriately */
 	rts
 
 # String routines
@@ -228,11 +230,11 @@ module_search_end:
 #	In:	D0 = ASCII character
 #	Out:	D0 = ASCII character
 char_2_upper:
-	cmp.b	#97, %d0				/* 'a' */
+	cmp.b	#97, %d0						/* 'a' */
 	blt.s	char_2_upper_end
-	cmp.b	#123, %d0				/* 'z' + 1 */
+	cmp.b	#123, %d0						/* 'z' + 1 */
 	bgt.s	char_2_upper_end
-	add.b	#224, %d0				/* Addition wraps */
+	add.b	#224, %d0						/* Addition wraps */
 char_2_upper_end:
 	rts
 
@@ -244,18 +246,71 @@ char_2_upper_end:
 #	Out:	D0 = Hex value
 #		Carry set if value valid, not otherwise
 char_2_hex:
-	sub.b	#'0', %d0				/* Remove initial offset for 0-9 */
-	bcs.s	char_2_hex_error			/* < '0', error */
-	cmp.b	#10, %d0				/* Check if less than 10 */
-	blt.s	char_2_hex_finish			/* If so, then finish */
-	sub.b	#7, %d0					/* Remove secondary offset for A-F */
-	cmp.b	#0x10, %d0				/* Check if less than 16 */
-	blt.s	char_2_hex_finish			/* If so, then finish */
+	sub.b	#'0', %d0						/* Remove initial offset for 0-9 */
+	bcs.s	char_2_hex_error					/* < '0', error */
+	cmp.b	#10, %d0						/* Check if less than 10 */
+	blt.s	char_2_hex_finish					/* If so, then finish */
+	sub.b	#7, %d0							/* Remove secondary offset for A-F */
+	cmp.b	#0x10, %d0						/* Check if less than 16 */
+	blt.s	char_2_hex_finish					/* If so, then finish */
 char_2_hex_error:
-	andi.b	#0xfe, %ccr				/* Invalid value */
+	andi.b	#0xfe, %ccr						/* Invalid value */
 	rts
 char_2_hex_finish:
-	ori.b	#0x01, %ccr				/* Valid value */
+	ori.b	#0x01, %ccr						/* Valid value */
+	rts
+
+# string_2_hex32
+#################################
+#  Reads 8 character (hex) digits and returns the long value
+#	In:	A0 = Pointer to string buffer
+#	Out:	D1 = Value
+#		Carry flag set if value valid
+string_2_hex32:
+	eor.l	%d1, %d1						/* Clear register */
+string_2_hex32_initialised:
+	jsr	string_2_hex16						/* Read first word */
+	bcc.s	string_2_hex_finish					/* Exit on error */
+	bra.s	string_2_hex16_initialised				/* Jump over initialisation */
+# string_2_hex16
+#################################
+#  Reads 4 character (hex) digits and returns the word value
+#	In:	A0 = Pointer to string buffer
+#	Out:	D1 = Value
+#		Carry flag set if value valid
+string_2_hex16:
+	eor.l	%d1, %d1						/* Clear register */
+string_2_hex16_initialised:
+	jsr	string_2_hex8						/* Read first byte */
+	bcc.s	string_2_hex_finish					/* Exit on error */
+	bra.s	string_2_hex8_initialised				/* Jump over initialisation */
+# string_2_hex8
+#################################
+#  Reads 2 character (hex) digits and returns the byte value
+#	In:	A0 = Pointer to string buffer
+#	Out:	D1 = Value
+#		Carry flag set if value valid
+string_2_hex8:
+	eor.l	%d1, %d1						/* Clear register */
+string_2_hex8_initialised:
+	jsr	string_2_hex						/* Read first character */
+	bcc.s	string_2_hex_finish					/* Exit on error */
+# string_2_hex
+#################################
+#  Reads a character (hex) digit and returns the byte value
+#	In:	A0 = Pointer to string buffer
+#		D1 = Return for value (expects to be cleared)
+#	Out:	D1 = Value
+#		Carry flag set if value valid
+string_2_hex:
+	lsl.l	#4, %d1							/* Move existing value by a nibble */
+	mov.b	(%a0)+, %d0
+	jsr	char_2_upper						/* Ensure character uppercase */
+	jsr	char_2_hex						/* Convert character to value */
+	bcc.s	string_2_hex_finish					/* Exit on error */
+	or.b	%d0, %d1						/* Copy value from D0 to D1 */
+	ori.b	#0x01, %ccr						/* Valid value */
+string_2_hex_finish:
 	rts
 
 # string_length
@@ -264,19 +319,29 @@ char_2_hex_finish:
 #	In:	A0 = Pointer to string
 #	Out:	D0 = String length
 string_length:
-	eor.l	%d0, %d0				/* Clear D0 */
+	eor.l	%d0, %d0						/* Clear D0 */
 string_length_loop:
-	mov.b	(%a0)+, %d1				/* Copy, check whether character is zero, increment pointer */
-	beq.s	string_length_end			/* EOL */
-	addi.w	#1, %d0					/* Increment character count */
-	btst	#7, %d1					/* See if we have a multi-part string */
+	mov.b	(%a0)+, %d1						/* Copy, check whether character is zero, increment pointer */
+	beq.s	string_length_end					/* EOL */
+	addi.w	#1, %d0							/* Increment character count */
+	btst	#7, %d1							/* See if we have a multi-part string */
 	bne.s	string_length_end
-	bra.s	string_length_loop			/* Loop */
+	bra.s	string_length_loop					/* Loop */
 string_length_end:
 	rts
 
 # Print routines
 ###########################################################################
+# monitor_out
+#################################
+#  Print a character to the terminal (if printing is enabled)
+monitor_out:
+	btst.b	#MONITOR_CONFIG_PRINT, (MONITOR_ADDR_ATTRIBUTES1)
+	beq.s	monitor_out_finish
+	jsr	console_out
+monitor_out_finish:
+	rts
+
 # print_spacex2
 #################################
 #  Print double space
@@ -342,36 +407,36 @@ print_newline:
 #  Print 32 bit number as hex
 #	In:	D3 = 32-bit Integer
 print_hex32:
-	mov.l	%d3, %d2				/* Copy long */
-	swap	%d2					/* Swap top and bottom 16 bits */
-	jsr	print_hex16				/* Print top 2 bytes */
-	mov.l	%d3, %d2				/* Copy long */
+	mov.l	%d3, %d2						/* Copy long */
+	swap	%d2							/* Swap top and bottom 16 bits */
+	jsr	print_hex16						/* Print top 2 bytes */
+	mov.l	%d3, %d2						/* Copy long */
 # print_hex16
 #################################
 #  Print 16 bit number as hex
 #	In:	D2 = 16-bit Integer
 print_hex16:
-	mov.w	%d2, %d1				/* Copy word */
-	lsr	#8, %d1					/* Shift top byte down */
-	jsr	print_hex8				/* Print top byte */
-	mov.w	%d2, %d1				/* Copy word */
+	mov.w	%d2, %d1						/* Copy word */
+	lsr	#8, %d1							/* Shift top byte down */
+	jsr	print_hex8						/* Print top byte */
+	mov.w	%d2, %d1						/* Copy word */
 # print_hex8
 #################################
 #  Print 8 bit number as hex
 # 	In:	D1 = 8-bit Integer
 print_hex8:
-	mov.b	%d1, %d0				/* Copy byte */
-	lsr	#4, %d0					/* Shift top nibble down */
+	mov.b	%d1, %d0						/* Copy byte */
+	lsr	#4, %d0							/* Shift top nibble down */
 	jsr	print_hex_digit
-	mov.b	%d1, %d0				/* Copy byte */
+	mov.b	%d1, %d0						/* Copy byte */
 print_hex_digit:
-	and.b	#0xf, %d0				/* Extract bottom nibble */
-	add.b	#'0', %d0				/* Add base character */
-	cmp.b	#'9', %d0				/* Check whether it's in range 0-9 */
+	and.b	#0xf, %d0						/* Extract bottom nibble */
+	add.b	#'0', %d0						/* Add base character */
+	cmp.b	#'9', %d0						/* Check whether it's in range 0-9 */
 	ble.s	print_hex_digit_out
 	add.b	#7, %d0
 print_hex_digit_out:
-	jsr	console_out				/* Print character */
+	jsr	console_out						/* Print character */
 	rts
 
 *; # print_dec8u
@@ -530,10 +595,10 @@ print_version:
 #  Retains the ability ability to print consecutive strings.
 #	In:	A0 = Pointer to string
 print_str_simple:
-	mov.b	(%a0)+, %d0				/* Get next character and increment pointer */
-	beq.b	print_str_simple_end			/* Check whether NULL character */
-	jsr	console_out				/* Print character */
-	bra.s	print_str_simple			/* Loop */
+	mov.b	(%a0)+, %d0						/* Get next character and increment pointer */
+	beq.b	print_str_simple_end					/* Check whether NULL character */
+	jsr	console_out						/* Print character */
+	bra.s	print_str_simple					/* Loop */
 print_str_simple_end:
 	rts
 
@@ -552,13 +617,13 @@ print_str_simple_newline:
 #		Repeats until null character
 #	In:	A0 = Pointer to string
 print_str_repeat:
-	eor.l	%d1, %d1				/* Clear D1 for dbeq later */
-	mov.b	(%a0)+, %d1				/* Get character count and increment pointer */
-	beq.b	print_str_repeat_end			/* Check for EOL */
-	subi.w	#1, %d1					/* -1 for dbf */
-	mov.b	(%a0)+, %d0				/* Get character and increment pointer */
+	eor.l	%d1, %d1						/* Clear D1 for dbeq later */
+	mov.b	(%a0)+, %d1						/* Get character count and increment pointer */
+	beq.b	print_str_repeat_end					/* Check for EOL */
+	subi.w	#1, %d1							/* -1 for dbf */
+	mov.b	(%a0)+, %d0						/* Get character and increment pointer */
 print_str_repeat_loop:
-	jsr	console_out				/* Print character */
+	jsr	console_out						/* Print character */
 	dbf	%d1, print_str_repeat_loop
 	bra.s	print_str_repeat
 print_str_repeat_end:
@@ -570,13 +635,13 @@ print_str_repeat_end:
 #  Retains the ability ability to print consecutive strings.
 #	In:	A0 = Pointer to string
 print_str:
-	mov.b	(%a0), %d0				/* Get next character */
-	beq.s	print_str_end				/* Check for end of string */
-	and.b	#0x7f, %d0				/* Strip stop bit */
-	jsr	console_out				/* Print character */
-	btst	#7, (%a0)+				/* Test msb, increment pointer */
-	bne.s	print_str_end				/* If msb set, stop */
-	bra.s	print_str				/* Loop */
+	mov.b	(%a0), %d0						/* Get next character */
+	beq.s	print_str_end						/* Check for end of string */
+	and.b	#0x7f, %d0						/* Strip stop bit */
+	jsr	console_out						/* Print character */
+	btst	#7, (%a0)+						/* Test msb, increment pointer */
+	bne.s	print_str_end						/* If msb set, stop */
+	bra.s	print_str						/* Loop */
 print_str_end:
 	rts
 
@@ -596,37 +661,37 @@ print_str_end:
 #
 #	In:	A0 = Pointer to compressed string
 print_cstr:
-	eor.l	%d2, %d2				/* Clear D1, used for state information */
-	bset	#1, %d2					/* If unset, prints a space in front of compressed word */
-	bset	#5, %d2					/* If unset, prints word with capitalised first letter */
+	eor.l	%d2, %d2						/* Clear D1, used for state information */
+	bset	#1, %d2							/* If unset, prints a space in front of compressed word */
+	bset	#5, %d2							/* If unset, prints word with capitalised first letter */
 print_cstr_next:
-	mov.b	(%a0)+, %d0				/* Get next character, increment pointer */
-	beq.s	print_cstr_end				/* Check whether NULL character */
-	btst	#7, %d0					/* Test msb */
+	mov.b	(%a0)+, %d0						/* Get next character, increment pointer */
+	beq.s	print_cstr_end						/* Check whether NULL character */
+	btst	#7, %d0							/* Test msb */
 	beq.s	print_cstr_check_13
 	mov.b	%d0, %d1
-	jsr	dictionary_print_word			/* It's a dictionary word, so print it */
+	jsr	dictionary_print_word					/* It's a dictionary word, so print it */
 	bra.s	print_cstr_next
 print_cstr_check_13:
-	cmp.b	#13, %d0				/* Check for control code */
+	cmp.b	#13, %d0						/* Check for control code */
 	bne.s	print_cstr_check_14
 	jsr	print_newline
-	bset	#1, %d2					/* No automatic space */
-	bra.s	print_cstr_next				/* Loop for next character */
+	bset	#1, %d2							/* No automatic space */
+	bra.s	print_cstr_next						/* Loop for next character */
 print_cstr_check_14:
-	cmp.b	#14, %d0				/* Check for control code */
+	cmp.b	#14, %d0						/* Check for control code */
 	bne.s	print_cstr_check_31
 	jsr	print_newline
-	bra.s	print_cstr_end				/* Finished */
+	bra.s	print_cstr_end						/* Finished */
 print_cstr_check_31:
-	cmp.b	#31, %d0				/* Check for control code */
+	cmp.b	#31, %d0						/* Check for control code */
 	bne.s	print_cstr_char
-	bclr	#5, %d2					/* Capitalise the next word */
-	bra.s	print_cstr_next				/* Loop for next character */
+	bclr	#5, %d2							/* Capitalise the next word */
+	bra.s	print_cstr_next						/* Loop for next character */
 print_cstr_char:
-	bclr	#1, %d2					/* Ensure a space is printed in front of the next compressed word */
-	jsr	console_out				/* Print character */
-	bra.s	print_cstr_next				/* Loop to next character */
+	bclr	#1, %d2							/* Ensure a space is printed in front of the next compressed word */
+	jsr	console_out						/* Print character */
+	bra.s	print_cstr_next						/* Loop to next character */
 print_cstr_end:
 	rts
 
@@ -639,47 +704,47 @@ print_cstr_end:
 #			bit 5 - 0 = Capitalise first letter / 1 = Don't capitalise first letter
 #			bit 7 - Used to indicate top/bottom nibble
 dictionary_print_word:
-	andi.b	#0x7f, %d1				/* Clear msb of word index */
-	bclr.l	#1, %d2					/* Check whether to print space */
+	andi.b	#0x7f, %d1						/* Clear msb of word index */
+	bclr.l	#1, %d2							/* Check whether to print space */
 	bne.s	dictionary_print_word_search_setup
-	jsr	print_space				/* Print space */
+	jsr	print_space						/* Print space */
 dictionary_print_word_search_setup:
 	lea	common_words, %a1
-	bset.l	#7, %d2					/* Make sure we get the bottom nibble to start */
-	and.b	%d1, %d1				/* Update flags */
+	bset.l	#7, %d2							/* Make sure we get the bottom nibble to start */
+	and.b	%d1, %d1						/* Update flags */
 dictionary_print_word_search_loop:
-	beq.s	dictionary_print_word_selected_loop	/* Found the word, so print it */
+	beq.s	dictionary_print_word_selected_loop			/* Found the word, so print it */
 dictionary_print_word_nibble_loop:
-	jsr	dictionary_get_next_nibble		/* Scan through nibbles */
-	bne.s	dictionary_print_word_nibble_loop	/* Searching for the end of a word (D0 = 0) */
-	subq.b	#1, %d1					/* Decrement word index */
-	bra.s	dictionary_print_word_search_loop	/* Search again */
+	jsr	dictionary_get_next_nibble				/* Scan through nibbles */
+	bne.s	dictionary_print_word_nibble_loop			/* Searching for the end of a word (D0 = 0) */
+	subq.b	#1, %d1							/* Decrement word index */
+	bra.s	dictionary_print_word_search_loop			/* Search again */
 dictionary_print_word_selected_loop:
-	jsr	dictionary_get_next_nibble		/* Get next compressed character*/
-	beq.s	dictionary_print_word_end		/* End of the word, so finish */
-	cmp.b	#0x0f, %d0				/* Check whether to select alternate letters */
+	jsr	dictionary_get_next_nibble				/* Get next compressed character*/
+	beq.s	dictionary_print_word_end				/* End of the word, so finish */
+	cmp.b	#0x0f, %d0						/* Check whether to select alternate letters */
 	beq.s	dictionary_print_word_select_unloved
 dictionary_print_word_select_loved:
-	lea	dictionary_loved_letters, %a2		/* Get pointer to loved letters */
+	lea	dictionary_loved_letters, %a2				/* Get pointer to loved letters */
 	bra.s	dictionary_print_word_get_char
 dictionary_print_word_select_unloved:
-	jsr	dictionary_get_next_nibble		/* Get the next character */
-	lea	dictionary_unloved_letters, %a2		/* Get pointer to unloved letters */
+	jsr	dictionary_get_next_nibble				/* Get the next character */
+	lea	dictionary_unloved_letters, %a2				/* Get pointer to unloved letters */
 dictionary_print_word_get_char:
-	subq.b	#1, %d0					/* Decrement index */
-	add.l	%d0, %a2				/* Create pointer to letter */
-	mov.b	(%a2), %d0				/* Get letter */
-	bset	#5, %d2					/* Test whether to capitalise letter, reset flag */
+	subq.b	#1, %d0							/* Decrement index */
+	add.l	%d0, %a2						/* Create pointer to letter */
+	mov.b	(%a2), %d0						/* Get letter */
+	bset	#5, %d2							/* Test whether to capitalise letter, reset flag */
 	bne.s	dictionary_print_word_print_char
-	jsr	char_2_upper				/* Capitalise letter */
+	jsr	char_2_upper						/* Capitalise letter */
 dictionary_print_word_print_char:
-	jsr	console_out				/* Print character */
-	bra.s	dictionary_print_word_selected_loop	/* Loop through additional characters */
+	jsr	console_out						/* Print character */
+	bra.s	dictionary_print_word_selected_loop			/* Loop through additional characters */
 dictionary_print_word_end:
 	rts
 
-dictionary_loved_letters:	.ascii	"etarnisolumpdc"	/* 14 most commonly used letters */
-dictionary_unloved_letters:	.ascii	"hfwgybxvkqjz"		/* 12 least commonly used letters */
+dictionary_loved_letters:	.ascii	"etarnisolumpdc"		/* 14 most commonly used letters */
+dictionary_unloved_letters:	.ascii	"hfwgybxvkqjz"			/* 12 least commonly used letters */
 
 # dictionary_get_next_nibble
 #################################
@@ -690,13 +755,13 @@ dictionary_unloved_letters:	.ascii	"hfwgybxvkqjz"		/* 12 least commonly used let
 #			bit 7 - Used to indicate top/bottom nibble
 #	Out:	D0 = Nibble value
 dictionary_get_next_nibble:
-	eor.l	%d0, %d0				/* Clear D0, will want to do long addition to an address later */
+	eor.l	%d0, %d0						/* Clear D0, will want to do long addition to an address later */
 	mov.b	(%a1), %d0
-	bchg.l	#7, %d2					/* Test whether we want top or bottom nibble, and toggle */
-	bne.s	dictionary_get_next_nibble_bottom	/* We want the top nibble */
+	bchg.l	#7, %d2							/* Test whether we want top or bottom nibble, and toggle */
+	bne.s	dictionary_get_next_nibble_bottom			/* We want the top nibble */
 dictionary_get_next_nibble_top:
-	adda.l	#1, %a1					/* Increment pointer */
-	lsr.b	#4, %d0					/* Top nibble shifted to the bottom */
+	adda.l	#1, %a1							/* Increment pointer */
+	lsr.b	#4, %d0							/* Top nibble shifted to the bottom */
 dictionary_get_next_nibble_bottom:
 	and.b	#0x0f, %d0
 	rts
@@ -714,53 +779,53 @@ print_abort:
 command_print_registers:
 print_registers:
 	# Save stack pointer in memory
-	mov.l	%sp, MONITOR_ADDR_TEMP1			/* Save stack pointer */
+	mov.l	%sp, MONITOR_ADDR_TEMP1					/* Save stack pointer */
 
 	# Save a copy to restore later (in case this is used in an ISR)
 	# Save special registers
-	move	%sr, -(%sp)				/* Save status register */
+	move	%sr, -(%sp)						/* Save status register */
 
 	# Save address registers
-	mov.l	%a6, -(%sp)				/* Save A6 pointer address */
-	mov.l	%a5, -(%sp)				/* Save A5 pointer address */
-	mov.l	%a4, -(%sp)				/* Save A4 pointer address */
-	mov.l	%a3, -(%sp)				/* Save A3 pointer address */
-	mov.l	%a2, -(%sp)				/* Save A2 pointer address */
-	mov.l	%a1, -(%sp)				/* Save A1 pointer address */
-	mov.l	%a0, -(%sp)				/* Save A0 pointer address */
+	mov.l	%a6, -(%sp)						/* Save A6 pointer address */
+	mov.l	%a5, -(%sp)						/* Save A5 pointer address */
+	mov.l	%a4, -(%sp)						/* Save A4 pointer address */
+	mov.l	%a3, -(%sp)						/* Save A3 pointer address */
+	mov.l	%a2, -(%sp)						/* Save A2 pointer address */
+	mov.l	%a1, -(%sp)						/* Save A1 pointer address */
+	mov.l	%a0, -(%sp)						/* Save A0 pointer address */
 
 	# Save data registers
-	mov.l	%d7, -(%sp)				/* Save D7 pointer address */
-	mov.l	%d6, -(%sp)				/* Save D6 pointer address */
-	mov.l	%d5, -(%sp)				/* Save D5 pointer address */
-	mov.l	%d4, -(%sp)				/* Save D4 pointer address */
-	mov.l	%d3, -(%sp)				/* Save D3 pointer address */
-	mov.l	%d2, -(%sp)				/* Save D2 pointer address */
-	mov.l	%d1, -(%sp)				/* Save D1 pointer address */
-	mov.l	%d0, -(%sp)				/* Save D0 pointer address */
+	mov.l	%d7, -(%sp)						/* Save D7 pointer address */
+	mov.l	%d6, -(%sp)						/* Save D6 pointer address */
+	mov.l	%d5, -(%sp)						/* Save D5 pointer address */
+	mov.l	%d4, -(%sp)						/* Save D4 pointer address */
+	mov.l	%d3, -(%sp)						/* Save D3 pointer address */
+	mov.l	%d2, -(%sp)						/* Save D2 pointer address */
+	mov.l	%d1, -(%sp)						/* Save D1 pointer address */
+	mov.l	%d0, -(%sp)						/* Save D0 pointer address */
 
 	# Copy for display
 	# Save special registers
-	move	%sr, -(%sp)				/* Save status register */
+	move	%sr, -(%sp)						/* Save status register */
 
 	# Save address registers
-	mov.l	%a6, -(%sp)				/* Save A6 pointer address */
-	mov.l	%a5, -(%sp)				/* Save A5 pointer address */
-	mov.l	%a4, -(%sp)				/* Save A4 pointer address */
-	mov.l	%a3, -(%sp)				/* Save A3 pointer address */
-	mov.l	%a2, -(%sp)				/* Save A2 pointer address */
-	mov.l	%a1, -(%sp)				/* Save A1 pointer address */
-	mov.l	%a0, -(%sp)				/* Save A0 pointer address */
+	mov.l	%a6, -(%sp)						/* Save A6 pointer address */
+	mov.l	%a5, -(%sp)						/* Save A5 pointer address */
+	mov.l	%a4, -(%sp)						/* Save A4 pointer address */
+	mov.l	%a3, -(%sp)						/* Save A3 pointer address */
+	mov.l	%a2, -(%sp)						/* Save A2 pointer address */
+	mov.l	%a1, -(%sp)						/* Save A1 pointer address */
+	mov.l	%a0, -(%sp)						/* Save A0 pointer address */
 
 	# Save data registers
-	mov.l	%d7, -(%sp)				/* Save D7 pointer address */
-	mov.l	%d6, -(%sp)				/* Save D6 pointer address */
-	mov.l	%d5, -(%sp)				/* Save D5 pointer address */
-	mov.l	%d4, -(%sp)				/* Save D4 pointer address */
-	mov.l	%d3, -(%sp)				/* Save D3 pointer address */
-	mov.l	%d2, -(%sp)				/* Save D2 pointer address */
-	mov.l	%d1, -(%sp)				/* Save D1 pointer address */
-	mov.l	%d0, -(%sp)				/* Save D0 pointer address */
+	mov.l	%d7, -(%sp)						/* Save D7 pointer address */
+	mov.l	%d6, -(%sp)						/* Save D6 pointer address */
+	mov.l	%d5, -(%sp)						/* Save D5 pointer address */
+	mov.l	%d4, -(%sp)						/* Save D4 pointer address */
+	mov.l	%d3, -(%sp)						/* Save D3 pointer address */
+	mov.l	%d2, -(%sp)						/* Save D2 pointer address */
+	mov.l	%d1, -(%sp)						/* Save D1 pointer address */
+	mov.l	%d0, -(%sp)						/* Save D0 pointer address */
 
 	jsr	print_newline
 
@@ -770,16 +835,16 @@ print_registers:
 	mov.w	#2, %d1
 	jsr	print_spaces_n
 print_registers_dreg_loop:
-	mov.b	#'D', %d0				/* Print 'D' */
+	mov.b	#'D', %d0						/* Print 'D' */
 	jsr	console_out
-	mov.b	%d4, %d0				/* Register count */
+	mov.b	%d4, %d0						/* Register count */
 	jsr	print_hex_digit
-	jsr	print_colon_space			/* Print ': ' */
-	mov.l	(%sp)+, %d3				/* Pop value */
+	jsr	print_colon_space					/* Print ': ' */
+	mov.l	(%sp)+, %d3						/* Pop value */
 	jsr	print_hex32
-	mov.w	#3, %d1					/* Print spaces */
+	mov.w	#3, %d1							/* Print spaces */
 	jsr	print_spaces_n
-	add.b	#1, %d4					/* Increment count */
+	add.b	#1, %d4							/* Increment count */
 	cmp.b	#8, %d4
 	blt.s	print_registers_dreg_loop
 
@@ -789,16 +854,16 @@ print_registers_dreg_loop:
 	mov.w	#2, %d1
 	jsr	print_spaces_n
 print_registers_areg_loop:
-	mov.b	#'A', %d0				/* Print 'D' */
+	mov.b	#'A', %d0						/* Print 'D' */
 	jsr	console_out
-	mov.b	%d4, %d0				/* Register count */
+	mov.b	%d4, %d0						/* Register count */
 	jsr	print_hex_digit
-	jsr	print_colon_space			/* Print ': ' */
-	mov.l	(%sp)+, %d3				/* Pop value */
+	jsr	print_colon_space					/* Print ': ' */
+	mov.l	(%sp)+, %d3						/* Pop value */
 	jsr	print_hex32
-	mov.w	#3, %d1					/* Print spaces */
+	mov.w	#3, %d1							/* Print spaces */
 	jsr	print_spaces_n
-	add.b	#1, %d4					/* Increment count */
+	add.b	#1, %d4							/* Increment count */
 	cmp.b	#7, %d4
 	blt.s	print_registers_areg_loop
 
@@ -806,40 +871,40 @@ print_registers_areg_loop:
 	jsr	print_newline
 	mov.w	#2, %d1
 	jsr	print_spaces_n
-	lea	str_reg_sr, %a0				/* Print 'SR: ' */
+	lea	str_reg_sr, %a0						/* Print 'SR: ' */
 	jsr	print_str
-	mov.w	(%sp)+, %d3				/* Pop value */
+	mov.w	(%sp)+, %d3						/* Pop value */
 	jsr	print_hex16
-	mov.w	#3, %d1					/* Print spaces */
+	mov.w	#3, %d1							/* Print spaces */
 	jsr	print_spaces_n
-	lea	str_reg_sp, %a0				/* Print 'SP: ' */
+	lea	str_reg_sp, %a0						/* Print 'SP: ' */
 	jsr	print_str
-	mov.l	MONITOR_ADDR_TEMP1, %d3			/* Pop value */
+	mov.l	MONITOR_ADDR_TEMP1, %d3					/* Pop value */
 	jsr	print_hex32
 	jsr	print_newline
 
 	# Restore register contents
 	# Restore data registers
-	mov.l	(%sp)+, %d0				/* Restore D0 pointer address */
-	mov.l	(%sp)+, %d1				/* Restore D1 pointer address */
-	mov.l	(%sp)+, %d2				/* Restore D2 pointer address */
-	mov.l	(%sp)+, %d3				/* Restore D3 pointer address */
-	mov.l	(%sp)+, %d4				/* Restore D4 pointer address */
-	mov.l	(%sp)+, %d5				/* Restore D5 pointer address */
-	mov.l	(%sp)+, %d6				/* Restore D6 pointer address */
-	mov.l	(%sp)+, %d7				/* Restore D7 pointer address */
+	mov.l	(%sp)+, %d0						/* Restore D0 pointer address */
+	mov.l	(%sp)+, %d1						/* Restore D1 pointer address */
+	mov.l	(%sp)+, %d2						/* Restore D2 pointer address */
+	mov.l	(%sp)+, %d3						/* Restore D3 pointer address */
+	mov.l	(%sp)+, %d4						/* Restore D4 pointer address */
+	mov.l	(%sp)+, %d5						/* Restore D5 pointer address */
+	mov.l	(%sp)+, %d6						/* Restore D6 pointer address */
+	mov.l	(%sp)+, %d7						/* Restore D7 pointer address */
 
 	# Restore address registers
-	mov.l	(%sp)+, %a0				/* Restore A0 pointer address */
-	mov.l	(%sp)+, %a1				/* Restore A1 pointer address */
-	mov.l	(%sp)+, %a2				/* Restore A2 pointer address */
-	mov.l	(%sp)+, %a3				/* Restore A3 pointer address */
-	mov.l	(%sp)+, %a4				/* Restore A4 pointer address */
-	mov.l	(%sp)+, %a5				/* Restore A5 pointer address */
-	mov.l	(%sp)+, %a6				/* Restore A6 pointer address */
+	mov.l	(%sp)+, %a0						/* Restore A0 pointer address */
+	mov.l	(%sp)+, %a1						/* Restore A1 pointer address */
+	mov.l	(%sp)+, %a2						/* Restore A2 pointer address */
+	mov.l	(%sp)+, %a3						/* Restore A3 pointer address */
+	mov.l	(%sp)+, %a4						/* Restore A4 pointer address */
+	mov.l	(%sp)+, %a5						/* Restore A5 pointer address */
+	mov.l	(%sp)+, %a6						/* Restore A6 pointer address */
 
 	# Restore special registers
-	move	(%sp)+, %sr				/* Save status register */
+	move	(%sp)+, %sr						/* Save status register */
 
 	rts
 
@@ -859,7 +924,7 @@ print_registers_areg_loop:
 #
 #	Out:	D0 = ASCII character code
 input_character_filter:
-	jsr	console_in				/* Get character if there is one */
+	jsr	console_in						/* Get character if there is one */
 input_character_filter_end:
 	rts
 
@@ -963,17 +1028,17 @@ input_character_filter_end:
 #	Out:	D0 = Hex value
 #		Carry flag set if value valid
 input_hex8_preloaded:
-	eor.b	%d1, %d1				/* Clear digit count */
-	mov.b	#2, %d2					/* Set max digits */
+	eor.b	%d1, %d1						/* Clear digit count */
+	mov.b	#2, %d2							/* Set max digits */
 input_hex8_preloaded_loop:
-	rol.b	#4, %d3					/* Rotate to digit */
-	mov.b	%d3, %d0				/* Copy digit */
-	andi.b	#0xf, %d0				/* Get nibble */
-	mov.b	%d0, -(%sp)				/* Push value onto stack */
+	rol.b	#4, %d3							/* Rotate to digit */
+	mov.b	%d3, %d0						/* Copy digit */
+	andi.b	#0xf, %d0						/* Get nibble */
+	mov.b	%d0, -(%sp)						/* Push value onto stack */
 	jsr	print_hex_digit
-	addi.b	#1, %d1					/* Increment digit count */
+	addi.b	#1, %d1							/* Increment digit count */
 	cmp.b	%d2, %d1
-	bne.s	input_hex8_preloaded_loop		/* Loop through digits */
+	bne.s	input_hex8_preloaded_loop				/* Loop through digits */
 	bra.s	input_hex_get_char
 # input_hex8
 #################################
@@ -981,8 +1046,8 @@ input_hex8_preloaded_loop:
 #	Out:	D0 = Hex value
 #		Carry flag set if value valid
 input_hex8:
-	eor.b	%d1, %d1				/* Clear digit count */
-	mov.b	#2, %d2					/* Set max digits */
+	eor.b	%d1, %d1						/* Clear digit count */
+	mov.b	#2, %d2							/* Set max digits */
 	bra.s	input_hex_get_char
 # input_hex16_preloaded
 #################################
@@ -991,17 +1056,17 @@ input_hex8:
 #	Out:	D0 = Hex value
 #		Carry flag set if value valid
 input_hex16_preloaded:
-	eor.b	%d1, %d1				/* Clear digit count */
-	mov.b	#4, %d2					/* Set max digits */
+	eor.b	%d1, %d1						/* Clear digit count */
+	mov.b	#4, %d2							/* Set max digits */
 input_hex16_preloaded_loop:
-	rol.w	#4, %d3					/* Rotate to digit */
-	mov.b	%d3, %d0				/* Copy digit */
-	andi.b	#0xf, %d0				/* Get nibble */
-	mov.b	%d0, -(%sp)				/* Push value onto stack */
+	rol.w	#4, %d3							/* Rotate to digit */
+	mov.b	%d3, %d0						/* Copy digit */
+	andi.b	#0xf, %d0						/* Get nibble */
+	mov.b	%d0, -(%sp)						/* Push value onto stack */
 	jsr	print_hex_digit
-	addi.b	#1, %d1					/* Increment digit count */
+	addi.b	#1, %d1							/* Increment digit count */
 	cmp.b	%d2, %d1
-	bne.s	input_hex16_preloaded_loop		/* Loop through digits */
+	bne.s	input_hex16_preloaded_loop				/* Loop through digits */
 	bra.s	input_hex_get_char
 # input_hex16
 #################################
@@ -1009,8 +1074,8 @@ input_hex16_preloaded_loop:
 #	Out:	D0 = Hex value
 #		Carry flag set if value valid
 input_hex16:
-	eor.b	%d1, %d1				/* Clear digit count */
-	mov.b	#4, %d2					/* Set max digits */
+	eor.b	%d1, %d1						/* Clear digit count */
+	mov.b	#4, %d2							/* Set max digits */
 	bra.s	input_hex_get_char
 # input_hex32_preloaded
 #################################
@@ -1019,17 +1084,17 @@ input_hex16:
 #	Out:	D0 = Hex value
 #		Carry flag set if value valid
 input_hex32_preloaded:
-	eor.b	%d1, %d1				/* Clear digit count */
-	mov.b	#8, %d2					/* Set max digits */
+	eor.b	%d1, %d1						/* Clear digit count */
+	mov.b	#8, %d2							/* Set max digits */
 input_hex32_preloaded_loop:
-	rol.l	#4, %d3					/* Rotate to digit */
-	mov.b	%d3, %d0				/* Copy digit */
-	andi.b	#0xf, %d0				/* Get nibble */
-	mov.b	%d0, -(%sp)				/* Push value onto stack */
+	rol.l	#4, %d3							/* Rotate to digit */
+	mov.b	%d3, %d0						/* Copy digit */
+	andi.b	#0xf, %d0						/* Get nibble */
+	mov.b	%d0, -(%sp)						/* Push value onto stack */
 	jsr	print_hex_digit
-	addi.b	#1, %d1					/* Increment digit count */
+	addi.b	#1, %d1							/* Increment digit count */
 	cmp.b	%d2, %d1
-	bne.s	input_hex32_preloaded_loop		/* Loop through digits */
+	bne.s	input_hex32_preloaded_loop				/* Loop through digits */
 	bra.s	input_hex_get_char
 # input_hex32
 #################################
@@ -1037,8 +1102,8 @@ input_hex32_preloaded_loop:
 #	Out:	D0 = Hex value
 #		Carry flag set if value valid
 input_hex32:
-	eor.b	%d1, %d1				/* Clear digit count */
-	mov.b	#8, %d2					/* Set max digits */
+	eor.b	%d1, %d1						/* Clear digit count */
+	mov.b	#8, %d2							/* Set max digits */
 # input_hex_get_char
 #################################
 #  Base routine to enter hex ASCII digit(s), and convert that to the equivalent hex value.
@@ -1047,69 +1112,69 @@ input_hex32:
 #	Out:	D0 = Hex value
 #		Carry flag set if value valid
 input_hex_get_char:
-	jsr	input_character_filter			/* Get character */
+	jsr	input_character_filter					/* Get character */
 	jsr	char_2_upper
 input_hex_process_char:
-	mov.b	%d0, %d3				/* Copy character */
+	mov.b	%d0, %d3						/* Copy character */
 
-	cmp.b	#ascii_escape, %d0			/* Check whether character is escape key */
+	cmp.b	#ascii_escape, %d0					/* Check whether character is escape key */
 	beq.s	input_hex_abort
-	cmp.b	#ascii_backspace, %d0			/* Check whether character is backspace key */
+	cmp.b	#ascii_backspace, %d0					/* Check whether character is backspace key */
 	beq.s	input_hex_delete_digit
-	cmp.b	#ascii_delete, %d0			/* Check whether character is delete key */
+	cmp.b	#ascii_delete, %d0					/* Check whether character is delete key */
 	beq.s	input_hex_delete_digit
-	cmp.b	#ascii_carriage_return, %d0		/* Check whether character is CR key */
+	cmp.b	#ascii_carriage_return, %d0				/* Check whether character is CR key */
 	beq.s	input_hex_complete
-	cmp.b	#ascii_linefeed, %d0			/* Check whether character is CR key */
+	cmp.b	#ascii_linefeed, %d0					/* Check whether character is CR key */
 	beq.s	input_hex_complete
 
-	cmp.b	%d2, %d1				/* Check that number of digits is less than (n) */
-	beq.s	input_hex_get_char			/* Already have (n) digits, so just loop */
-	jsr	char_2_hex				/* Convert ASCII to hex */
-	bcc.s	input_hex_get_char			/* Character not valid hex digit so loop */
-	mov.b	%d0, -(%sp)				/* Push hex value on to stack */
-	addi.b	#1, %d1					/* Increment digit count */
-	mov.b	%d3, %d0				/* Reload character */
-	jsr	console_out				/* Output character */
-	bra.s	input_hex_get_char			/* Loop */
+	cmp.b	%d2, %d1						/* Check that number of digits is less than (n) */
+	beq.s	input_hex_get_char					/* Already have (n) digits, so just loop */
+	jsr	char_2_hex						/* Convert ASCII to hex */
+	bcc.s	input_hex_get_char					/* Character not valid hex digit so loop */
+	mov.b	%d0, -(%sp)						/* Push hex value on to stack */
+	addi.b	#1, %d1							/* Increment digit count */
+	mov.b	%d3, %d0						/* Reload character */
+	jsr	console_out						/* Output character */
+	bra.s	input_hex_get_char					/* Loop */
 input_hex_delete_digit:
-	and.b	%d1, %d1				/* Check if there are digits to delete */
-	beq.s	input_hex_get_char			/* No existing digits, so just wait for next character */
-	jsr	console_out				/* Back 1 character */
-	mov.b	#' ', %d0				/* Overwrite character */
+	and.b	%d1, %d1						/* Check if there are digits to delete */
+	beq.s	input_hex_get_char					/* No existing digits, so just wait for next character */
+	jsr	console_out						/* Back 1 character */
+	mov.b	#' ', %d0						/* Overwrite character */
 	jsr	console_out
-	mov.b	#ascii_backspace, %d0			/* Back 1 character again */
+	mov.b	#ascii_backspace, %d0					/* Back 1 character again */
 	jsr	console_out
-	mov.b	(%sp)+, %d0				/* Pop digit from stack */
-	subi.b	#1, %d1					/* Decrement digit count */
-	bra.s	input_hex_get_char			/* Loop */
+	mov.b	(%sp)+, %d0						/* Pop digit from stack */
+	subi.b	#1, %d1							/* Decrement digit count */
+	bra.s	input_hex_get_char					/* Loop */
 input_hex_abort:
-	and.b	%d1, %d1				/* Check if there's anything to remove from the stack */
-	beq.s	input_hex_abort_end			/* Nothing to pop, so finish */
+	and.b	%d1, %d1						/* Check if there's anything to remove from the stack */
+	beq.s	input_hex_abort_end					/* Nothing to pop, so finish */
 input_hex_abort_loop:
-	mov.b	(%sp)+, %d0				/* Pop digit */
-	subi.b	#1, %d1					/* Decrement digit count */
-	bne.s	input_hex_abort_loop			/* Keep looping until all digits removed */
+	mov.b	(%sp)+, %d0						/* Pop digit */
+	subi.b	#1, %d1							/* Decrement digit count */
+	bne.s	input_hex_abort_loop					/* Keep looping until all digits removed */
 input_hex_abort_end:
-	eor.l	%d0, %d0				/* Zero return register */
-	and.b	#0xfe, %ccr				/* Invalid value */
+	eor.l	%d0, %d0						/* Zero return register */
+	and.b	#0xfe, %ccr						/* Invalid value */
 	rts
 input_hex_complete:
-	eor.l	%d0, %d0				/* Zero return register */
-	mov.b	%d1, %d2				/* Copy count, and check if there's anything to remove from the stack */
-	beq.s	input_hex_complete_end			/* Nothing to pop, so finish */
+	eor.l	%d0, %d0						/* Zero return register */
+	mov.b	%d1, %d2						/* Copy count, and check if there's anything to remove from the stack */
+	beq.s	input_hex_complete_end					/* Nothing to pop, so finish */
 input_hex_complete_stack_loop:
-	mov.b	(%sp)+, %d3				/* Pop digit */
-	or.b	%d3, %d0				/* Merge numbers */
-	ror.l	#4, %d0					/* Make some room for a nibble */
-	subi.b	#1, %d1					/* Decrement digit count */
-	bne.s	input_hex_complete_stack_loop		/* Loop for remaining digits */
+	mov.b	(%sp)+, %d3						/* Pop digit */
+	or.b	%d3, %d0						/* Merge numbers */
+	ror.l	#4, %d0							/* Make some room for a nibble */
+	subi.b	#1, %d1							/* Decrement digit count */
+	bne.s	input_hex_complete_stack_loop				/* Loop for remaining digits */
 input_hex_complete_shift_loop:
-	rol.l	#4, %d0					/* Move digits back in to poistion */
+	rol.l	#4, %d0							/* Move digits back in to poistion */
 	subi.b	#1, %d2
 	bne.s	input_hex_complete_shift_loop
 input_hex_complete_end:
-	ori.b	#0x01, %ccr				/* Valid value */
+	ori.b	#0x01, %ccr						/* Valid value */
 	rts
 
 # input_addrs_start_end
@@ -1121,26 +1186,26 @@ input_addrs_start_end:
 	jsr	print_newlinex2
 	lea	str_start_addr, %a0
 	jsr	print_cstr
-	jsr	input_hex32				/* Get start address */
-	bcs.s	input_addrs_start_end_next_addr		/* If it's valid, get next address */
-	mov.l	(%sp)+, %d0				/* Dump return address off stack */
-	bra.w	print_abort				/* So when this returns, it returns to the menu */
+	jsr	input_hex32						/* Get start address */
+	bcs.s	input_addrs_start_end_next_addr				/* If it's valid, get next address */
+	mov.l	(%sp)+, %d0						/* Dump return address off stack */
+	bra.w	print_abort						/* So when this returns, it returns to the menu */
 input_addrs_start_end_next_addr:
-	mov.l	%d0, %a4				/* Store start address */
+	mov.l	%d0, %a4						/* Store start address */
 	jsr	print_newline
 	lea	str_end_addr, %a0
 	jsr	print_cstr
 	jsr	input_hex32
 	bcs.s	input_addrs_start_end_check
-	mov.l	(%sp)+, %d0				/* Dump return address off stack */
-	bra.w	print_abort				/* So when this returns, it returns to the menu */
+	mov.l	(%sp)+, %d0						/* Dump return address off stack */
+	bra.w	print_abort						/* So when this returns, it returns to the menu */
 input_addrs_start_end_check:
 	mov.l	%d0, %a5
-	cmp.l	%a5, %a4				/* Check end address is greater (or equal) than start address */
+	cmp.l	%a5, %a4						/* Check end address is greater (or equal) than start address */
 	bgt.s	input_addrs_start_end_invalid
 	bra.w	print_newline
 input_addrs_start_end_invalid:
-	mov.l	(%sp)+, %d0				/* Dump return address off stack */
+	mov.l	(%sp)+, %d0						/* Dump return address off stack */
 	jsr	print_newline
 	lea	str_invalid, %a0
 	bra.w	print_cstr
@@ -1149,51 +1214,51 @@ input_addrs_start_end_invalid:
 #################################
 #  Input a string of upto buffer size - 1. Null terminates string.
 #	In:	A4 = Pointer to string buffer
-#		D4 = Size of input buffer (size: byte)
-#	Out:	D1 = Character count (size: byte)
+#		D4 = Size of input buffer (size: word)
+#	Out:	D1 = Character count (size: long)
 #		Carry flag set if value valid
 input_str:
-	sub.b	#1, %d4					/* Max number of characters is buffer size - 1, to accept null character at end */
-	eor.w	%d1, %d1				/* Clear byte count */
-	mov.l	%a4, %a0				/* Make working copy of buffer pointer */
+	sub.w	#1, %d4							/* Max number of characters is buffer size - 1, to accept null character at end */
+	eor.l	%d1, %d1						/* Clear byte count (clear long for other operations) */
+	mov.l	%a4, %a0						/* Make working copy of buffer pointer */
 input_str_get_char:
-	jsr	input_character_filter			/* Get character */
+	jsr	input_character_filter					/* Get character */
 
-	cmp.b	#ascii_escape, %d0			/* Check whether character is escape key */
+	cmp.b	#ascii_escape, %d0					/* Check whether character is escape key */
 	beq.s	input_str_abort
-	cmp.b	#ascii_backspace, %d0			/* Check whether character is backspace key */
+	cmp.b	#ascii_backspace, %d0					/* Check whether character is backspace key */
 	beq.s	input_str_delete_char
-	cmp.b	#ascii_delete, %d0			/* Check whether character is delete key */
+	cmp.b	#ascii_delete, %d0					/* Check whether character is delete key */
 	beq.s	input_str_delete_char
-	cmp.b	#ascii_carriage_return, %d0		/* Check whether character is CR key */
+	cmp.b	#ascii_carriage_return, %d0				/* Check whether character is CR key */
 	beq.s	input_str_complete
-	cmp.b	#ascii_linefeed, %d0			/* Check whether character is CR key */
+	cmp.b	#ascii_linefeed, %d0					/* Check whether character is CR key */
 	beq.s	input_str_complete
 
-	cmp.b	%d4, %d1				/* Character count to max. characters */
-	beq.s	input_str_get_char			/* If equal, do nothing */
-	mov.b	%d0, (%a0)+				/* Copy character to string buffer */
-	jsr	console_out				/* Print character */
-	addq.b	#1, %d1					/* Increment byte count */
+	cmp.w	%d4, %d1						/* Compare character count to max. characters */
+	beq.s	input_str_get_char					/* If equal, do nothing */
+	mov.b	%d0, (%a0)+						/* Copy character to string buffer */
+	jsr	monitor_out						/* Print character */
+	addq.w	#1, %d1							/* Increment byte count */
 	bra.s	input_str_get_char
 input_str_delete_char:
-	and.b	%d1, %d1				/* Check if there are characters to delete */
-	beq.s	input_str_get_char			/* No existing characters, so just wait for next character */
-	jsr	console_out				/* Back 1 character */
+	and.w	%d1, %d1						/* Check if there are characters to delete */
+	beq.s	input_str_get_char					/* No existing characters, so just wait for next character */
+	jsr	monitor_out						/* Back 1 character */
 	mov.b	#' ', %d0
-	jsr	console_out				/* Overwrite character */
+	jsr	monitor_out						/* Overwrite character */
 	mov.b	#ascii_backspace, %d0
-	jsr	console_out				/* Back 1 character again */
-	suba.l	#1, %a0					/* Decrement string buffer pointer */
-	subq.b	#1, %d1					/* Decrement byte count */
+	jsr	monitor_out						/* Back 1 character again */
+	suba.l	#1, %a0							/* Decrement string buffer pointer */
+	subq.w	#1, %d1							/* Decrement byte count */
 	bra.s	input_str_get_char
 input_str_complete:
-	eor.b	%d0, %d0				/* Clear register */
-	mov.b	%d0, (%a0)				/* Write null character to buffer */
-	ori.b	#0x01, %ccr				/* Valid value */
+	eor.b	%d0, %d0						/* Clear register */
+	mov.b	%d0, (%a0)						/* Write null character to buffer */
+	ori.b	#0x01, %ccr						/* Valid value */
 	rts
 input_str_abort:
-	and.b	#0xfe, %ccr				/* Invalid value */
+	and.b	#0xfe, %ccr						/* Invalid value */
 	rts
 
 # Memory routines
@@ -1206,22 +1271,22 @@ input_str_abort:
 #		A2 = Destination Address
 memory_copy:
 	cmp.l	%a1, %a0
-	bgt.s	memory_copy_finish			/* Check if source is greater than destination */
+	bgt.s	memory_copy_finish					/* Check if source is greater than destination */
 	mov.l	%a1, %d0
-	sub.l	%a0, %d0				/* Calculate number of bytes to copy */
-	add.l	#1, %d0					/* If src addr == dst addr, still copying 1 byte */
+	sub.l	%a0, %d0						/* Calculate number of bytes to copy */
+	add.l	#1, %d0							/* If src addr == dst addr, still copying 1 byte */
 memory_copy_long_loop:
-	cmp.l	#4, %d0					/* Check if there are more than 4 bytes to copy */
+	cmp.l	#4, %d0							/* Check if there are more than 4 bytes to copy */
 	blt.s	memory_copy_byte_loop
-	mov.l	(%a0)+, (%a2)+				/* Copy 4 bytes */
-	sub.l	#4, %d0					/* Subtract 4 from byte count */
-	bra.s	memory_copy_long_loop			/* Loop */
+	mov.l	(%a0)+, (%a2)+						/* Copy 4 bytes */
+	sub.l	#4, %d0							/* Subtract 4 from byte count */
+	bra.s	memory_copy_long_loop					/* Loop */
 memory_copy_byte_loop:
-	tst.b	%d0					/* Check if there are any more bytes to copy */
+	tst.b	%d0							/* Check if there are any more bytes to copy */
 	beq.s	memory_copy_finish
-	mov.b	(%a0)+, (%a2)+				/* Copy byte */
-	sub.b	#1, %d0					/* Subtract from byte count */
-	bra.s	memory_copy_byte_loop			/* Loop */
+	mov.b	(%a0)+, (%a2)+						/* Copy byte */
+	sub.b	#1, %d0							/* Subtract from byte count */
+	bra.s	memory_copy_byte_loop					/* Loop */
 memory_copy_finish:
 	rts
 
@@ -1307,7 +1372,7 @@ memory_copy_finish:
 #  Print a list of additional commands
 command_module_list_commands:
 	lea	str_tag_listm, %a0
-	jsr	print_cstr				/* Print message */
+	jsr	print_cstr						/* Print message */
 module_list_commands:
 	lea	str_prompt9, %a0
 	jsr	print_cstr
@@ -1316,61 +1381,61 @@ module_list_commands:
 	#lea	str_prompt9b, %a0
 	jsr	print_cstr
 
-	lea	module_search_mem_start, %a4		/* Set search start */
-	lea	module_search_mem_end, %a5		/* Set search end */
+	lea	module_search_mem_start, %a4				/* Set search start */
+	lea	module_search_mem_end, %a5				/* Set search end */
 module_list_commands_next:
-	lea	module_list_commands_reenter, %a6	/* Set return address */
-	bra.w	module_find				/* Find next module */
+	lea	module_list_commands_reenter, %a6			/* Set return address */
+	bra.w	module_find						/* Find next module */
 module_list_commands_reenter:
-	beq.w	module_list_commands_exit		/* If not, return */
+	beq.w	module_list_commands_exit				/* If not, return */
 
 	jsr	print_spacex2
-	mov.l	%a4, %a0				/* Reset offset to command name */
+	mov.l	%a4, %a0						/* Reset offset to command name */
 	adda.w	#0x20, %a0
-	jsr	print_str				/* Print command name */
-	mov.l	%a4, %a0				/* Reset offset to command name */
+	jsr	print_str						/* Print command name */
+	mov.l	%a4, %a0						/* Reset offset to command name */
 	adda.w	#0x20, %a0
-	jsr	string_length				/* Get command name length */
-	mov.w	#31, %d1				/* Need word here */
-	sub.b	%d0, %d1				/* Calculate padding */
-	jsr	print_spaces_n				/* Print padding */
-	mov.l	%a4, %d3				/* Reset offset to module start */
-	jsr	print_hex32				/* Print module address */
+	jsr	string_length						/* Get command name length */
+	mov.w	#31, %d1						/* Need word here */
+	sub.b	%d0, %d1						/* Calculate padding */
+	jsr	print_spaces_n						/* Print padding */
+	mov.l	%a4, %d3						/* Reset offset to module start */
+	jsr	print_hex32						/* Print module address */
 	mov.w	#4, %d1
-	jsr	print_spaces_n				/* Print padding */
-	mov.l	%a4, %a0				/* Reset offset to command type */
+	jsr	print_spaces_n						/* Print padding */
+	mov.l	%a4, %a0						/* Reset offset to command type */
 	adda.w	#0x04, %a0
-	mov.b	(%a0), %d0				/* Get command type */
+	mov.b	(%a0), %d0						/* Get command type */
 
-	lea	str_type5, %a0				/* Type unknown */
+	lea	str_type5, %a0						/* Type unknown */
 module_list_commands_type_35:
-	cmp.b	#35, %d0				/* Program */
+	cmp.b	#35, %d0						/* Program */
 	bne.s	module_list_commands_type_249
 	lea	str_type2, %a0
 	bra.s	module_list_commands_type_print
 module_list_commands_type_249:
-	cmp.b	#249, %d0				/* Init */
+	cmp.b	#249, %d0						/* Init */
 	bne.s	module_list_commands_type_253
 	lea	str_type3, %a0
 	bra.s	module_list_commands_type_print
 module_list_commands_type_253:
-	cmp.b	#253, %d0				/* Startup command */
+	cmp.b	#253, %d0						/* Startup command */
 	bne.s	module_list_commands_type_254
 	lea	str_type4, %a0
 	bra.s	module_list_commands_type_print
 module_list_commands_type_254:
-	cmp.b	#254, %d0				/* External command */
+	cmp.b	#254, %d0						/* External command */
 	bne.s	module_list_commands_type_print
 	lea	str_type1, %a0
 module_list_commands_type_print:
-	jsr	print_cstr				/* Print type */
+	jsr	print_cstr						/* Print type */
 	jsr	print_newline
 
-	adda.l	#0x100, %a4				/* Increment address pointer */
-	cmp.l	%a5, %a4				/* Check if we've reached the end */
-	blt.w	module_list_commands_next		/* Loop */
+	adda.l	#0x100, %a4						/* Increment address pointer */
+	cmp.l	%a5, %a4						/* Check if we've reached the end */
+	blt.w	module_list_commands_next				/* Loop */
 module_list_commands_exit:
-	jmp	print_newline				/* Finish */
+	jmp	print_newline						/* Finish */
 
 # command_help_line_print
 #################################
@@ -1390,7 +1455,7 @@ command_help_line_print:
 #  Prints help text
 command_help:
 	lea	str_tag_help2, %a0
-	jsr	print_cstr				/* Print message */
+	jsr	print_cstr						/* Print message */
 command_help_internal_commands:
 	lea	str_help1, %a0
 	jsr	print_cstr
@@ -1435,39 +1500,39 @@ command_help_internal_commands:
 command_help_external_commands:
 	lea	str_help2, %a0
 	jsr	print_cstr
-	lea	module_search_mem_start, %a4		/* Set search start */
+	lea	module_search_mem_start, %a4				/* Set search start */
 command_help_external_commands_loop:
-	mov.b	#0xfe, %d1				/* Search for external command */
+	mov.b	#0xfe, %d1						/* Search for external command */
 	jsr	module_search
-	beq.s	command_help_end			/* No command found so finish */
+	beq.s	command_help_end					/* No command found so finish */
 	jsr	print_spacex2
-	mov.l	%a4, %a0				/* Offset to module command character */
+	mov.l	%a4, %a0						/* Offset to module command character */
 	adda.w	#0x5, %a0
-	mov.b	(%a0), %d0				/* Get module command character */
-	jsr	console_out				/* Print character */
+	mov.b	(%a0), %d0						/* Get module command character */
+	jsr	console_out						/* Print character */
 	jsr	print_dash_spaces
-	mov.l	%a4, %a0				/* Offset to module command name */
+	mov.l	%a4, %a0						/* Offset to module command name */
 	adda.w	#0x20, %a0
-	jsr	print_str				/* Print module name */
+	jsr	print_str						/* Print module name */
 	jsr	print_newline
-	adda.w	#0x100, %a4				/* Increment module search start address */
+	adda.w	#0x100, %a4						/* Increment module search start address */
 	bra.s	command_help_external_commands_loop
 command_help_end:
-	jmp	print_newline				/* Print newline and return */
+	jmp	print_newline						/* Print newline and return */
 
 # command_location_new
 #################################
 #  Sets the monitor pointer to where default operations are performed
 command_location_new:
 	lea	str_tag_nloc, %a0
-	jsr	print_cstr				/* Print message */
+	jsr	print_cstr						/* Print message */
 
-	lea	str_prompt6, %a0			/* Print location prompt */
+	lea	str_prompt6, %a0					/* Print location prompt */
 	jsr	print_cstr
-	mov.l	MONITOR_ADDR_CURRENT, %d3		/* Preload current address */
-	jsr	input_hex32_preloaded			/* Get value */
-	bcc.w	print_abort				/* If escaped, print abort message */
-	mov.l	%d0, MONITOR_ADDR_CURRENT		/* Save value */
+	mov.l	MONITOR_ADDR_CURRENT, %d3				/* Preload current address */
+	jsr	input_hex32_preloaded					/* Get value */
+	bcc.w	print_abort						/* If escaped, print abort message */
+	mov.l	%d0, MONITOR_ADDR_CURRENT				/* Save value */
 	jmp	print_newline
 
 # command_stack_change
@@ -1475,13 +1540,13 @@ command_location_new:
 #  Sets the monitor pointer to where default operations are performed
 command_stack_change:
 	lea	str_tag_stack, %a0
-	jsr	print_cstr				/* Print message */
+	jsr	print_cstr						/* Print message */
 
-	lea	str_prompt14, %a0			/* Print location prompt */
+	lea	str_prompt14, %a0					/* Print location prompt */
 	jsr	print_cstr
-	jsr	input_hex32				/* Get value */
-	bcc.w	print_abort				/* If escaped, print abort message */
-	mov.l	%d0, %sp				/* Set stack pointer */
+	jsr	input_hex32						/* Get value */
+	bcc.w	print_abort						/* If escaped, print abort message */
+	mov.l	%d0, %sp						/* Set stack pointer */
 	jmp	startup_final
 
 # command_jump
@@ -1489,7 +1554,7 @@ command_stack_change:
 #  Request an address, and jump to the code at that location
 command_jump:
 	lea	str_tag_jump, %a0
-	jsr	print_cstr				/* Print message */
+	jsr	print_cstr						/* Print message */
 
 	lea	str_prompt8, %a0
 	jsr	print_cstr
@@ -1497,41 +1562,41 @@ command_jump:
 	jsr	print_cstr
 	mov.l	MONITOR_ADDR_CURRENT, %d3
 	jsr	input_hex32_preloaded
-	bcc.w	print_abort				/* If escaped, print abort message */
-	mov.l	%d0, %a6				/* Copy address */
+	bcc.w	print_abort						/* If escaped, print abort message */
+	mov.l	%d0, %a6						/* Copy address */
 	lea	str_runs, %a0
 	jsr	print_cstr
 	mov.l	%a6, %d3
 	jsr	print_hex32
 	jsr	print_newline
 
-	lea	startup_warm, %a0			/* Push reset address on stack */
-	mov.l	%a0, -(%sp)				/* In case there's a RTS at the end of the code */
+	lea	startup_warm, %a0					/* Push reset address on stack */
+	mov.l	%a0, -(%sp)						/* In case there's a RTS at the end of the code */
 command_jump_brkpnt:
-	jmp	(%a6)					/* Execute code */
+	jmp	(%a6)							/* Execute code */
 
 # command_hexdump
 #################################
 #  Dump memory at the default location
 command_hexdump:
 	lea	str_tag_hexdump, %a0
-	jsr	print_cstr				/* Print message */
+	jsr	print_cstr						/* Print message */
 	jsr	print_newline
 
 	mov.l	MONITOR_ADDR_CURRENT, %a4
 
 command_hexdump_page_print:
-	mov.w	#0x07, %d5				/* Number of bytes to print */
+	mov.w	#0x07, %d5						/* Number of bytes to print */
 command_hexdump_line_print:
-	mov.w	#0x07, %d4				/* Number of bytes per line */
+	mov.w	#0x07, %d4						/* Number of bytes per line */
 	jsr	print_spacex2
 	mov.l	%a4, %d3
 	jsr	print_hex32
 	jsr	print_colon_space
 command_hexdump_line_print_loop:
-	mov.b	(%a4)+, %d1				/* Get byte of memory */
+	mov.b	(%a4)+, %d1						/* Get byte of memory */
 	jsr	print_hex8
-	mov.b	(%a4)+, %d1				/* Get byte of memory */
+	mov.b	(%a4)+, %d1						/* Get byte of memory */
 	jsr	print_hex8
 	jsr	print_spacex2
 	dbf	%d4, command_hexdump_line_print_loop
@@ -1541,9 +1606,9 @@ command_hexdump_line_print_loop:
 	lea	str_prompt15, %a0
 	jsr	print_cstr
 	jsr	input_character_filter
-	cmp.b	#ascii_escape, %d0			/* Check if quit */
+	cmp.b	#ascii_escape, %d0					/* Check if quit */
 	beq.s	command_hexdump_end
-	bra.s	command_hexdump_page_print		/* Loop */
+	bra.s	command_hexdump_page_print				/* Loop */
 command_hexdump_end:
 	rts
 
@@ -1552,37 +1617,37 @@ command_hexdump_end:
 #  Basic memory editor
 command_edit:
 	lea	str_tag_edit, %a0
-	jsr	print_cstr				/* Print message */
+	jsr	print_cstr						/* Print message */
 
 	lea	str_edit1, %a0
 	jsr	print_cstr
-	mov.l	MONITOR_ADDR_CURRENT, %a4		/* Get default address */
+	mov.l	MONITOR_ADDR_CURRENT, %a4				/* Get default address */
 command_edit_loop:
 	mov.l	%a4, %d3
-	jsr	print_hex32				/* Print address */
+	jsr	print_hex32						/* Print address */
 	jsr	print_colon_space
-	mov.b	(%a4), %d3				/* Load memory contents */
-	jsr	input_hex8_preloaded			/* Edit loaded value */
-	bcc.w	print_abort				/* Check if Escape was pressed */
+	mov.b	(%a4), %d3						/* Load memory contents */
+	jsr	input_hex8_preloaded					/* Edit loaded value */
+	bcc.w	print_abort						/* Check if Escape was pressed */
 command_edit_save:
-	mov.b	%d0, (%a4)+				/* Save editted value, increment pointer */
-	mov.l	%a4, MONITOR_ADDR_CURRENT		/* Save memory pointer as default */
+	mov.b	%d0, (%a4)+						/* Save editted value, increment pointer */
+	mov.l	%a4, MONITOR_ADDR_CURRENT				/* Save memory pointer as default */
 	jsr	print_newline
-	bra.s	command_edit_loop			/* Loop */
+	bra.s	command_edit_loop					/* Loop */
 
 # command_clear_mem
 #################################
 #  Clears a region of memory
 command_clear_mem:
 	lea	str_tag_clrmem, %a0
-	jsr	print_cstr				/* Print message */
+	jsr	print_cstr						/* Print message */
 
 	jsr	input_addrs_start_end
 	lea	str_sure, %a0
 	jsr	print_cstr
-	jsr	input_character_filter			/* Get response */
+	jsr	input_character_filter					/* Get response */
 	jsr	char_2_upper
-	cmp.b	#'Y', %d0				/* Compare key to 'Y' */
+	cmp.b	#'Y', %d0						/* Compare key to 'Y' */
 	beq.s	command_clear_mem_do
 	mov.b	#'N', %d0
 	jsr	console_out
@@ -1591,10 +1656,10 @@ command_clear_mem_do:
 	mov.b	#'Y', %d0
 	jsr	console_out
 	jsr	print_newline
-	eor.b	%d0, %d0				/* Clear D0 */
+	eor.b	%d0, %d0						/* Clear D0 */
 command_clear_mem_loop:
-	mov.b	%d0, (%a4)+				/* Clear memory, increment pointer */
-	cmp.l	%a5, %a4				/* Compare start/end addresses */
+	mov.b	%d0, (%a4)+						/* Clear memory, increment pointer */
+	cmp.l	%a5, %a4						/* Compare start/end addresses */
 	ble.s	command_clear_mem_loop
 	lea	str_clrcomp, %a0
 	jsr	print_cstr
@@ -1695,73 +1760,73 @@ command_clear_mem_loop:
 #  Uploads a selected section of memory in SREC format
 command_upload_srec:
 	lea	str_tag_upld, %a0
-	jsr	print_cstr				/* Print message */
+	jsr	print_cstr						/* Print message */
 
 	jsr	input_addrs_start_end
 	lea	str_upld1, %a0
 	jsr	print_cstr
 	mov.l	%a4, %d3
-	jsr	print_hex32				/* Print start address */
+	jsr	print_hex32						/* Print start address */
 	lea	str_upld2, %a0
 	jsr	print_str
 	mov.l	%a5, %d3
-	jsr	print_hex32				/* Print end address */
+	jsr	print_hex32						/* Print end address */
 	jsr	print_newline
 	lea	str_prompt7, %a0
 	jsr	print_cstr
-	jsr	console_in				/* Get character */
-	cmp.b	#ascii_escape, %d0			/* Check if escape */
+	jsr	console_in						/* Get character */
+	cmp.b	#ascii_escape, %d0					/* Check if escape */
 	beq.w	print_abort
 command_upload_srec_send:
 	jsr	print_newline
-	jsr	command_upload_srec_S0			/* Print SREC header */
-	mov.l	%a4, %a0				/* Working copy of start address */
+	jsr	command_upload_srec_S0					/* Print SREC header */
+	mov.l	%a4, %a0						/* Working copy of start address */
 command_upload_srec_send_calc_remaining:
-	cmp.l	%a5, %a0				/* Check start address against end address */
+	cmp.l	%a5, %a0						/* Check start address against end address */
 	bgt.s	command_upload_srec_finish
-	mov.l	%a0, %a1				/* Calculate default end address */
+	mov.l	%a0, %a1						/* Calculate default end address */
 	adda	#0x1f, %a1
-	mov.l	%a5, %d0				/* Calculate remaining bytes */
+	mov.l	%a5, %d0						/* Calculate remaining bytes */
 	sub.l	%a0, %d0
-	cmp.l	#0x1f, %d0				/* Check remaining bytes */
+	cmp.l	#0x1f, %d0						/* Check remaining bytes */
 	bgt.s	command_upload_srec_send_record
-	mov.l	%a5, %a1				/* Set end address (from end address) */
+	mov.l	%a5, %a1						/* Set end address (from end address) */
 command_upload_srec_send_record:
-	jsr	command_upload_srec_S3			/* Send data */
+	jsr	command_upload_srec_S3					/* Send data */
 	bra.s	command_upload_srec_send_calc_remaining
 command_upload_srec_finish:
-	jsr	command_upload_srec_S7			/* Send start address */
+	jsr	command_upload_srec_S7					/* Send start address */
 	rts
 
 # Output SREC header
 #################################
 #  Outputs a SREC header
 command_upload_srec_S0:
-	mov.b	#'S', %d0				/* Header character */
+	mov.b	#'S', %d0						/* Header character */
 	jsr	console_out
-	mov.b	#'0', %d0				/* Header type */
+	mov.b	#'0', %d0						/* Header type */
 	jsr	console_out
-	eor.w	%d4, %d4				/* Clear register to calculate checksum */
-	lea	str_upld_srec_hdr, %a0			/* Calculate header length */
+	eor.w	%d4, %d4						/* Clear register to calculate checksum */
+	lea	str_upld_srec_hdr, %a0					/* Calculate header length */
 	jsr	string_length
 	mov.b	%d0, %d1
 	addq.b	#4, %d1
-	mov.b	%d1, %d4				/* First part of checksum */
-	jsr	print_hex8				/* Print length in bytes */
-	eor.w	%d1, %d1				/* Clear register to load byte into */
-	jsr	print_hex8				/* Print address */
+	mov.b	%d1, %d4						/* First part of checksum */
+	jsr	print_hex8						/* Print length in bytes */
+	eor.w	%d1, %d1						/* Clear register to load byte into */
+	jsr	print_hex8						/* Print address */
 	jsr	print_hex8
 	lea	str_upld_srec_hdr, %a0
 command_upload_srec_S0_loop:
-	mov.b	(%a0)+, %d1				/* Get header byte */
+	mov.b	(%a0)+, %d1						/* Get header byte */
 	beq.s	command_upload_srec_S0_finish
-	add.w	%d1, %d4				/* Add byte to the checksum value */
+	add.w	%d1, %d4						/* Add byte to the checksum value */
 	jsr	print_hex8
-	bra.s	command_upload_srec_S0_loop		/* Loop */
+	bra.s	command_upload_srec_S0_loop				/* Loop */
 command_upload_srec_S0_finish:
 	eor.b	%d1, %d1
-	jsr	print_hex8				/* Null character for string */
-	mov.b	#0xff, %d1				/* Calculate checksum */
+	jsr	print_hex8						/* Null character for string */
+	mov.b	#0xff, %d1						/* Calculate checksum */
 	sub.b	%d4, %d1
 	jsr	print_hex8
 	jsr	print_newline
@@ -1773,33 +1838,33 @@ command_upload_srec_S0_finish:
 #	Out:	A0 = Start address
 #		A1 = End address
 command_upload_srec_S3:
-	mov.b	#'S', %d0				/* Header character */
+	mov.b	#'S', %d0						/* Header character */
 	jsr	console_out
-	mov.b	#'3', %d0				/* Header type */
+	mov.b	#'3', %d0						/* Header type */
 	jsr	console_out
-	eor.w	%d4, %d4				/* Clear register to calculate checksum */
-	mov.l	%a1, %d3				/* Copy end address */
-	sub.l	%a0, %d3				/* End address - Start address (number of bytes to copy - 1) */
+	eor.w	%d4, %d4						/* Clear register to calculate checksum */
+	mov.l	%a1, %d3						/* Copy end address */
+	sub.l	%a0, %d3						/* End address - Start address (number of bytes to copy - 1) */
 	mov.b	%d3, %d1
-	add.b	#6, %d1					/* Byte count = (end - start) + 1(byte of memory) + 4(address) + 1(checksum) */
-	mov.b	%d1, %d4				/* First part of checksum */
-	jsr	print_hex8				/* Print length in bytes */
-	mov.l	%a0, %d2				/* Copy start address to shift */
-	mov.w	#3, %d5					/* Number of shifts to output address */
-	eor.w	%d1, %d1				/* Clear D1 for add.w */
+	add.b	#6, %d1							/* Byte count = (end - start) + 1(byte of memory) + 4(address) + 1(checksum) */
+	mov.b	%d1, %d4						/* First part of checksum */
+	jsr	print_hex8						/* Print length in bytes */
+	mov.l	%a0, %d2						/* Copy start address to shift */
+	mov.w	#3, %d5							/* Number of shifts to output address */
+	eor.w	%d1, %d1						/* Clear D1 for add.w */
 command_upload_srec_S3_addr_loop:
-	rol.l	#8, %d2					/* Shift byte of start address */
-	mov.b	%d2, %d1				/* Copy LSB */
-	add.w	%d1, %d4				/* Add to checksum */
+	rol.l	#8, %d2							/* Shift byte of start address */
+	mov.b	%d2, %d1						/* Copy LSB */
+	add.w	%d1, %d4						/* Add to checksum */
 	jsr	print_hex8
 	dbf	%d5, command_upload_srec_S3_addr_loop
 command_upload_srec_S3_data_loop:
-	mov.b	(%a0)+, %d1				/* Get byte of memory */
-	add.w	%d1, %d4				/* Add byte to the checksum value */
+	mov.b	(%a0)+, %d1						/* Get byte of memory */
+	add.w	%d1, %d4						/* Add byte to the checksum value */
 	jsr	print_hex8
-	dbf	%d3, command_upload_srec_S3_data_loop	/* Loop over remaining data */
+	dbf	%d3, command_upload_srec_S3_data_loop			/* Loop over remaining data */
 command_upload_srec_S3_finish:
-	mov.b	#0xff, %d1				/* Calculate checksum */
+	mov.b	#0xff, %d1						/* Calculate checksum */
 	sub.b	%d4, %d1
 	jsr	print_hex8
 	jsr	print_newline
@@ -1809,22 +1874,134 @@ command_upload_srec_S3_finish:
 #################################
 #  Outputs a SREC start address record
 command_upload_srec_S7:
-	mov.b	#'S', %d0				/* Header character */
+	mov.b	#'S', %d0						/* Header character */
 	jsr	console_out
-	mov.b	#'7', %d0				/* Header type */
+	mov.b	#'7', %d0						/* Header type */
 	jsr	console_out
-	eor.w	%d4, %d4				/* Clear register to calculate checksum */
+	eor.w	%d4, %d4						/* Clear register to calculate checksum */
 	mov.w	#5, %d1
-	add.w	%d1, %d4				/* Add byte count */
+	add.w	%d1, %d4						/* Add byte count */
 	jsr	print_hex8
-	eor.l	%d3, %d3				/* Clear register */
+	eor.l	%d3, %d3						/* Clear register */
 	jsr	print_hex32
 command_upload_srec_S7_finish:
-	mov.b	#0xff, %d1				/* Calculate checksum */
+	mov.b	#0xff, %d1						/* Calculate checksum */
 	sub.b	%d4, %d1
 	jsr	print_hex8
 	jsr	print_newline
 	rts
+
+# command_download_srec
+#################################
+#  Downloads a SREC format hex file
+#	Storage: MONITOR_ADDR_TEMP[x]
+#		0 = lines received		4 = wrong byte size
+#		1 = bytes received		5 = incorrect checksums
+#		2 = incorrect line start	6 = bytes unable to write
+#		3 = unexpected non-hex digits	7 = bytes written
+#	Registers:
+#		A4 = String buffer pointer
+#		D4 = Line character count
+#		D5 = SREC type
+#		D6 = SREC byte count
+#		D7 = SREC checksum
+command_download_srec:
+	lea	str_tag_dnld, %a0
+	jsr	print_cstr						/* Print message */
+*	lea	str_dnld1, %a0
+*	jsr	print_cstr
+
+	lea	MONITOR_ADDR_TEMP0, %a0
+	mov.l	#0, (%a0)+						/* Initialise temporary storage */
+	mov.l	#0, (%a0)+
+	mov.l	#0, (%a0)+
+	mov.l	#0, (%a0)+
+	mov.l	#0, (%a0)+
+	mov.l	#0, (%a0)+
+	mov.l	#0, (%a0)+
+	mov.l	#0, (%a0)+
+command_download_srec_read_line:
+	bclr.b	#MONITOR_CONFIG_PRINT, (MONITOR_ADDR_ATTRIBUTES1)	/* Disable printing */
+	lea	MONITOR_ADDR_STR_BUFFER, %a4
+	mov.w	#MONITOR_ADDR_STR_BUFFER_SIZE, %d4
+	jsr	input_str						/* Get a SREC record */
+	bset.b	#MONITOR_CONFIG_PRINT, (MONITOR_ADDR_ATTRIBUTES1)	/* Re-enable printing */
+	bcs.s	command_download_srec_check_line
+	rts								/* Escape received, so exit */
+command_download_srec_check_line:
+	mov.l	%d1, %d4						/* Save string length */
+	lea	MONITOR_ADDR_TEMP0, %a0
+	add.l	#1, (%a0)+						/* Increment line count */
+	add.l	%d4, (%a0)+						/* Increment byte count */
+	cmp.b	#'S', (%a4)+						/* Check for line start character */
+	beq.s	command_download_srec_check_line_checksum
+	add.l	#1, (%a0)+						/* Increment incorrect line start count */
+	bra.s	command_download_srec_read_line				/* Incorrect line start, so loop */
+command_download_srec_check_line_checksum:
+	mov.l	%a4, %a0						/* Copy buffer pointer */
+	eor.l	%d1, %d1						/* Clear register */
+	jsr	string_2_hex						/* Get SREC type */
+	bcc.s	command_download_srec_check_line_invalid_char		/* Not a hex character */
+	mov.l	%d1, %d5						/* Store SREC type */
+	jsr	string_2_hex8						/* Get byte count */
+	bcc.s	command_download_srec_check_line_invalid_char		/* Not a hex character */
+	mov.l	%d1, %d7						/* Start calculating checksum */
+	mov.l	%d1, %d6						/* Store SREC byte count */
+	subi.l	#4, %d4							/* Delete header and size characters */
+	divu.w	#2, %d4							/* Convert received character count to byte count */
+	cmp.l	%d4, %d6						/* Compare the given byte length with actual byte length */
+	bne.s	command_download_srec_check_line_invalid_length		/* Byte size doesn't match received bytes */
+	subi.l	#2, %d4							/* Decrement count to use with dbf */
+command_download_srec_check_line_checksum_calc:
+	jsr	string_2_hex8						/* Get next byte */
+	add.l	%d1, %d7						/* Add to checksum */
+	dbf	%d4, command_download_srec_check_line_checksum_calc	/* Loop over remaining data bytes */
+	mov.b	#0xff, %d4
+	sub.b	%d7, %d4						/* Calculate checksum */
+	jsr	string_2_hex8						/* Get checksum byte */
+	cmp.b	%d1, %d4						/* Compare checksum values */
+	bne.s	command_download_srec_check_line_invalid_checksum	/* Checksums aren't equal */
+
+	cmp.b	#0, %d5							/* Check for SREC type 0 */
+	beq.s	command_download_srec_type0
+	cmp.b	#3, %d5							/* Check for SREC type 3 */
+	beq.s	command_download_srec_type3
+	cmp.b	#7, %d5							/* Check for SREC type 7 */
+	beq.s	command_download_srec_type7
+
+	lea	MONITOR_ADDR_TEMP6, %a0
+	add.l	%d6, (%a0)						/* Increment bytes unable to write count */
+	bra.w	command_download_srec_read_line				/* Next line */
+command_download_srec_check_line_invalid_char:
+	lea	MONITOR_ADDR_TEMP3, %a0
+	add.l	#1, (%a0)						/* Increment non-hex digits count */
+	bra.w	command_download_srec_read_line				/* Next line */
+command_download_srec_check_line_invalid_length:
+	lea	MONITOR_ADDR_TEMP4, %a0
+	add.l	#1, (%a0)						/* Increment wrong byte size count */
+	bra.w	command_download_srec_read_line				/* Next line */
+command_download_srec_check_line_invalid_checksum:
+	lea	MONITOR_ADDR_TEMP5, %a0
+	add.l	#1, (%a0)						/* Increment wrong byte size count */
+	bra.w	command_download_srec_read_line				/* Next line */
+
+command_download_srec_type0:
+	subi.l	#4, %d6							/* Decrement count to use with dbf */
+	lea	str_recving, %a0
+	jsr	print_str_simple
+	lea	MONITOR_ADDR_STR_BUFFER+8, %a0				/* Print SREC header string */
+command_download_srec_type0_loop:
+	jsr	string_2_hex8						/* Get character */
+	mov.b	%d1, %d0
+	jsr	console_out						/* Print character */
+	dbf	%d6, command_download_srec_type0_loop			/* Loop over remaining characters */
+	jsr	print_newline
+	bra.w	command_download_srec_read_line				/* Next line */
+command_download_srec_type3:
+	bra.w	command_download_srec_read_line				/* Next line */
+command_download_srec_type7:
+	bra.w	command_download_srec_read_line				/* Next line */
+
 
 *; # command_download_alt
 *; #################################
@@ -1833,18 +2010,10 @@ command_upload_srec_S7_finish:
 *command_download_alt:
 *	call	command_download_init
 *	jr	command_download_line_start
-# command_download
-#################################
-#  Downloads an Intel format hex file
-command_download:
-	jsr	print_newline
-
-	mov.l	#0x0600, %a4
-	mov.b	#0xff, %d4
-	jsr	input_str
-	rts
-
-
+*# command_download
+*#################################
+*#  Downloads an Intel format hex file
+*command_download:
 *	ld	hl, str_tag_dnld
 *	call	print_cstr				; Print message
 *
@@ -2121,74 +2290,74 @@ menu_main:
 	# First we print out the prompt, which isn't as simple
 	# as it may seem, since external code can add to the
 	# prompt, so we've got to find and execute all of 'em.
-	lea	str_prompt1, %a0			/* First part of the prompt */
+	lea	str_prompt1, %a0					/* First part of the prompt */
 	jsr	print_cstr
-	mov.l	MONITOR_ADDR_CURRENT, %d3		/* Get current address */
+	mov.l	MONITOR_ADDR_CURRENT, %d3				/* Get current address */
 	jsr	print_hex32
-	lea	str_prompt2, %a0			/* Second part of the prompt */
+	lea	str_prompt2, %a0					/* Second part of the prompt */
 	jsr	print_str
 
-	jsr	input_character_filter			/* Get character input */
+	jsr	input_character_filter					/* Get character input */
 
-#	cmp.b	#':', %d0				/* Check for ':' from pushing a HEX file from a terminal */
+#	cmp.b	#':', %d0						/* Check for ':' from pushing a HEX file from a terminal */
 #	bne.s	menu_main_push_address
 #	jsr	command_download_alt
 #	bra.s	menu_main
 
 menu_main_push_address:
-	jsr	char_2_upper				/* Convert to uppercase to simplify matching */
+	jsr	char_2_upper						/* Convert to uppercase to simplify matching */
 	lea	menu_main, %a0
-	mov.l	%a0, -(%sp)				/* Push menu_main address to stack to make returning easier */
-	mov.b	%d0, %d4				/* Save command character */
+	mov.l	%a0, -(%sp)						/* Push menu_main address to stack to make returning easier */
+	mov.b	%d0, %d4						/* Save command character */
 
 #menu_main_external_commands:
-#	mov.l	module_search_mem_end, %a4		/* Set search start */
+#	mov.l	module_search_mem_end, %a4				/* Set search start */
 #menu_main_external_commands_loop:
-#	mov.b	#0xfe, %d1				/* Search for external command */
+#	mov.b	#0xfe, %d1						/* Search for external command */
 #	jsr	module_search
-#	beq.s	menu_main_builtin_commands		/* No command found so procede with builtin commands */
-#	mov.l	%a4, %a0				/* Make offset to command character */
+#	beq.s	menu_main_builtin_commands				/* No command found so procede with builtin commands */
+#	mov.l	%a4, %a0						/* Make offset to command character */
 #	adda.w	#0x5, %a0
-#	cmp.b	(%a0), %d4				/* Are they the same character? */
-#	beq.s	menu_main_external_commands_exec	/* Execute external command */
-#	adda.w	#0x100, %a4				/* Increment module search start address */
-#	bra.s	menu_main_external_commands_loop	/* Loop */
+#	cmp.b	(%a0), %d4						/* Are they the same character? */
+#	beq.s	menu_main_external_commands_exec			/* Execute external command */
+#	adda.w	#0x100, %a4						/* Increment module search start address */
+#	bra.s	menu_main_external_commands_loop			/* Loop */
 #menu_main_external_commands_exec:
 #	jsr	print_space
-#	mov.l	%a4, %a0				/* Make offset to command name */
+#	mov.l	%a4, %a0						/* Make offset to command name */
 #	adda.w	#0x20, %a0
-#	jsr	print_str				/* Print module command name */
+#	jsr	print_str						/* Print module command name */
 #	jsr	print_newline
-#	mov.l	%a4, %a0				/* Make offset to module code */
+#	mov.l	%a4, %a0						/* Make offset to module code */
 #	adda.w	#0x40, %a0
-#	jmp	(%a0)					/* Execute external command */
+#	jmp	(%a0)							/* Execute external command */
 
 menu_main_builtin_commands:
-	cmp.b	#command_key_help, %d4			/* Check if help key */
-	beq.w	command_help				/* Run command */
-	cmp.b	#command_key_listm, %d4			/* Check if list modules key */
-	beq.w	command_module_list_commands		/* Run command */
-	cmp.b	#command_key_regdump, %d4		/* Check if list modules key */
-	beq.w	command_print_registers			/* Run command */
-	cmp.b	#command_key_new_locat, %d4		/* Check if new location key */
-	beq.w	command_location_new			/* Run command */
-	cmp.b	#command_key_stack, %d4			/* Check if set stack key */
-	beq.w	command_stack_change			/* Run command */
-	cmp.b	#command_key_jump, %d4			/* Check if jump key */
-	beq.w	command_jump				/* Run command */
-	cmp.b	#command_key_hexdump, %d4		/* Check if hexdump key */
-	beq.w	command_hexdump				/* Run command */
-	cmp.b	#command_key_edit, %d4			/* Check if edit key */
-	beq.w	command_edit				/* Run command */
-	cmp.b	#command_key_clrmem, %d4		/* Check if clear memory key */
-	beq.w	command_clear_mem			/* Run command */
-	cmp.b	#command_key_upload, %d4		/* Check if upload key */
-	beq.w	command_upload_srec			/* Run command */
-	cmp.b	#command_key_download, %d4		/* Check if download key */
-	beq.w	command_download			/* Run command */
+	cmp.b	#command_key_help, %d4					/* Check if help key */
+	beq.w	command_help						/* Run command */
+	cmp.b	#command_key_listm, %d4					/* Check if list modules key */
+	beq.w	command_module_list_commands				/* Run command */
+	cmp.b	#command_key_regdump, %d4				/* Check if list modules key */
+	beq.w	command_print_registers					/* Run command */
+	cmp.b	#command_key_new_locat, %d4				/* Check if new location key */
+	beq.w	command_location_new					/* Run command */
+	cmp.b	#command_key_stack, %d4					/* Check if set stack key */
+	beq.w	command_stack_change					/* Run command */
+	cmp.b	#command_key_jump, %d4					/* Check if jump key */
+	beq.w	command_jump						/* Run command */
+	cmp.b	#command_key_hexdump, %d4				/* Check if hexdump key */
+	beq.w	command_hexdump						/* Run command */
+	cmp.b	#command_key_edit, %d4					/* Check if edit key */
+	beq.w	command_edit						/* Run command */
+	cmp.b	#command_key_clrmem, %d4				/* Check if clear memory key */
+	beq.w	command_clear_mem					/* Run command */
+	cmp.b	#command_key_upload, %d4				/* Check if upload key */
+	beq.w	command_upload_srec					/* Run command */
+	cmp.b	#command_key_download, %d4				/* Check if download key */
+	beq.w	command_download_srec					/* Run command */
 
 menu_main_end:
-	jmp	print_newline				/* This will return to menu_main */
+	jmp	print_newline						/* This will return to menu_main */
 
 # Fixed data structures
 ###########################################################################
@@ -2367,16 +2536,16 @@ str_clrcomp:		dc.b	31,131,237,193,14					/* Memory clear complete\n */
 str_invalid:		.ascii	"Invalid selection"
 			dc.b	14
 
-str_upld1: 		dc.b	13,13							/* \n\nSending Intel hex file from */
+str_upld1: 		dc.b	13,13							/* \n\nSending SREC hex file from */
 			.ascii	"Sending SREC"
 			dc.b	137,172,32,32,0
 str_upld2:		dc.b	' ','t','o',' ',0					/* to */
 #str_upld2: 		dc.b	' ',128,32,32,0						/*  to */
 str_upld_srec_hdr:	.asciz	"m68kMon SREC"
 
-str_dnld1: 		dc.b	13,13,31,159						/* \n\nBegin ascii transfer of Intel hex file */
+str_dnld1: 		dc.b	13,13,31,159						/* \n\nBegin ascii transfer of SREC hex file */
 			.ascii	" ascii"
-			dc.b	249,150,31,152,132,137
+			dc.b	249,150,31,' ','S','R','E','C',132,137
 			dc.b	',',149,140,128,160,13,14				/* , or esc to abort \n\n */
 str_dnld2: 		dc.b	13,31,138,160,'e','d',13,14				/* \nDownload aborted\n\n */
 str_dnld3: 		dc.b	13,31,138,193,'d',13,14					/* \nDownload completed\n\n */
@@ -2401,6 +2570,7 @@ str_dnld12:		dc.b	' ',133,' ','n','o','n',132,157,14			/*  unexpected non hex di
 str_dnld13:		dc.b	31,151,155						/* No errors detected\n\n */
 			.ascii	" detected"
 			dc.b	13,14
+str_recving:		.asciz	"Receiving: "
 
 str_ny:			.asciz	" (N/y): "
 str_version:		.asciz	"Version: "
