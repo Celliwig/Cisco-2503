@@ -1901,6 +1901,7 @@ command_upload_srec_S7_finish:
 #		3 = unexpected non-hex digits	7 = bytes written
 #	Registers:
 #		A4 = String buffer pointer
+#		A5 = SREC data address
 #		D4 = Line character count
 #		D5 = SREC type
 #		D6 = SREC byte count
@@ -1927,9 +1928,19 @@ command_download_srec_read_line:
 	jsr	input_str						/* Get a SREC record */
 	bset.b	#MONITOR_CONFIG_PRINT, (MONITOR_ADDR_ATTRIBUTES1)	/* Re-enable printing */
 	bcs.s	command_download_srec_check_line
+	lea	str_dnld2, %a0
+	jsr	print_cstr						/* Print string */
 	rts								/* Escape received, so exit */
 command_download_srec_check_line:
 	mov.l	%d1, %d4						/* Save string length */
+
+	mov.l	(MONITOR_ADDR_TEMP0), %d0				/* Check line count */
+	andi.b	#0x7f, %d0						/* Should produce a newline every 80 transfers */
+	cmp.b	#0x0, %d0
+	bne.s	command_download_srec_check_line_inc_stats
+	jsr	print_newline
+
+command_download_srec_check_line_inc_stats:
 	lea	MONITOR_ADDR_TEMP0, %a0
 	add.l	#1, (%a0)+						/* Increment line count */
 	add.l	%d4, (%a0)+						/* Increment byte count */
@@ -1966,8 +1977,10 @@ command_download_srec_check_line_checksum_calc:
 	beq.s	command_download_srec_type0
 	cmp.b	#3, %d5							/* Check for SREC type 3 */
 	beq.s	command_download_srec_type3
+	cmp.b	#5, %d5							/* Check for SREC type 5 */
+	beq.w	command_download_srec_type5
 	cmp.b	#7, %d5							/* Check for SREC type 7 */
-	beq.s	command_download_srec_type7
+	beq.w	command_download_srec_type7
 
 	lea	MONITOR_ADDR_TEMP6, %a0
 	add.l	%d6, (%a0)						/* Increment bytes unable to write count */
@@ -1997,9 +2010,38 @@ command_download_srec_type0_loop:
 	dbf	%d6, command_download_srec_type0_loop			/* Loop over remaining characters */
 	jsr	print_newline
 	bra.w	command_download_srec_read_line				/* Next line */
+
 command_download_srec_type3:
+	subi.l	#5, %d6							/* Decrement for byte count */
+	lea	MONITOR_ADDR_TEMP7, %a0
+	add.l	%d6, (%a0)						/* Increment bytes written count */
+	subi.l	#1, %d6							/* Decrement count to use with dbf */
+	lea	MONITOR_ADDR_STR_BUFFER+4, %a0
+	jsr	string_2_hex32						/* Get address */
+	mov.l	%d1, %a5						/* Save SREC data address */
+command_download_srec_type3_loop:
+	jsr	string_2_hex8						/* Get byte of data */
+	mov.b	%d1, (%a5)+						/* Move data into memory */
+	dbf	%d6, command_download_srec_type3_loop			/* Loop over remaining bytes */
+
+	mov.b	#'.', %d0						/* Indicate reception */
+	jsr	console_out
 	bra.w	command_download_srec_read_line				/* Next line */
+
+command_download_srec_type5:						/* Ignore SREC record count record */
+	bra.w	command_download_srec_read_line				/* Next line */
+
 command_download_srec_type7:
+	lea	MONITOR_ADDR_STR_BUFFER+4, %a0
+	jsr	string_2_hex32						/* Get address */
+	mov.l	%d1, (MONITOR_ADDR_CURRENT)				/* Save SREC data address */
+
+	jsr	print_newline
+	lea	str_start_addr, %a0
+	jsr	print_cstr						/* Print string */
+	mov.l	(MONITOR_ADDR_CURRENT), %d0
+	jsr	print_hex32						/* Print start address */
+
 	bra.w	command_download_srec_read_line				/* Next line */
 
 
