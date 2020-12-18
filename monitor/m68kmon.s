@@ -128,7 +128,7 @@ startup_warm:
 
 	bset.b	#MONITOR_CONFIG_PRINT, (MONITOR_ADDR_ATTRIBUTES1)	/* Printing is enabled */
 
-	lea	bootrom_start, %a4					/* Set search start */
+	lea	module_search_mem_start, %a4				/* Set search start */
 	mov.b	#253, %d1						/* Search for startup application */
 	bsr.s	module_search
 	cmp.b	#0, %d0
@@ -147,8 +147,12 @@ startup_final:
 
 	lea	str_logon1, %a0						/* Print greeting */
 	jsr	print_cstr
-	*lea	str_logon2						/* Print documentation notes */
-	*jsr	print_cstr
+	jsr	get_version						/* Get version number */
+	jsr	print_version
+	jsr	print_newline
+
+#	lea	str_logon2						/* Print documentation notes */
+#	jsr	print_cstr
 
 	jsr	module_list_commands					/* Print included commands */
 
@@ -157,9 +161,9 @@ startup_final:
 # get_version
 #################################
 #  Returns the version number of the monitor
-#	Out:	D0 = Minor version number [16] | Major version number [16]
+#	Out:	D1 = Minor version number [16] | Major version number [16]
 get_version:
-	mov.l	#m68kmon_version, %d0
+	mov.l	#M68KMON_VERSION, %d1
 	rts
 
 # Module routines
@@ -319,6 +323,7 @@ string_2_hex_finish:
 #	In:	A0 = Pointer to string buffer
 #		D0 = Value
 string_hex_2_dec:
+	movm.l	%d1-%d7, -(%sp)						/* Save registers */
 	mov.l	%d0, %d7						/* Copy value */
 	bpl.s	string_hex_2_dec_init					/* Check if an '-' is needed */
 	neg.l	%d7							/* Change to positive */
@@ -374,6 +379,7 @@ string_hex_2_dec_zero:
 	mov.b	#'0', (%a0)+						/* Print at least a zero */
 string_hex_2_dec_finish:
 	mov.b	#0, (%a0)						/* Add string terminator */
+	movm.l	(%sp)+, %d1-%d7						/* Restore registers */
 	rts
 
 # string_length
@@ -502,155 +508,36 @@ print_hex_digit_out:
 	jsr	console_out						/* Print character */
 	rts
 
-*; # print_dec8u
-*; #################################
-*;  Print 8 bit number as unsigned decimal
-*;	In:	A = 8-bit Integer
-*print_dec8u:
-*	ld	ix, z80mon_temp1			; Used to store state
-*	res	0, (ix+0)				; Flag used to suppress leading zeros
-*
-*	push	bc
-*	jr	print_dec8
-*; # print_dec8s
-*; #################################
-*;  Print 8 bit number as signed decimal
-*;	In:	A = 8-bit Integer
-*print_dec8s:
-*	ld	ix, z80mon_temp1			; Used to store state
-*	res	0, (ix+0)				; Flag used to suppress leading zeros
-*
-*	push	bc
-*	bit	7, a					; Test whether negative
-*	jr	z, print_dec8				; If it's not just continue
-*	push	af					; Save value
-*	ld	a, '-'
-*	call	monlib_console_out
-*	pop	af					; Restore value
-*	cpl						; Remove sign, and create positive value - 1
-*	inc	a
-*print_dec8:
-*	ld	b, 100
-*	call	print_dec8_digit
-*	ld	b, 10
-*	call	print_dec8_digit
-*	set	0, (ix+0)				; Force print of last digit
-*	ld	b, 1
-*	call	print_dec8_digit
-*	pop	bc
-*	ret
-*; # print_dec8_digit
-*; #################################
-*;	In:	A = Value
-*;		B = Divider
-*;		IX = Pointer to flag for zero print
-*print_dec8_digit:
-*	ld	c, '0' - 1				; Setup digit character
-*print_dec8_digit_loop:
-*	inc	c					; Increment character digit
-*	sub	a, b					; Subtract divisor
-*	jr	nc, print_dec8_digit_loop		; Loop if still greater than zero
-*	add	b					; Undo last operation
-*	push	af					; Save current result
-*	ld	a, c
-*	cp	'0'					; Check if printing zero
-*	jr	nz, print_dec8_digit_print		; If not, just print
-*	bit	0, (ix+0)				; Check if should print zero anyway
-*	jr	nz, print_dec8_digit_print		; Print it
-*	jr	print_dec8_digit_skipped		; Otherwise, skip print
-*print_dec8_digit_print:
-*	call	monlib_console_out
-*	set	0, (ix+0)				; Set zero digit print
-*print_dec8_digit_skipped:
-*	pop	af					; Restore result
-*	ret
-
-*; # print_dec16u
-*; #################################
-*;  Print a 16 bit number as unsigned decimal
-*;	In: 	BC = Integer value
-*print_dec16u:
-*	ld	ix, z80mon_temp1			; Used to store state
-*	xor	a
-*	ld	(ix+0), a 				; Clear flag used to suppress leading zeros
-
-*print_dec16u_d5:
-*	ld	de, 0x2710
-*	call	math_divide_16b				; Divid by 10000
-*	ld	a, c
-*	ld	b, h					; Copy HL -> BC
-*	ld	c, l
-*	and	a					; Check there's something to print
-*	jr	z, print_dec16u_d4
-*	call	print_hex_digit
-*	set	4, (ix+0)				; Digit has been printed
-
-*print_dec16u_d4:
-*	ld	de, 0x03e8
-*	call	math_divide_16b				; Divid by 1000
-*	ld	a, c
-*	ld	b, h					; Copy HL -> BC
-*	ld	c, l
-*	bit	4, (ix+0)				; Test whether a digit has been printed already
-*	jr	nz, print_dec16u_d4_out
-*	and	a					; Check there's something to print
-*	jr	z, print_dec16u_d3
-*print_dec16u_d4_out:
-*	call	print_hex_digit
-*	set	3, (ix+0)				; Digit has been printed
-*
-*print_dec16u_d3:
-*	ld	de, 0x0064
-*	call	math_divide_16b				; Divid by 100
-*	ld	a, c
-*	ld	b, h					; Copy HL -> BC
-*	ld	c, l
-*	bit	3, (ix+0)				; Test whether a digit has been printed already
-*	jr	nz, print_dec16u_d3_out
-*	and	a					; Check there's something to print
-*	jr	z, print_dec16u_d2
-*print_dec16u_d3_out:
-*	call	print_hex_digit
-*	set	2, (ix+0)				; Digit has been printed
-*
-*print_dec16u_d2:
-*	ld	de, 0x000a
-*	call	math_divide_16b				; Divid by 10
-*	ld	a, c
-*	ld	b, h					; Copy HL -> BC
-*	ld	c, l
-*	bit	2, (ix+0)				; Test whether a digit has been printed already
-*	jr	nz, print_dec16u_d2_out
-*	and	a					; Check there's something to print
-*	jr	z, print_dec16u_d1
-*print_dec16u_d2_out:
-*	call	print_hex_digit
-*	set	1, (ix+0)				; Digit has been printed
-*
-*print_dec16u_d1:
-*	ld	a, c					; Remainder
-*	call	print_hex_digit
-*
-*	ret
-
 # print_version
 #################################
 #  Prints the version number
 #	In:	D1 = Version number
 print_version:
-	lea	str_version, %a0
-	jsr	print_str_simple
-	rts
+	mov.b	#'v', %d0
+	jsr	console_out
 
-*	ld	a, 'v'
-*	call	monlib_console_out
-*	ld	a, d
-*	call	print_dec8u
-*	ld	a, '.'
-*	call	monlib_console_out
-*	ld	a, e
-*	call	print_dec8u
-*	ret
+	# Major number
+	eor.l	%d0, %d0						/* Clear register */
+	swap	%d1							/* Get upper word */
+	mov.w	%d1, %d0
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+
+	mov.b	#'.', %d0
+	jsr	console_out
+
+	# Minor number
+	eor.l	%d0, %d0						/* Clear register */
+	swap	%d1							/* Get lower word */
+	mov.w	%d1, %d0
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+
+	rts
 
 # print_str_simple
 #################################
@@ -2233,38 +2120,33 @@ menu_main:
 
 	jsr	input_character_filter					/* Get character input */
 
-#	cmp.b	#':', %d0						/* Check for ':' from pushing a HEX file from a terminal */
-#	bne.s	menu_main_push_address
-#	jsr	command_download_alt
-#	bra.s	menu_main
-
 menu_main_push_address:
 	jsr	char_2_upper						/* Convert to uppercase to simplify matching */
 	lea	menu_main, %a0
 	mov.l	%a0, -(%sp)						/* Push menu_main address to stack to make returning easier */
 	mov.b	%d0, %d4						/* Save command character */
 
-#menu_main_external_commands:
-#	mov.l	module_search_mem_end, %a4				/* Set search start */
-#menu_main_external_commands_loop:
-#	mov.b	#0xfe, %d1						/* Search for external command */
-#	jsr	module_search
-#	beq.s	menu_main_builtin_commands				/* No command found so procede with builtin commands */
-#	mov.l	%a4, %a0						/* Make offset to command character */
-#	adda.w	#0x5, %a0
-#	cmp.b	(%a0), %d4						/* Are they the same character? */
-#	beq.s	menu_main_external_commands_exec			/* Execute external command */
-#	adda.w	#0x100, %a4						/* Increment module search start address */
-#	bra.s	menu_main_external_commands_loop			/* Loop */
-#menu_main_external_commands_exec:
-#	jsr	print_space
-#	mov.l	%a4, %a0						/* Make offset to command name */
-#	adda.w	#0x20, %a0
-#	jsr	print_str						/* Print module command name */
-#	jsr	print_newline
-#	mov.l	%a4, %a0						/* Make offset to module code */
-#	adda.w	#0x40, %a0
-#	jmp	(%a0)							/* Execute external command */
+menu_main_external_commands:
+	lea	module_search_mem_start, %a4				/* Set search start */
+menu_main_external_commands_loop:
+	mov.b	#0xfe, %d1						/* Search for external command */
+	jsr	module_search
+	beq.s	menu_main_builtin_commands				/* No command found so procede with builtin commands */
+	mov.l	%a4, %a0						/* Make offset to command character */
+	adda.w	#0x5, %a0
+	cmp.b	(%a0), %d4						/* Are they the same character? */
+	beq.s	menu_main_external_commands_exec			/* Execute external command */
+	adda.w	#0x100, %a4						/* Increment module search start address */
+	bra.s	menu_main_external_commands_loop			/* Loop */
+menu_main_external_commands_exec:
+	jsr	print_space
+	mov.l	%a4, %a0						/* Make offset to command name */
+	adda.w	#0x20, %a0
+	jsr	print_str						/* Print module command name */
+	jsr	print_newline
+	mov.l	%a4, %a0						/* Make offset to module code */
+	adda.w	#0x40, %a0
+	jmp	(%a0)							/* Execute external command */
 
 menu_main_builtin_commands:
 	cmp.b	#command_key_help, %d4					/* Check if help key */
@@ -2397,8 +2279,7 @@ str_reg_sr:		.asciz	"SR: "
 #			db	148,"2.HDR",180,213,141,".",14				/* Documentation string */
 str_logon1:		.ascii	"Welcome"						/* Welcome string */
 			dc.b	128
-			.ascii	" m68kMon"
-			dc.b	14
+			.asciz	" m68kMon "
 #str_prompt1:		db	148,"2 Loc:",0						/* Paulmon2 Loc: (OLD) */
 str_prompt1:		.asciz	"m68kMon:"						/* m68kMon: */
 str_prompt2:		dc.b	' ','>',160						/*  > abort run which program(	(must follow after prompt1) */

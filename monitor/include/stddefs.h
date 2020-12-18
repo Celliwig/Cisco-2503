@@ -1,8 +1,8 @@
 # Version
 #################################
-.equiv	m68kmon_version_major, 0x00
-.equiv	m68kmon_version_minor, 0x01
-.equiv	m68kmon_version, m68kmon_version_minor<<16 | m68kmon_version_major
+.equiv	M68KMON_VERSION_MAJOR, 0x00
+.equiv	M68KMON_VERSION_MINOR, 0x01
+.equiv	M68KMON_VERSION, M68KMON_VERSION_MINOR<<16 | M68KMON_VERSION_MAJOR
 
 .include "include/ascii.h"
 
@@ -21,6 +21,9 @@
 .equiv			command_key_clrmem, 'C'					/* Clear memory */
 .equiv			command_key_stack, 'S'					/* Set stack */
 
+# Monitor configuration bits
+###########################################################################
+.equiv			MONITOR_CONFIG_PRINT, 0					/* If set, print character */
 
 /* Provides the Exception Vector Table */
 .include "include/evt.h"
