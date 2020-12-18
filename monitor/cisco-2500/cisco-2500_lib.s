@@ -73,6 +73,10 @@ startup_cmd:
 	mov.l	#0x00001000, MONITOR_ADDR_CURRENT			/* Set current address */
 
 	jsr	scn2681_init						/* Init DUART console */
+startup_cmd_console_clear:						/* Drain existing data from console UART */
+	jsr	scn2681_in_A_nocheck
+	jsr	scn2681_in_A_check					/* Check if there's any more data */
+	bne.s	startup_cmd_console_clear				/* Loop until buffer clear */
 
 	rts
 
