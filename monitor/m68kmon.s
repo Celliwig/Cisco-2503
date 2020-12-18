@@ -313,6 +313,69 @@ string_2_hex:
 string_2_hex_finish:
 	rts
 
+# string_hex_2_dec
+#################################
+#  Convert a value to decimal, store result in string buffer
+#	In:	A0 = Pointer to string buffer
+#		D0 = Value
+string_hex_2_dec:
+	mov.l	%d0, %d7						/* Copy value */
+	bpl.s	string_hex_2_dec_init					/* Check if an '-' is needed */
+	neg.l	%d7							/* Change to positive */
+	bmi.s	string_hex_2_dec_zero					/* Value is zero */
+	mov.b	#'-', (%a0)+						/* Add '-' symbol */
+string_hex_2_dec_init:
+	clr.w	%d4							/* Init zero suppression */
+	movq.l	#10, %d6						/* Digit count */
+string_hex_2_dec_calc_power:
+	movq.l	#1, %d2							/* Initial power value */
+	mov.l	%d6, %d1						/* Power value count */
+	subq.l	#1, %d1
+	beq.s	string_hex_2_dec_calc_digit				/* Continue at power of 0 */
+string_hex_2_dec_calc_power_loop:
+	/* Basic 68000 only supports word sized multiplication, product is 32 bits however */
+	/* So this requires convoluted calculation */
+	/* D2 = Upper 16 bits */
+	/* D3 = Lower 16 bits */
+	mov.w	%d2, %d3						/* Copy current value */
+	mulu.w	#10, %d3						/* Multiply current lower value by 10 */
+	swap.w	%d3							/* Swap to access upper 16 bits of result */
+	swap.w	%d2							/* Swap to access current upper 16 bits */
+	mulu.w	#10, %d2						/* Multiply upper value by 10 */
+	add.w	%d3, %d2						/* Add upper 16 bit result to current */
+	swap.w	%d2							/* Swap registers back around */
+	swap.w	%d3
+	mov.w	%d3, %d2						/* Combine lower result and upper result */
+	subq.l	#1, %d1							/* Decrement power count */
+	bne	string_hex_2_dec_calc_power_loop
+string_hex_2_dec_calc_digit:
+	clr.l	%d0							/* Clear digit value */
+string_hex_2_dec_calc_digit_loop:
+	cmp.l	%d2, %d7						/* Check if value is less than current power */
+	blt.s	string_hex_2_dec_check_val				/* If so, process value */
+	addq.l	#1, %d0							/* Increment digit value */
+	sub.l	%d2, %d7						/* Subtract current power from value */
+	bra.s	string_hex_2_dec_calc_digit_loop			/* Loop */
+string_hex_2_dec_check_val:
+	tst.b	%d0							/* Check if zero */
+	bne.s	string_hex_2_dec_buffer_put
+	tst.w	%d4							/* Check to suppress leading zeros */
+	beq.s	string_hex_2_dec_next_digit
+string_hex_2_dec_buffer_put:
+	addi.b	#'0', %d0						/* Convert value to ASCII character */
+	mov.b	%d0, (%a0)+						/* Place character in buffer */
+	mov.b	%d0, %d4						/* Disable zero suppression */
+string_hex_2_dec_next_digit:
+	subq.l	#1, %d6							/* Next digit */
+	bne.s	string_hex_2_dec_calc_power
+	tst.w	%d4							/* Anything printed? */
+	bne.s	string_hex_2_dec_finish
+string_hex_2_dec_zero:
+	mov.b	#'0', (%a0)+						/* Print at least a zero */
+string_hex_2_dec_finish:
+	mov.b	#0, (%a0)						/* Add string terminator */
+	rts
+
 # string_length
 #################################
 #  Calculates the length of the string
@@ -1909,8 +1972,8 @@ command_upload_srec_S7_finish:
 command_download_srec:
 	lea	str_tag_dnld, %a0
 	jsr	print_cstr						/* Print message */
-*	lea	str_dnld1, %a0
-*	jsr	print_cstr
+	lea	str_dnld1, %a0
+	jsr	print_cstr
 
 	lea	MONITOR_ADDR_TEMP0, %a0
 	mov.l	#0, (%a0)+						/* Initialise temporary storage */
@@ -2042,277 +2105,106 @@ command_download_srec_type7:
 	mov.l	(MONITOR_ADDR_CURRENT), %d0
 	jsr	print_hex32						/* Print start address */
 
-	bra.w	command_download_srec_read_line				/* Next line */
+	lea	str_dnld3, %a0
+	jsr	print_cstr						/* Print string */
 
+# Prints download stats
+command_download_srec_summary:
+	lea	str_dnld4, %a0
+	jsr	print_cstr
 
-*; # command_download_alt
-*; #################################
-*;  Downloads an Intel format hex file
-*;  Used directly from the main menu
-*command_download_alt:
-*	call	command_download_init
-*	jr	command_download_line_start
-*# command_download
-*#################################
-*#  Downloads an Intel format hex file
-*command_download:
-*	ld	hl, str_tag_dnld
-*	call	print_cstr				; Print message
-*
-*	ld	hl, str_dnld1
-*	call	print_cstr
-*	call	command_download_init
-*command_download_char_read:
-*	call	monlib_console_in			; Get character
-*	cp	character_code_escape			; Check for escape
-*	jp	z, command_download_abort
-*	cp	':'					; Check for line start
-*	jr	z, command_download_line_start
-*	call	char_2_hex
-*	jr	nc, command_download_char_read
-*	ld	e, 0x06					; Unexpected hex digits (while waiting for BOL)
-*	call	command_download_stats_inc
-*	jr	command_download_char_read
-*command_download_line_start:
-*	ld	e, 0					; (lines received)
-*	call	command_download_stats_inc
-*command_download_line_start_no_inc:
-*	ld	a, '.'					; Print period to indicate transfer
-*	call	monlib_console_out
-*	ld	c, 0x0					; C = clear checksum
-*	call	command_download_get_hex
-*	ld	d, a					; D = Number of bytes on this row
-*	ld	a, '.'					; Print period to indicate transfer
-*	call	monlib_console_out
-*	call	command_download_get_hex
-*	ld	h, a					; H = MSB address
-*	call	command_download_get_hex
-*	ld	l, a					; L = LSB address
-*	call	command_download_get_hex		; Record type
-*	cp	1
-*	jr	z, command_download_finished		; Intel hex format EOF
-*	and	a
-*	jr	nz, command_download_line_unknown
-*command_download_line_data:
-*	ld	a, d
-*	and	a
-*	jr	z, command_download_line_checksum
-*	call	command_download_get_hex
-*	ld	(hl), a					; Save byte of data to memory
-*	ld	e, 1
-*	call	command_download_stats_inc		; (bytes received)
-*	ld	e, 2
-*	call	command_download_stats_inc		; (bytes received)
-*	inc	hl					; Increment address pointer
-*	dec	d
-*	jr	nz, command_download_line_data
-*command_download_line_checksum:
-*	call	command_download_get_hex
-*	ld	a, c					; Get checksum value
-*	and	a					; Which should be zero
-*	jr	z, command_download_char_read
-*command_download_line_checksum_error:
-*	ld	e, 4
-*	call	command_download_stats_inc		; (incorrect checksums)
-*	jr	command_download_char_read
-*command_download_line_unknown:
-*	ld	a, d					; Check payload size
-*	jr	z, command_download_line_checksum
-*command_download_line_unknown_data:
-*	call	command_download_get_hex
-*	dec	d
-*	jr	nz, command_download_line_unknown_data
-*	jr	command_download_line_checksum
-*command_download_finished:
-*	ld	a, d
-*	jr	z, command_download_finished_summary
-*command_download_finished_data:				; There shouldn't be data to consume...
-*	call	command_download_get_hex
-*	dec	d
-*	jr	nz, command_download_finished_data
-*command_download_finished_summary:
-*	call	command_download_get_hex		; Get checksum
-*	ld	a, c
-*	and	a					; Check checksum
-*	jp	nz, command_download_summary_error_print
-*	call	download_delay
-*	ld	hl, str_dnld3
-*	call	print_cstr				; Download okay
-*; Could do with unconditionally accepting any additional characters for a short time
-*	jp	command_download_summary
-*command_download_abort:
-*	call	download_delay
-*	ld	hl, str_dnld2
-*	call	print_cstr
-*	jr	command_download_summary
-*
-*; Used to zero the monitor temp space which is used
-*; to store stats
-*command_download_init:
-*	ld	b, 0x10					; Number of bytes to clear
-*	ld	hl, z80mon_temp				; Address of temp space
-*	xor	a					; Clear A
-*command_download_init_loop:
-*	ld	(hl), a					; Clear memory
-*	inc	hl					; Increment pointer
-*	djnz	command_download_init_loop
-*	ret
-*
-*; Increment download stat indexed by E
-*; 0 = lines received		4 = incorrect checksums
-*; 1 = bytes received		5 = unexpected begin of line
-*; 2 = bytes written		6 = unexpected hex digits (while waiting for BOL)
-*; 3 = bytes unable to write	7 = unexpected non-hex digits (in middle of a line)
-*command_download_stats_inc:
-*	push	bc					; Save registers
-*	push	de
-*	push	ix
-*	sla	e					; Index x2 (16 bit value)
-*	ld	d, 0					; Adding the pair to IX
-*	ld	ix, z80mon_temp				; Get base address variable store
-*	add	ix, de					; Add index
-*	ld	c, (ix+0)				; Get 16 bit value
-*	ld	b, (ix+1)
-*	inc	bc					; Increment value
-*	ld	(ix+0), c
-*	ld	(ix+1), b
-*	pop	ix					; Restore registers
-*	pop	de
-*	pop	bc
-*	ret
-*
-*; Gets a hexadecimal value from input, returns it in A. Adds value of A to C (checksum value)
-*; Does not print character. Does not handle CR, or backspace.
-*command_download_get_hex:
-*	call	monlib_console_in			; Get character
-*	call	char_2_upper
-*	cp	character_code_escape			; Check whether character is escape key
-*	jr	nz, command_download_get_hex_check_char
-*command_download_get_hex_escape:
-*	pop	af					; Pop return address
-*	jr	command_download_abort			; Jump to abort message
-*command_download_get_hex_check_char:
-*	cp	':'
-*	jr	nz, command_download_get_hex_process_char
-*command_download_get_hex_check_char_unexpected_bol:
-*	ld	e, 5					; (unexpected begin of line)
-*	call	command_download_stats_inc
-*	pop	af					; Pop return address
-*	jp	command_download_line_start_no_inc
-*command_download_get_hex_process_char:
-*	call	char_2_hex				; Convert ASCII to hex
-*	jr	c, command_download_get_hex_process_value
-*	ld	e, 7					; (unexpected non-hex digits)
-*	call	command_download_stats_inc
-*	jr	command_download_get_hex
-*command_download_get_hex_process_value:
-*	sla	a					; Shift lower nibble to upper nibble
-*	sla	a
-*	sla	a
-*	sla	a
-*	ld	b, a					; Save value
-*command_download_get_hex_next_char:
-*	call	monlib_console_in			; Get character
-*	call	char_2_upper
-*	cp	character_code_escape			; Check whether character is escape key
-*	jr	z, command_download_get_hex_escape
-*command_download_get_hex_check_next_char:
-*	cp	':'
-*	jr	z, command_download_get_hex_check_char_unexpected_bol
-*command_download_get_hex_process_next_char:
-*	call	char_2_hex				; Convert ASCII to hex
-*	jr	c, command_download_get_hex_process_next_value
-*	ld	e, 7					; (unexpected non-hex digits)
-*	call	command_download_stats_inc
-*	jr	command_download_get_hex_next_char
-*command_download_get_hex_process_next_value:
-*	or	b					; Combine values
-*	push	af					; Save value
-*	add	a, c					; Add to checksum
-*	ld	c, a					; Store new checksum value
-*	pop	af					; Restore value
-*	ret
-*
-*; Prints download stats
-*command_download_summary:
-*	ld	hl, str_dnld4
-*	call	print_cstr
-*
-*	call	print_space
-*	ld	bc, (z80mon_temp)
-*	call	print_dec16u
-*	ld	hl, str_dnld5
-*	call	print_cstr
-*
-*	call	print_space
-*	ld	bc, (z80mon_temp+2)
-*	call	print_dec16u
-*	ld	hl, str_dnld6a
-*	call	print_cstr
-*
-*	call	print_space
-*	ld	bc, (z80mon_temp+4)
-*	call	print_dec16u
-*	ld	hl, str_dnld6b
-*	call	print_cstr
-*
-*	; Check for errors
-*	ld	b, 5
-*	ld	hl, 0x0000
-*	ld	ix, z80mon_temp+6
-*command_download_summary_error_chk:
-*	ld	e, (ix+0)
-*	inc	ix
-*	ld	d, (ix+0)
-*	inc	ix
-*	add	hl, de
-*	djnz	command_download_summary_error_chk
-*
-*	xor	a					; Clear A
-*	or	h
-*	or	l
-*	and	a					; Check if any errors
-*	jr	nz, command_download_summary_error_print
-*	ld	hl, str_dnld13				; No errors
-*	call	print_cstr
-*	jr	command_download_summary_finish
-*
-*command_download_summary_error_print:
-*	ld	hl, str_dnld7
-*	call	print_cstr
-*
-*	call	print_space
-*	ld	bc, (z80mon_temp+6)
-*	call	print_dec16u
-*	ld	hl, str_dnld8
-*	call	print_cstr
-*
-*	call	print_space
-*	ld	bc, (z80mon_temp+8)
-*	call	print_dec16u
-*	ld	hl, str_dnld9
-*	call	print_cstr
-*
-*	call	print_space
-*	ld	bc, (z80mon_temp+10)
-*	call	print_dec16u
-*	ld	hl, str_dnld10
-*	call	print_cstr
-*
-*	call	print_space
-*	ld	bc, (z80mon_temp+12)
-*	call	print_dec16u
-*	ld	hl, str_dnld11
-*	call	print_cstr
-*
-*	call	print_space
-*	ld	bc, (z80mon_temp+14)
-*	call	print_dec16u
-*	ld	hl, str_dnld12
-*	call	print_cstr
-*
-*command_download_summary_finish:
-*	jp	print_newline
+	jsr	print_space
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	mov.l	(MONITOR_ADDR_TEMP0), %d0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+	lea	str_dnld5, %a0
+	jsr	print_cstr
+
+	jsr	print_space
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	mov.l	(MONITOR_ADDR_TEMP1), %d0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+	lea	str_dnld6a, %a0
+	jsr	print_cstr
+
+	jsr	print_space
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	mov.l	(MONITOR_ADDR_TEMP7), %d0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+	lea	str_dnld6b, %a0
+	jsr	print_cstr
+
+	cmp.l	#0x0, (MONITOR_ADDR_TEMP2)
+	bne.s	command_download_summary_error_print
+	cmp.l	#0x0, (MONITOR_ADDR_TEMP3)
+	bne.s	command_download_summary_error_print
+	cmp.l	#0x0, (MONITOR_ADDR_TEMP4)
+	bne.s	command_download_summary_error_print
+	cmp.l	#0x0, (MONITOR_ADDR_TEMP5)
+	bne.s	command_download_summary_error_print
+	cmp.l	#0x0, (MONITOR_ADDR_TEMP6)
+	bne.s	command_download_summary_error_print
+
+	lea	str_dnld13, %a0						/* No errors */
+	jsr	print_cstr
+	bra.w	command_download_summary_finish
+
+command_download_summary_error_print:
+	lea	str_dnld7, %a0
+	jsr	print_cstr						/* Print string */
+
+	jsr	print_space
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	mov.l	(MONITOR_ADDR_TEMP6), %d0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+	lea	str_dnld8, %a0
+	jsr	print_cstr
+
+	jsr	print_space
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	mov.l	(MONITOR_ADDR_TEMP5), %d0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+	lea	str_dnld9, %a0
+	jsr	print_cstr
+
+	jsr	print_space
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	mov.l	(MONITOR_ADDR_TEMP2), %d0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+	lea	str_dnld10, %a0
+	jsr	print_cstr
+
+	jsr	print_space
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	mov.l	(MONITOR_ADDR_TEMP3), %d0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+	lea	str_dnld11, %a0
+	jsr	print_cstr
+
+	jsr	print_space
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	mov.l	(MONITOR_ADDR_TEMP4), %d0
+	jsr	string_hex_2_dec
+	lea	MONITOR_ADDR_STR_BUFFER, %a0
+	jsr	print_str_simple
+	lea	str_dnld12, %a0
+	jsr	print_cstr
+command_download_summary_finish:
+	jmp	print_newline
 
 *; A short delay since most terminal emulation programs
 *; won't be ready to receive anything immediately after
@@ -2591,8 +2483,7 @@ str_dnld1: 		dc.b	13,13,31,159						/* \n\nBegin ascii transfer of SREC hex file
 			dc.b	',',149,140,128,160,13,14				/* , or esc to abort \n\n */
 str_dnld2: 		dc.b	13,31,138,160,'e','d',13,14				/* \nDownload aborted\n\n */
 str_dnld3: 		dc.b	13,31,138,193,'d',13,14					/* \nDownload completed\n\n */
-str_dnld4: 		dc.b	13							/* \nSummary:\n */
-			.ascii	"Summary:"
+str_dnld4: 		.ascii	"Summary:"						/* Summary:\n */
 			dc.b	14
 str_dnld5: 		dc.b	' ',198,'s',145,'d',14					/*  lines received\n */
 str_dnld6a:		dc.b	' ',139,145,'d',14					/*  bytes received\n */
@@ -2605,10 +2496,10 @@ str_dnld8: 		dc.b	' ',139							/*  bytes unable to write\n */
 			dc.b	128
 			.ascii	" write"
 			dc.b	14
-str_dnld9: 		dc.b	32,32,'b','a','d',245,'s',14				/* bad checksums\n */
+str_dnld9: 		dc.b	32,32,'b','a','d',245,'s',14				/*  bad checksums\n */
 str_dnld10:		dc.b	' ',133,159,150,198,14					/*  unexpected begin of line\n */
-str_dnld11:		dc.b	' ',133,132,157,14					/*  unexpected hex digits\n */
-str_dnld12:		dc.b	' ',133,' ','n','o','n',132,157,14			/*  unexpected non hex digits\n */
+str_dnld11:		dc.b	' ',133,' ','n','o','n',132,157,14			/*  unexpected non hex digits\n */
+str_dnld12:		.asciz	" wrong byte count\n"					/*  wrong byte count\n */
 str_dnld13:		dc.b	31,151,155						/* No errors detected\n\n */
 			.ascii	" detected"
 			dc.b	13,14
