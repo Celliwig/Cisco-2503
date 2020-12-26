@@ -22,66 +22,6 @@
 .include "cisco-2500/cisco-2500.h"
 .include "include/stddefs.h"
 
-*; # Subroutine Jump Table
-*; ###########################################################################
-*orgmem	mem_base+0x80
-*
-*monlib_console_out:
-*	jp	0x0010
-*monlib_console_in:
-*	jp	0x0010
-*monlib_print_newline:
-*	jp	print_newline
-*monlib_print_hex_digit:
-*	jp	print_hex_digit
-*monlib_print_hex8:
-*	jp	print_hex8
-*monlib_print_hex16:
-*	jp	print_hex16
-*monlib_print_dec8u:
-*	jp	print_dec8u
-*monlib_print_dec8s:
-*	jp	print_dec8s
-*monlib_print_str:
-*	jp	print_str
-*monlib_char_2_upper:
-*	jp	char_2_upper
-*monlib_string_length:
-*	jp	string_length
-*
-*;	ajmp	ghex
-*;	ajmp	ghex16
-*;	ajmp	esc
-*;	ljmp	autobaud
-*;pcstr_h:ljmp	pcstr
-*;	ljmp	pint16u
-*;	ljmp	module_find
-*;input_character_filter_h:
-*;	ljmp	input_character_filter
-*;	ajmp	asc2hex
-*
-*; # Monitor Variables
-*; ###########################################################################
-*MONITOR_ADDR_CURRENT:
-*	dw	0x1000
-*z80mon_temp:
-*z80mon_temp1:
-*	dw	0x0000
-*z80mon_temp2:
-*	dw	0x0000
-*z80mon_temp3:
-*	dw	0x0000
-*z80mon_temp4:
-*	dw	0x0000
-*z80mon_temp5:
-*	dw	0x0000
-*z80mon_temp6:
-*	dw	0x0000
-*z80mon_temp7:
-*	dw	0x0000
-*z80mon_temp8:
-*	dw	0x0000
-
 # Monitor
 ###########################################################################
 .org	monitor_start
