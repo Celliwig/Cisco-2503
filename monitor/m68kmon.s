@@ -106,6 +106,13 @@ get_version:
 	mov.l	#M68KMON_VERSION, %d1
 	rts
 
+# Basic exception handlers
+###########################################################################
+exception_handler:
+	#M68KMON_EXCEPTION_WIDTH,
+	jmp	startup_cold
+
+
 # Module routines
 ###########################################################################
 # module_find
@@ -362,16 +369,18 @@ print_spacex2:
 print_space:
 	mov.b	#' ', %d0
 	jmp	console_out
-# print_spaces_n
+
+# print_char_n
 #################################
-#  Print n spaces
-#	In:	D1 = Number of spaces
-print_spaces_n:
-	subi.w	#1, %d1
-print_spaces_n_loop:
-	jsr	print_space
-	dbf	%d1, print_spaces_n_loop
-print_spaces_n_exit:
+#  Print n characters
+#	In:	D0 = Character to print
+#		D1 = Number of spaces
+print_char_n:
+	subi.w	#1, %d1							/* For dbf loop to make sense */
+print_char_n_loop:
+	jsr	console_out
+	dbf	%d1, print_char_n_loop
+print_char_n_exit:
 	rts
 
 # print_dash
@@ -722,8 +731,9 @@ print_registers:
 	# Print data registers
 	mov.w	#0, %d4
 	jsr	print_newline
+	mov.b	#' ', %d0
 	mov.w	#2, %d1
-	jsr	print_spaces_n
+	jsr	print_char_n
 print_registers_dreg_loop:
 	mov.b	#'D', %d0						/* Print 'D' */
 	jsr	console_out
@@ -732,8 +742,9 @@ print_registers_dreg_loop:
 	jsr	print_colon_space					/* Print ': ' */
 	mov.l	(%sp)+, %d3						/* Pop value */
 	jsr	print_hex32
+	mov.b	#' ', %d0
 	mov.w	#3, %d1							/* Print spaces */
-	jsr	print_spaces_n
+	jsr	print_char_n
 	add.b	#1, %d4							/* Increment count */
 	cmp.b	#8, %d4
 	blt.s	print_registers_dreg_loop
@@ -741,8 +752,9 @@ print_registers_dreg_loop:
 	# Print address registers
 	mov.w	#0, %d4
 	jsr	print_newline
+	mov.b	#' ', %d0
 	mov.w	#2, %d1
-	jsr	print_spaces_n
+	jsr	print_char_n
 print_registers_areg_loop:
 	mov.b	#'A', %d0						/* Print 'D' */
 	jsr	console_out
@@ -751,22 +763,25 @@ print_registers_areg_loop:
 	jsr	print_colon_space					/* Print ': ' */
 	mov.l	(%sp)+, %d3						/* Pop value */
 	jsr	print_hex32
+	mov.b	#' ', %d0
 	mov.w	#3, %d1							/* Print spaces */
-	jsr	print_spaces_n
+	jsr	print_char_n
 	add.b	#1, %d4							/* Increment count */
 	cmp.b	#7, %d4
 	blt.s	print_registers_areg_loop
 
 	# Print additional registers
 	jsr	print_newline
+	mov.b	#' ', %d0
 	mov.w	#2, %d1
-	jsr	print_spaces_n
+	jsr	print_char_n
 	lea	str_reg_sr, %a0						/* Print 'SR: ' */
 	jsr	print_str
 	mov.w	(%sp)+, %d3						/* Pop value */
 	jsr	print_hex16
+	mov.b	#' ', %d0
 	mov.w	#3, %d1							/* Print spaces */
-	jsr	print_spaces_n
+	jsr	print_char_n
 	lea	str_reg_sp, %a0						/* Print 'SP: ' */
 	jsr	print_str
 	mov.l	MONITOR_ADDR_TEMP1, %d3					/* Pop value */
@@ -1266,8 +1281,9 @@ command_module_list_commands:
 module_list_commands:
 	lea	str_prompt9, %a0
 	jsr	print_cstr
+	mov.b	#' ', %d0
 	mov.w	#21, %d1
-	jsr	print_spaces_n
+	jsr	print_char_n
 	#lea	str_prompt9b, %a0
 	jsr	print_cstr
 
@@ -1288,11 +1304,13 @@ module_list_commands_reenter:
 	jsr	string_length						/* Get command name length */
 	mov.w	#31, %d1						/* Need word here */
 	sub.b	%d0, %d1						/* Calculate padding */
-	jsr	print_spaces_n						/* Print padding */
+	mov.b	#' ', %d0
+	jsr	print_char_n						/* Print padding */
 	mov.l	%a4, %d3						/* Reset offset to module start */
 	jsr	print_hex32						/* Print module address */
+	mov.b	#' ', %d0
 	mov.w	#4, %d1
-	jsr	print_spaces_n						/* Print padding */
+	jsr	print_char_n						/* Print padding */
 	mov.l	%a4, %a0						/* Reset offset to command type */
 	adda.w	#0x04, %a0
 	mov.b	(%a0), %d0						/* Get command type */
