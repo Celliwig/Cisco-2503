@@ -44,7 +44,7 @@ startup_cold:
 	lea	startup_cold_search_rtn, %a6				/* Set return address */
 
 startup_cold_search:
-	bra.s	module_find						/* Find next module */
+	bra.w	module_find						/* Find next module */
 
 startup_cold_search_rtn:
 	beq.s	startup_cold_end					/* If don't find a module, just continue boot */
@@ -63,14 +63,16 @@ startup_cold_end:
 #################################
 # This code is executed once basic system is initialised
 # It's assumed that a stack is available at this point
+# And Exception Vector Table exists in RAM
 startup_warm:
 	mov.l	#stack_ptr, %sp						/* Reset stack pointer */
+	jsr	exception_handlers_setup				/* Configure EVT */
 
 	bset.b	#MONITOR_CONFIG_PRINT, (MONITOR_ADDR_ATTRIBUTES1)	/* Printing is enabled */
 
 	lea	module_search_mem_start, %a4				/* Set search start */
 	mov.b	#253, %d1						/* Search for startup application */
-	bsr.s	module_search
+	bsr.w	module_search
 	cmp.b	#0, %d0
 	beq.s	startup_warm_end					/* No module found, so finish */
 
@@ -106,12 +108,84 @@ get_version:
 	mov.l	#M68KMON_VERSION, %d1
 	rts
 
-# Basic exception handlers
+# Exception handlers
 ###########################################################################
-exception_handler:
-	#M68KMON_EXCEPTION_WIDTH,
-	jmp	startup_cold
+# exception_handlers_setup
+#################################
+#  Configure EVT vectors
+exception_handlers_setup:
+	# Configure base exception handler
+	lea	exception_handler_unknown, %a0				/* Use unknown exception handler */
+	mov.l	#EVT_ACCESS_ERROR, %a1					/* First address in EVT after reset SP/PC */
+	mov.w	#0xfd, %d0						/* Number of EVT entries to update */
+exception_handlers_setup_base_loop:
+	mov.l	%a0, (%a1)+						/* Copy exception handler address to EVT */
+	dbf	%d0, exception_handlers_setup_base_loop			/* Loop over EVT table */
 
+	lea	exception_handler_zero, %a0
+	mov.l	%a0, (EVT_DIVIDE_BY_ZERO)
+
+	rts
+
+# Basic exception handlers
+#################################
+exception_handler_zero:
+	lea	str_exception_zero, %a1
+	jmp	exception_handler_base
+exception_handler_unknown:
+	lea	str_exception_unknown, %a1
+# exception_handler_base
+#################################
+#  Print exception message and reboot
+#  (Assumes stacks working!!!)
+#	In:	A1 - Exception message
+exception_handler_base:
+	# Print top border
+	mov.b	#M68KMON_EXCEPTION_BORDER_CHAR, %d0
+	mov.w	#M68KMON_EXCEPTION_BORDER_WIDTH, %d1
+	jsr	print_char_n
+	jsr	print_newline
+
+	# Print banner
+	mov.b	#M68KMON_EXCEPTION_BORDER_CHAR, %d0
+	jsr	console_out
+	mov.b	#' ', %d0
+	mov.w	#((M68KMON_EXCEPTION_BORDER_WIDTH - 2 - str_exception_ga_size) / 2), %d1
+	jsr	print_char_n
+	lea	str_exception_ga, %a0
+	jsr	print_str_simple
+	mov.b	#' ', %d0
+	# Don't assume string is even number of characters
+	mov.w	#((M68KMON_EXCEPTION_BORDER_WIDTH - 2 - str_exception_ga_size) - ((M68KMON_EXCEPTION_BORDER_WIDTH - str_exception_ga_size - 2) / 2)), %d1
+	jsr	print_char_n
+	mov.b	#M68KMON_EXCEPTION_BORDER_CHAR, %d0
+	jsr	console_out
+	jsr	print_newline
+
+	# Print message
+	mov.b	#M68KMON_EXCEPTION_BORDER_CHAR, %d0
+	jsr	console_out
+	mov.b	#' ', %d0
+	jsr	console_out
+	mov.l	%a1, %a0
+	jsr	print_str_simple
+	mov.l	%a1, %a0
+	jsr	string_length
+	mov.w	#(M68KMON_EXCEPTION_BORDER_WIDTH - 3), %d1
+	sub.w	%d0, %d1
+	mov.b	#' ', %d0
+	jsr	print_char_n
+	mov.b	#M68KMON_EXCEPTION_BORDER_CHAR, %d0
+	jsr	console_out
+	jsr	print_newline
+
+	# Print bottom border
+	mov.b	#M68KMON_EXCEPTION_BORDER_CHAR, %d0
+	mov.w	#M68KMON_EXCEPTION_BORDER_WIDTH, %d1
+	jsr	print_char_n
+	jsr	print_newline
+
+	jmp	startup_cold
 
 # Module routines
 ###########################################################################
@@ -2346,3 +2420,8 @@ str_recving:		.asciz	"Receiving: "
 
 str_ny:			.asciz	" (N/y): "
 str_version:		.asciz	"Version: "
+
+str_exception_ga:	.asciz	"Guru Meditation"
+.equiv			str_exception_ga_size, (. - str_exception_ga -1)
+str_exception_unknown:	.asciz	"Exception: Unknown"
+str_exception_zero:	.asciz	"Exception: Divide By Zero"
