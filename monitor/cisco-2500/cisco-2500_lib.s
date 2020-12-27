@@ -1,7 +1,7 @@
 .include "cisco-2500/cisco-2500.h"
 
 /* Cisco 2500 library offset from monitor start */
-CISCO2500_LIB = monitor_start + 0x4000
+CISCO2500_LIB = monitor_start + 0x2000
 
 .org CISCO2500_LIB
 
