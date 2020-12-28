@@ -122,6 +122,21 @@ exception_handlers_setup_base_loop:
 	mov.l	%a0, (%a1)+						/* Copy exception handler address to EVT */
 	dbf	%d0, exception_handlers_setup_base_loop			/* Loop over EVT table */
 
+	lea	exception_handler_address, %a0
+	mov.l	%a0, (EVT_ADDRESS_ERROR)
+
+	lea	exception_handler_bus, %a0
+	mov.l	%a0, (EVT_ACCESS_ERROR)
+
+	lea	exception_handler_interrupt, %a0
+	mov.l	%a0, (EVT_INTERRUPT_LEVEL1)
+	mov.l	%a0, (EVT_INTERRUPT_LEVEL2)
+	mov.l	%a0, (EVT_INTERRUPT_LEVEL3)
+	mov.l	%a0, (EVT_INTERRUPT_LEVEL4)
+	mov.l	%a0, (EVT_INTERRUPT_LEVEL5)
+	mov.l	%a0, (EVT_INTERRUPT_LEVEL6)
+	mov.l	%a0, (EVT_INTERRUPT_LEVEL7)
+
 	lea	exception_handler_zero, %a0
 	mov.l	%a0, (EVT_DIVIDE_BY_ZERO)
 
@@ -129,6 +144,15 @@ exception_handlers_setup_base_loop:
 
 # Basic exception handlers
 #################################
+exception_handler_address:
+	lea	str_exception_address, %a1
+	jmp	exception_handler_base
+exception_handler_bus:
+	lea	str_exception_bus, %a1
+	jmp	exception_handler_base
+exception_handler_interrupt:
+	lea	str_exception_interrupt, %a1
+	jmp	exception_handler_base
 exception_handler_zero:
 	lea	str_exception_zero, %a1
 	jmp	exception_handler_base
@@ -2303,125 +2327,128 @@ common_words:
 # List of strings
 #################################
 # Strings used to dump register contents
-str_reg_sp:		.asciz	"SP: "
-str_reg_sr:		.asciz	"SR: "
+str_reg_sp:			.asciz	"SP: "
+str_reg_sr:			.asciz	"SR: "
 
-#str_logon1:		db	"Welcome",128," z80Mon v0.1",13,14			/* Welcome string (OLD) */
-#str_logon2:	 	db	32,32,"See",148,"2.DOC,",148,"2.EQU",164
-#			db	148,"2.HDR",180,213,141,".",14				/* Documentation string */
-str_logon1:		.ascii	"Welcome"						/* Welcome string */
-			dc.b	128
-			.asciz	" m68kMon "
-#str_prompt1:		db	148,"2 Loc:",0						/* Paulmon2 Loc: (OLD) */
-str_prompt1:		.asciz	"m68kMon:"						/* m68kMon: */
-str_prompt2:		dc.b	' ','>',160						/*  > abort run which program(	(must follow after prompt1) */
-#str_prompt3:		db	134,202,130,'(',0					/* run which program( */
-#str_prompt4:		db	"),",149,140,128,200,": ",0				/* ), or esc to quit: (OLD) */
-str_prompt4:		dc.b	',',149,31,140,':',' ',0				/* , or Escape: */
-#str_prompt5:		db	31,151,130,195,"s",199,166,131,","
-#			db	186," JUMP",128,134,161,"r",130,13,14			/* No program headers found in memory, use JUMP to run your program */
-str_prompt6:		dc.b	13,13,31,135,131,129,':',' ',0				/* \n\nNew memory location: */
-str_prompt7:		dc.b	31,228,251,' ','k','e','y',':',' ',0			/* Press any key: */
-#str_prompt8:		db	13,13,31,136,128,131,129," (",0				/* \n\nJump to memory location ( (OLD) */
-str_prompt8:		dc.b	13,13,31,136,128,131,129,0				/* \n\nJump to memory location */
-#str_prompt9:		db	13,13,31,130,31,253,0					; \n\nProgram Name (OLD)
-str_prompt9:		dc.b	13,31,130,31,253,0					/* \nProgram Name */
-str_prompt9b:		dc.b	31,129,32,32,32,32,32,31,201,14				/* Location      Type	 (must follow prompt9) */
-str_prompt10:		dc.b	')',' ',31,135,31,178,':',' ',0				/* ) New Value: */
-str_prompt11:		dc.b	31,189,':',' ',0					/* Port: */
-str_prompt12:		dc.b	31,178,':',' ',0					/* Value: */
-str_prompt14:		dc.b	13,13,31,135,227,129,':',' ',0				/* \n\nNew stack location: */
-str_prompt15:		dc.b	31,228,251						/* Press any key for next page, or esc to quit */
-			.ascii	" key"
-			dc.b	180,212
-			.ascii	" page,"
-			dc.b	149,140,128,200,14
+#str_logon1:			db	"Welcome",128," z80Mon v0.1",13,14			/* Welcome string (OLD) */
+#str_logon2:	 		db	32,32,"See",148,"2.DOC,",148,"2.EQU",164
+#				db	148,"2.HDR",180,213,141,".",14				/* Documentation string */
+str_logon1:			.ascii	"Welcome"						/* Welcome string */
+				dc.b	128
+				.asciz	" m68kMon "
+#str_prompt1:			db	148,"2 Loc:",0						/* Paulmon2 Loc: (OLD) */
+str_prompt1:			.asciz	"m68kMon:"						/* m68kMon: */
+str_prompt2:			dc.b	' ','>',160						/*  > abort run which program(	(must follow after prompt1) */
+#str_prompt3:			db	134,202,130,'(',0					/* run which program( */
+#str_prompt4:			db	"),",149,140,128,200,": ",0				/* ), or esc to quit: (OLD) */
+str_prompt4:			dc.b	',',149,31,140,':',' ',0				/* , or Escape: */
+#str_prompt5:			db	31,151,130,195,"s",199,166,131,","
+#				db	186," JUMP",128,134,161,"r",130,13,14			/* No program headers found in memory, use JUMP to run your program */
+str_prompt6:			dc.b	13,13,31,135,131,129,':',' ',0				/* \n\nNew memory location: */
+str_prompt7:			dc.b	31,228,251,' ','k','e','y',':',' ',0			/* Press any key: */
+#str_prompt8:			db	13,13,31,136,128,131,129," (",0				/* \n\nJump to memory location ( (OLD) */
+str_prompt8:			dc.b	13,13,31,136,128,131,129,0				/* \n\nJump to memory location */
+#str_prompt9:			db	13,13,31,130,31,253,0					; \n\nProgram Name (OLD)
+str_prompt9:			dc.b	13,31,130,31,253,0					/* \nProgram Name */
+str_prompt9b:			dc.b	31,129,32,32,32,32,32,31,201,14				/* Location      Type	 (must follow prompt9) */
+str_prompt10:			dc.b	')',' ',31,135,31,178,':',' ',0				/* ) New Value: */
+str_prompt11:			dc.b	31,189,':',' ',0					/* Port: */
+str_prompt12:			dc.b	31,178,':',' ',0					/* Value: */
+str_prompt14:			dc.b	13,13,31,135,227,129,':',' ',0				/* \n\nNew stack location: */
+str_prompt15:			dc.b	31,228,251						/* Press any key for next page, or esc to quit */
+				.ascii	" key"
+				dc.b	180,212
+				.ascii	" page,"
+				dc.b	149,140,128,200,14
 
-str_type1:		dc.b	31,154,158,0						/* External command */
-str_type2:		dc.b	31,130,0						/* Program */
-str_type3:		.asciz	"Init"							/* Init */
-str_type4:		dc.b	31,143,31,226,31,170,0					/* Start Up Code */
-str_type5:		.asciz	"???"							/* ??? */
+str_type1:			dc.b	31,154,158,0						/* External command */
+str_type2:			dc.b	31,130,0						/* Program */
+str_type3:			.asciz	"Init"							/* Init */
+str_type4:			dc.b	31,143,31,226,31,170,0					/* Start Up Code */
+str_type5:			.asciz	"???"							/* ??? */
 
-str_tag_help2:		dc.b	31,215,0						/* Help */
-str_tag_help1: 		dc.b	31,142,215,209,0					/* This help list (these 11 _cmd string must be in order) */
-str_tag_listm:  	dc.b	31,209,130,'s',0					/* List Programs */
-#str_tag_run:  		dc.b	31,134,130,0						/* Run Program */
-str_tag_dnld: 		dc.b	31,138,0						/* Download */
-str_tag_upld: 		dc.b	31,147,0						/* Upload */
-str_tag_nloc: 		dc.b	31,135,129,0						/* New Location */
-str_tag_jump: 		dc.b	31,136,128,131,129,0					/* Jump to memory location */
-#str_tag_dump: 		dc.b	31,132,219,154,131,0					/* Hex dump external memory (OLD) */
-str_tag_hexdump: 	dc.b	31,132,219,131,0					/* Hex dump memory */
-str_tag_in:		.ascii	"Read"							/* Read in port */
-			dc.b	166,189,0
-str_tag_out:		dc.b	31,225,128,189,0					/* Write to port */
-str_tag_regdump: 	dc.b	31,219,31,196,'s',0					/* Dump Registers */
-#str_tag_edit: 		dc.b	31,156,154,146,0					/* Editing external ram (OLD) */
-str_tag_edit: 		dc.b	31,216,31,146,0						/* Edit Ram */
-str_tag_clrmem: 	dc.b	31,237,131,0						/* Clear memory */
-str_tag_stack:		dc.b	31,240,227,129,0					/* Change stack location */
+str_tag_help2:			dc.b	31,215,0						/* Help */
+str_tag_help1: 			dc.b	31,142,215,209,0					/* This help list (these 11 _cmd string must be in order) */
+str_tag_listm:  		dc.b	31,209,130,'s',0					/* List Programs */
+#str_tag_run:  			dc.b	31,134,130,0						/* Run Program */
+str_tag_dnld: 			dc.b	31,138,0						/* Download */
+str_tag_upld: 			dc.b	31,147,0						/* Upload */
+str_tag_nloc: 			dc.b	31,135,129,0						/* New Location */
+str_tag_jump: 			dc.b	31,136,128,131,129,0					/* Jump to memory location */
+#str_tag_dump: 			dc.b	31,132,219,154,131,0					/* Hex dump external memory (OLD) */
+str_tag_hexdump: 		dc.b	31,132,219,131,0					/* Hex dump memory */
+str_tag_in:			.ascii	"Read"							/* Read in port */
+				dc.b	166,189,0
+str_tag_out:			dc.b	31,225,128,189,0					/* Write to port */
+str_tag_regdump: 		dc.b	31,219,31,196,'s',0					/* Dump Registers */
+#str_tag_edit: 			dc.b	31,156,154,146,0					/* Editing external ram (OLD) */
+str_tag_edit: 			dc.b	31,216,31,146,0						/* Edit Ram */
+str_tag_clrmem: 		dc.b	31,237,131,0						/* Clear memory */
+str_tag_stack:			dc.b	31,240,227,129,0					/* Change stack location */
 
-str_help1:		dc.b	13,13							/* \n\nStandard Commands */
-			.ascii	"Standard"
-			dc.b	31,158,'s',14
-str_help2:		dc.b	31,218,31,244,'e','d',31,158,'s',14			/* User Installed Commands */
-#str_abort:		dc.b	' ',31,158,31,160,'!',13,14				/*  Command Abort!\n\n */
-str_abort:		dc.b	13,' ',31,158,31,160,'!',14				/* \n Command Abort!\n */
-#str_runs:		dc.b	13,134,'n','i','n','g',130,':',13,14			/* \nRunning program:\n\n */
-str_runs:		dc.b	13,134,'n','i','n','g',130,' ','@',0			/* \nRunning program @ */
+str_help1:			dc.b	13,13							/* \n\nStandard Commands */
+				.ascii	"Standard"
+				dc.b	31,158,'s',14
+str_help2:			dc.b	31,218,31,244,'e','d',31,158,'s',14			/* User Installed Commands */
+#str_abort:			dc.b	' ',31,158,31,160,'!',13,14				/*  Command Abort!\n\n */
+str_abort:			dc.b	13,' ',31,158,31,160,'!',14				/* \n Command Abort!\n */
+#str_runs:			dc.b	13,134,'n','i','n','g',130,':',13,14			/* \nRunning program:\n\n */
+str_runs:			dc.b	13,134,'n','i','n','g',130,' ','@',0			/* \nRunning program @ */
 
-#str_edit1: 		dc.b	13,13,31,156,154,146,',',140,128,200,14			/* \n\nEditing external ram, esc to quit\n (OLD) */
-str_edit1: 		dc.b	13,13,31,156,31,146,',',31,140,128,200,14		/* \n\nEditing Ram, Esc to quit\n */
-str_edit2: 		dc.b	' ',' ',31,156,193,',',142,129,247,13,14		/*   Editing complete, this location unchanged\n\n */
+#str_edit1: 			dc.b	13,13,31,156,154,146,',',140,128,200,14			/* \n\nEditing external ram, esc to quit\n (OLD) */
+str_edit1: 			dc.b	13,13,31,156,31,146,',',31,140,128,200,14		/* \n\nEditing Ram, Esc to quit\n */
+str_edit2: 			dc.b	' ',' ',31,156,193,',',142,129,247,13,14		/*   Editing complete, this location unchanged\n\n */
 
-str_start_addr:		dc.b	31,143,31,254,':',' ',0
-str_end_addr:		dc.b	31,248,31,254,':',' ',0
-str_sure:		dc.b	31,185,161,' ','s','u','r','e','?',' ',0		/* Are you sure?  */
-str_clrcomp:		dc.b	31,131,237,193,14					/* Memory clear complete\n */
+str_start_addr:			dc.b	31,143,31,254,':',' ',0
+str_end_addr:			dc.b	31,248,31,254,':',' ',0
+str_sure:			dc.b	31,185,161,' ','s','u','r','e','?',' ',0		/* Are you sure?  */
+str_clrcomp:			dc.b	31,131,237,193,14					/* Memory clear complete\n */
 
-str_invalid:		.ascii	"Invalid selection"
-			dc.b	14
+str_invalid:			.ascii	"Invalid selection"
+				dc.b	14
 
-str_upld1: 		dc.b	13,13							/* \n\nSending SREC hex file from */
-			.ascii	"Sending SREC"
-			dc.b	137,172,32,32,0
-str_upld2:		dc.b	' ','t','o',' ',0					/* to */
-#str_upld2: 		dc.b	' ',128,32,32,0						/*  to */
-str_upld_srec_hdr:	.asciz	"m68kMon SREC"
+str_upld1: 			dc.b	13,13							/* \n\nSending SREC hex file from */
+				.ascii	"Sending SREC"
+				dc.b	137,172,32,32,0
+str_upld2:			dc.b	' ','t','o',' ',0					/* to */
+#str_upld2: 			dc.b	' ',128,32,32,0						/*  to */
+str_upld_srec_hdr:		.asciz	"m68kMon SREC"
 
-str_dnld1: 		dc.b	13,13,31,159						/* \n\nBegin ascii transfer of SREC hex file */
-			.ascii	" ascii"
-			dc.b	249,150,31,' ','S','R','E','C',132,137
-			dc.b	',',149,140,128,160,13,14				/* , or esc to abort \n\n */
-str_dnld2: 		dc.b	13,31,138,160,'e','d',13,14				/* \nDownload aborted\n\n */
-str_dnld3: 		dc.b	13,31,138,193,'d',13,14					/* \nDownload completed\n\n */
-str_dnld4: 		.ascii	"Summary:"						/* Summary:\n */
-			dc.b	14
-str_dnld5: 		dc.b	' ',198,'s',145,'d',14					/*  lines received\n */
-str_dnld6a:		dc.b	' ',139,145,'d',14					/*  bytes received\n */
-str_dnld6b:		dc.b	' ',139							/*  bytes written\n */
-			.ascii	" written"
-			dc.b	14
-str_dnld7: 		dc.b	31,155,':',14						/* Errors:\n */
-str_dnld8: 		dc.b	' ',139							/*  bytes unable to write\n */
-			.ascii	" unable"
-			dc.b	128
-			.ascii	" write"
-			dc.b	14
-str_dnld9: 		dc.b	32,32,'b','a','d',245,'s',14				/*  bad checksums\n */
-str_dnld10:		dc.b	' ',133,159,150,198,14					/*  unexpected begin of line\n */
-str_dnld11:		dc.b	' ',133,' ','n','o','n',132,157,14			/*  unexpected non hex digits\n */
-str_dnld12:		.asciz	" wrong byte count\n"					/*  wrong byte count\n */
-str_dnld13:		dc.b	31,151,155						/* No errors detected\n\n */
-			.ascii	" detected"
-			dc.b	13,14
-str_recving:		.asciz	"Receiving: "
+str_dnld1: 			dc.b	13,13,31,159						/* \n\nBegin ascii transfer of SREC hex file */
+				.ascii	" ascii"
+				dc.b	249,150,31,' ','S','R','E','C',132,137
+				dc.b	',',149,140,128,160,13,14				/* , or esc to abort \n\n */
+str_dnld2: 			dc.b	13,31,138,160,'e','d',13,14				/* \nDownload aborted\n\n */
+str_dnld3: 			dc.b	13,31,138,193,'d',13,14					/* \nDownload completed\n\n */
+str_dnld4: 			.ascii	"Summary:"						/* Summary:\n */
+				dc.b	14
+str_dnld5: 			dc.b	' ',198,'s',145,'d',14					/*  lines received\n */
+str_dnld6a:			dc.b	' ',139,145,'d',14					/*  bytes received\n */
+str_dnld6b:			dc.b	' ',139							/*  bytes written\n */
+				.ascii	" written"
+				dc.b	14
+str_dnld7: 			dc.b	31,155,':',14						/* Errors:\n */
+str_dnld8: 			dc.b	' ',139							/*  bytes unable to write\n */
+				.ascii	" unable"
+				dc.b	128
+				.ascii	" write"
+				dc.b	14
+str_dnld9: 			dc.b	32,32,'b','a','d',245,'s',14				/*  bad checksums\n */
+str_dnld10:			dc.b	' ',133,159,150,198,14					/*  unexpected begin of line\n */
+str_dnld11:			dc.b	' ',133,' ','n','o','n',132,157,14			/*  unexpected non hex digits\n */
+str_dnld12:			.asciz	" wrong byte count\n"					/*  wrong byte count\n */
+str_dnld13:			dc.b	31,151,155						/* No errors detected\n\n */
+				.ascii	" detected"
+				dc.b	13,14
+str_recving:			.asciz	"Receiving: "
 
-str_ny:			.asciz	" (N/y): "
-str_version:		.asciz	"Version: "
+str_ny:				.asciz	" (N/y): "
+str_version:			.asciz	"Version: "
 
-str_exception_ga:	.asciz	"Guru Meditation"
-.equiv			str_exception_ga_size, (. - str_exception_ga -1)
-str_exception_unknown:	.asciz	"Exception: Unknown"
-str_exception_zero:	.asciz	"Exception: Divide By Zero"
+str_exception_ga:		.asciz	"Guru Meditation"
+.equiv				str_exception_ga_size, (. - str_exception_ga -1)
+str_exception_address:		.asciz	"Exception: Address error"
+str_exception_bus:		.asciz	"Exception: Bus error"
+str_exception_interrupt:	.asciz	"Exception: Interrupt"
+str_exception_unknown:		.asciz	"Exception: Unknown"
+str_exception_zero:		.asciz	"Exception: Divide By Zero"
