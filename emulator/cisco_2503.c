@@ -946,6 +946,17 @@ void emu_set_memory_dump_addr() {
 	}
 }
 
+// Uses the status window to accept an address for the PC register
+void emu_set_pc_reg_addr() {
+	unsigned int emu_pc_reg_newval;
+
+	if (emu_win_status_ask_4_address("Memory Addr", &emu_pc_reg_newval)) {
+		m68k_set_reg(M68K_REG_PC, emu_pc_reg_newval);
+	} else {
+		emu_status_message("Canceled");
+	}
+}
+
 // Help screen
 //void emu_dbg_actions() {
 //	printw("Q - Quit\t");
@@ -1095,6 +1106,8 @@ int main(int argc, char* argv[]) {
 			emu_win_resize();
 		} else if (key_press == 'b') {
 			emu_set_breakpoint();
+		} else if (key_press == 'P') {
+			emu_set_pc_reg_addr();
 		} else if (key_press == 'Q') {
 			g_quit = 1;
 		} else if (key_press == 'r') {
