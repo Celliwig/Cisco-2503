@@ -10,6 +10,7 @@
 #include "cisco_2503.h"
 #include "cisco_2503_peripherals.h"
 #include <ncurses.h>
+#include <string.h>
 
 /* Prototypes */
 void exit_error(char* fmt, ...);
@@ -76,6 +77,11 @@ unsigned short int emu_win_code_cols, emu_win_code_rows, emu_win_code_y, emu_win
 unsigned short int emu_win_mem_cols, emu_win_mem_rows, emu_win_mem_y, emu_win_mem_x;
 unsigned short int emu_win_reg_cols, emu_win_reg_rows, emu_win_reg_y, emu_win_reg_x;
 unsigned short int emu_win_status_cols, emu_win_status_rows, emu_win_status_y, emu_win_status_x;
+
+char		*emu_logfile = "cisco_2503.log";
+int		emu_logfile_fh = -1;
+unsigned int	emu_logging_lastpc = 0;
+bool		emu_logging;
 
 /* Exit with an error message.  Use printf syntax. */
 void exit_error(char* fmt, ...)
@@ -283,6 +289,7 @@ void get_user_input(void)
 void cpu_pulse_reset(void) {
 	io_system_core_init();
 	io_duart_core_init();
+	mem_nvram_init();
 
 //	nmi_device_reset();
 //	output_device_reset();
@@ -372,7 +379,8 @@ void cpu_write_byte(unsigned int address, unsigned int value) {
 	if (io_channela_write_byte(address, value)) return;
 	if (io_channelb_write_byte(address, value)) return;
 
-	exit_error("Attempted to write byte to address %08x", address);
+	m68k_pulse_bus_error();
+//	exit_error("Attempted to write byte to address %08x", address);
 }
 
 void cpu_write_word(unsigned int address, unsigned int value) {
@@ -389,7 +397,8 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 	if (io_channela_write_word(address, value)) return;
 	if (io_channelb_write_word(address, value)) return;
 
-	exit_error("Attempted to write word to address %08x", address);
+	m68k_pulse_bus_error();
+//	exit_error("Attempted to write word to address %08x", address);
 }
 
 void cpu_write_long(unsigned int address, unsigned int value) {
@@ -406,7 +415,8 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 	if (io_channela_write_long(address, value)) return;
 	if (io_channelb_write_long(address, value)) return;
 
-	exit_error("Attempted to write long to address %08x", address);
+	m68k_pulse_bus_error();
+//	exit_error("Attempted to write long to address %08x", address);
 }
 
 // For peripherals that are clocked
@@ -428,14 +438,24 @@ void make_hex(char* buff, unsigned int pc, unsigned int length) {
 	}
 }
 
+// Create string of the hex bytes/assembly of the current instruction
+int make_disasm_str(unsigned int pc, unsigned int max_chars) {
+	unsigned int instr_size;
+	char buff[100];
+	char buff2[100];
+
+	instr_size = m68k_disassemble(buff, pc, C2503_CPU);
+	make_hex(buff2, pc, instr_size);
+	sprintf(str_tmp_buf, "%08x: %-20s: %-*s", pc, buff2, max_chars, buff);
+	return instr_size;
+}
+
 // Disassembles x lines of code starting from the PC
 // x is dependent on the size of the code window
 void update_code_display() {
 	unsigned int pc;
 	unsigned int instr_size;
 	unsigned char line_count = 0;
-	char buff[100];
-	char buff2[100];
 
 	// Check if there's any room to display anything
 	if (emu_win_code_rows <= 2) return;
@@ -447,9 +467,7 @@ void update_code_display() {
 
 	// Disassemble to code window
 	while (line_count < (emu_win_code_rows - 2)) {
-		instr_size = m68k_disassemble(buff, pc, C2503_CPU);
-		make_hex(buff2, pc, instr_size);
-		sprintf(str_tmp_buf, "%08x: %-20s: %-*s", pc, buff2, (EMU_WIN_CODE_COLS_MAX - 32), buff);
+		instr_size = make_disasm_str(pc, (EMU_WIN_CODE_COLS_MAX - 32));
 		mvwprintw(emu_win_code, (line_count + 1), 2, "%.*s", (emu_win_code_cols - 4), str_tmp_buf);
 		pc += instr_size;
 		line_count++;
@@ -989,6 +1007,7 @@ void print_usage() {
 int main(int argc, char* argv[]) {
 	FILE		*fh_bootrom1, *fh_bootrom2;
 	int		fd_serial, key_press, tmp_opt, tmp_pc;
+	unsigned int	current_pc;
 	char		emu_step = 0, *bootrom_filename = NULL, *bootrom_filename_fw1 = NULL, *bootrom_filename_fw2 = NULL, *console_devname = NULL;
 	struct termios	serial_fd_opts;
 
@@ -1093,10 +1112,25 @@ int main(int argc, char* argv[]) {
 		if (emu_show_duart) update_duart_display();
 		doupdate();
 
+		current_pc = m68k_get_reg(NULL, M68K_REG_PC);
+
 		// Check if breakpoint reached
-		if (emu_breakpoint == m68k_get_reg(NULL, M68K_REG_PC)) {
+		if (emu_breakpoint == current_pc) {
 			emu_status_message("Breakpoint Reached");
 			emu_step = 0;						// Stop execution
+		}
+
+		// Log if enabled
+		if (emu_logging) {
+			if (emu_logfile_fh != -1) {
+				if (current_pc != emu_logging_lastpc) {
+					make_disasm_str(current_pc, 0);
+					write(emu_logfile_fh, str_tmp_buf, strlen(str_tmp_buf));
+					write(emu_logfile_fh, "\n", 1);
+					fsync(emu_logfile_fh);
+					emu_logging_lastpc = current_pc;
+				}
+			}
 		}
 
 		// Get action
@@ -1108,6 +1142,21 @@ int main(int argc, char* argv[]) {
 			emu_set_breakpoint();
 		} else if (key_press == 'P') {
 			emu_set_pc_reg_addr();
+		} else if (key_press == 'L') {
+			if (emu_logging) {
+				emu_logging = false;
+				if (emu_logfile_fh != -1) close(emu_logfile_fh);
+				emu_status_message("Logging disabled");
+			} else {
+				emu_logging = true;
+				emu_logging_lastpc = 0;
+				emu_logfile_fh = open(emu_logfile, O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+				if (emu_logfile_fh == -1) {
+					emu_status_message("Failed to open log file.");
+				} else {
+					emu_status_message("Logging enabled");
+				}
+			}
 		} else if (key_press == 'Q') {
 			g_quit = 1;
 		} else if (key_press == 'r') {
