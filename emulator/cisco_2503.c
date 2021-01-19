@@ -1082,7 +1082,7 @@ void print_usage() {
 int main(int argc, char* argv[]) {
 	FILE		*fh_bootrom1, *fh_bootrom2;
 	int		fd_serial, key_press, tmp_opt, tmp_pc;
-	unsigned int	current_pc;
+	unsigned int	current_pc, emu_sleep = 800;
 	char		emu_step = 0, *bootrom_filename = NULL, *bootrom_filename_fw1 = NULL, *bootrom_filename_fw2 = NULL, *console_devname = NULL;
 	struct termios	serial_fd_opts;
 
@@ -1217,8 +1217,6 @@ int main(int argc, char* argv[]) {
 			emu_set_cpu_reg_val();
 		} else if (key_press == 'b') {
 			emu_set_breakpoint();
-		} else if (key_press == 'P') {
-			emu_set_pc_reg_addr();
 		} else if (key_press == 'L') {
 			if (emu_logging) {
 				emu_logging = false;
@@ -1234,6 +1232,8 @@ int main(int argc, char* argv[]) {
 					emu_status_message("Logging enabled");
 				}
 			}
+		} else if (key_press == 'P') {
+			emu_set_pc_reg_addr();
 		} else if (key_press == 'Q') {
 			g_quit = 1;
 		} else if (key_press == 'r') {
@@ -1257,6 +1257,14 @@ int main(int argc, char* argv[]) {
 			emu_breakpoint = tmp_pc + m68k_disassemble(NULL, tmp_pc, C2503_CPU);
 			emu_status_message("Step Over");
 			emu_step = -1;						// Run
+		} else if (key_press == 't') {
+			if (emu_sleep == 800) {
+				emu_sleep = 100;
+				emu_status_message("Turbo On");
+			} else {
+				emu_sleep = 800;
+				emu_status_message("Turbo Off");
+			}
 		} else if (key_press == 'U') {
 			emu_show_duart = emu_show_duart ^ true;			// Toggle DUART window
 		} else if (key_press == 'd') {
@@ -1310,7 +1318,7 @@ int main(int argc, char* argv[]) {
 			if (emu_step > 0) emu_step--;
 		}
 
-		usleep(800);
+		usleep(emu_sleep);
 	}
 
 	// Destroy ncurses
