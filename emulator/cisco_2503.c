@@ -888,8 +888,38 @@ void emu_status_message(char *message) {
 	wnoutrefresh(emu_win_status);
 }
 
+// Uses the status window to display a message and wait for an action
+unsigned char emu_win_status_ask_4_action(char *msg, unsigned char *store) {
+	bool		input_loop = true;
+	unsigned char	rtn = 0;
+	int		key_press;
+
+	nodelay(stdscr, false);							// Temporarily make key scanning blocking
+
+	while (input_loop) {
+		werase(emu_win_status);
+		wprintw(emu_win_status, " %s: ", msg);
+		wrefresh(emu_win_status);
+
+		key_press = wgetch(stdscr);
+		if (key_press == KEY_RESIZE) {
+			emu_win_resize();					// Handle terminal resize
+		} else if (key_press == 0x1b) {					// Escape
+			rtn = 0;
+			input_loop = false;
+		} else {
+			*store = key_press;					// Store key press
+			rtn = 1;
+			input_loop = false;
+		}
+	}
+
+	nodelay(stdscr, true);							// Make key scanning non-blocking again
+	return rtn;
+}
+
 // Uses the status window to display a message and input an address
-unsigned char emu_win_status_ask_4_address(char *msg, unsigned int *store) {
+unsigned char emu_win_status_ask_4_hex32(char *msg, unsigned int *store) {
 	bool		input_loop = true;
 	char		hex_addr[8];
 	unsigned char	hex_digit_index, i, rtn = 0;
@@ -947,7 +977,7 @@ unsigned char emu_win_status_ask_4_address(char *msg, unsigned int *store) {
 
 // Uses the status window to accept an address to set as a breakpoint
 void emu_set_breakpoint() {
-	if (emu_win_status_ask_4_address("Breakpoint Addr", &emu_breakpoint)) {
+	if (emu_win_status_ask_4_hex32("Breakpoint Addr", &emu_breakpoint)) {
 		sprintf(str_tmp_buf, "Breakpoint set: 0x%x", emu_breakpoint);
 		emu_status_message(str_tmp_buf);
 	} else {
@@ -957,7 +987,7 @@ void emu_set_breakpoint() {
 
 // Uses the status window to accept an address for the memory window
 void emu_set_memory_dump_addr() {
-	if (emu_win_status_ask_4_address("Memory Addr", &emu_mem_dump_start)) {
+	if (emu_win_status_ask_4_hex32("Memory Addr", &emu_mem_dump_start)) {
 		emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_SELECTED;
 	} else {
 		emu_status_message("Canceled");
@@ -968,10 +998,55 @@ void emu_set_memory_dump_addr() {
 void emu_set_pc_reg_addr() {
 	unsigned int emu_pc_reg_newval;
 
-	if (emu_win_status_ask_4_address("Memory Addr", &emu_pc_reg_newval)) {
+	if (emu_win_status_ask_4_hex32("Memory Addr", &emu_pc_reg_newval)) {
 		m68k_set_reg(M68K_REG_PC, emu_pc_reg_newval);
 	} else {
 		emu_status_message("Canceled");
+	}
+}
+
+// Uses the status window to update a processot register
+void emu_set_cpu_reg_val() {
+	bool		input_loop = true;
+	char		register_id = -1, register_type = -1, tmp_store;
+	unsigned int	emu_reg_newval;
+	m68k_register_t	selected_reg;
+
+	while (input_loop) {
+		if (register_type == -1) {
+			// First off get register type (address/data)
+			if (emu_win_status_ask_4_action("Select Register Type (A/D)", &tmp_store)) {
+				if ((tmp_store == 'a') || (tmp_store == 'A') || (tmp_store == 'd') || (tmp_store == 'D')) {
+					register_type = tmp_store;
+				}
+			} else {
+				emu_status_message("Canceled");
+				return;
+			}
+		} else {
+			if (register_id == -1) {
+				// Sencond get register ID [0-7]
+				if (emu_win_status_ask_4_action("Select Register ID [0-7]", &tmp_store)) {
+					tmp_store = ascii_2_hex(tmp_store);
+					if ((tmp_store >= 0) && (tmp_store <= 7)) {
+						register_id = tmp_store;
+					}
+				} else {
+					emu_status_message("Canceled");
+					return;
+				}
+			} else {
+				if (emu_win_status_ask_4_hex32("Set Register Value", &emu_reg_newval)) {
+					selected_reg = M68K_REG_D0;
+					if ((register_type == 'a') || (register_type == 'A')) selected_reg = M68K_REG_A0;
+					selected_reg += register_id;
+					m68k_set_reg(selected_reg, emu_reg_newval);
+				} else {
+					emu_status_message("Canceled");
+				}
+				return;
+			}
+		}
 	}
 }
 
@@ -1138,6 +1213,8 @@ int main(int argc, char* argv[]) {
 		if (key_press == KEY_RESIZE) {
 			// Handle terminal resize
 			emu_win_resize();
+		} else if (key_press == 'a') {
+			emu_set_cpu_reg_val();
 		} else if (key_press == 'b') {
 			emu_set_breakpoint();
 		} else if (key_press == 'P') {
