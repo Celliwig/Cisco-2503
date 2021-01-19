@@ -120,168 +120,167 @@ void cpu_set_fc(unsigned int fc)
 /* Called when the CPU acknowledges an interrupt */
 int cpu_irq_ack(int level)
 {
-	switch(level)
-	{
-		case IRQ_NMI_DEVICE:
-			return nmi_device_ack();
-		case IRQ_INPUT_DEVICE:
-			return input_device_ack();
-		case IRQ_OUTPUT_DEVICE:
-			return output_device_ack();
-	}
-	return M68K_INT_ACK_SPURIOUS;
+	m68k_set_irq(0);
+
+//	switch(level)
+//	{
+//		case IRQ_NMI_DEVICE:
+//			return nmi_device_ack();
+//		case IRQ_INPUT_DEVICE:
+//			return input_device_ack();
+//		case IRQ_OUTPUT_DEVICE:
+//			return output_device_ack();
+//	}
+//	return M68K_INT_ACK_SPURIOUS;
 }
 
-/* Implementation for the NMI device */
-void nmi_device_reset(void)
-{
-	g_nmi = 0;
-}
+///* Implementation for the NMI device */
+//void nmi_device_reset(void)
+//{
+//	g_nmi = 0;
+//}
 
-void nmi_device_update(void)
-{
-	if(g_nmi)
-	{
-		g_nmi = 0;
-		int_controller_set(IRQ_NMI_DEVICE);
-	}
-}
+//void nmi_device_update(void)
+//{
+//	if(g_nmi)
+//	{
+//		g_nmi = 0;
+//		int_controller_set(IRQ_NMI_DEVICE);
+//	}
+//}
 
-int nmi_device_ack(void)
-{
-	printf("\nNMI\n");fflush(stdout);
-	int_controller_clear(IRQ_NMI_DEVICE);
-	return M68K_INT_ACK_AUTOVECTOR;
-}
+//int nmi_device_ack(void)
+//{
+//	printf("\nNMI\n");fflush(stdout);
+//	int_controller_clear(IRQ_NMI_DEVICE);
+//	return M68K_INT_ACK_AUTOVECTOR;
+//}
 
+///* Implementation for the input device */
+//void input_device_reset(void)
+//{
+//	g_input_device_value = -1;
+//	int_controller_clear(IRQ_INPUT_DEVICE);
+//}
 
-/* Implementation for the input device */
-void input_device_reset(void)
-{
-	g_input_device_value = -1;
-	int_controller_clear(IRQ_INPUT_DEVICE);
-}
+//void input_device_update(void)
+//{
+//	if(g_input_device_value >= 0)
+//		int_controller_set(IRQ_INPUT_DEVICE);
+//}
 
-void input_device_update(void)
-{
-	if(g_input_device_value >= 0)
-		int_controller_set(IRQ_INPUT_DEVICE);
-}
+//int input_device_ack(void)
+//{
+//	return M68K_INT_ACK_AUTOVECTOR;
+//}
 
-int input_device_ack(void)
-{
-	return M68K_INT_ACK_AUTOVECTOR;
-}
+//unsigned int input_device_read(void)
+//{
+//	int value = g_input_device_value > 0 ? g_input_device_value : 0;
+//	int_controller_clear(IRQ_INPUT_DEVICE);
+//	g_input_device_value = -1;
+//	return value;
+//}
 
-unsigned int input_device_read(void)
-{
-	int value = g_input_device_value > 0 ? g_input_device_value : 0;
-	int_controller_clear(IRQ_INPUT_DEVICE);
-	g_input_device_value = -1;
-	return value;
-}
+//void input_device_write(unsigned int value)
+//{
+//	(void)value;
+//}
 
-void input_device_write(unsigned int value)
-{
-	(void)value;
-}
+///* Implementation for the output device */
+//void output_device_reset(void)
+//{
+//	g_output_device_last_output = time(NULL);
+//	g_output_device_ready = 0;
+//	int_controller_clear(IRQ_OUTPUT_DEVICE);
+//}
 
+//void output_device_update(void)
+//{
+//	if(!g_output_device_ready)
+//	{
+//		if((time(NULL) - g_output_device_last_output) >= OUTPUT_DEVICE_PERIOD)
+//		{
+//			g_output_device_ready = 1;
+//			int_controller_set(IRQ_OUTPUT_DEVICE);
+//		}
+//	}
+//}
 
-/* Implementation for the output device */
-void output_device_reset(void)
-{
-	g_output_device_last_output = time(NULL);
-	g_output_device_ready = 0;
-	int_controller_clear(IRQ_OUTPUT_DEVICE);
-}
+//int output_device_ack(void)
+//{
+//	return M68K_INT_ACK_AUTOVECTOR;
+//}
 
-void output_device_update(void)
-{
-	if(!g_output_device_ready)
-	{
-		if((time(NULL) - g_output_device_last_output) >= OUTPUT_DEVICE_PERIOD)
-		{
-			g_output_device_ready = 1;
-			int_controller_set(IRQ_OUTPUT_DEVICE);
-		}
-	}
-}
+//unsigned int output_device_read(void)
+//{
+//	int_controller_clear(IRQ_OUTPUT_DEVICE);
+//	return 0;
+//}
 
-int output_device_ack(void)
-{
-	return M68K_INT_ACK_AUTOVECTOR;
-}
+//void output_device_write(unsigned int value)
+//{
+//	char ch;
+//	if(g_output_device_ready)
+//	{
+//		ch = value & 0xff;
+//		printf("%c", ch);
+//		g_output_device_last_output = time(NULL);
+//		g_output_device_ready = 0;
+//		int_controller_clear(IRQ_OUTPUT_DEVICE);
+//	}
+//}
 
-unsigned int output_device_read(void)
-{
-	int_controller_clear(IRQ_OUTPUT_DEVICE);
-	return 0;
-}
+///* Implementation for the interrupt controller */
+//void int_controller_set(unsigned int value)
+//{
+//	unsigned int old_pending = g_int_controller_pending;
+//
+//	g_int_controller_pending |= (1<<value);
+//
+//	if(old_pending != g_int_controller_pending && value > g_int_controller_highest_int)
+//	{
+//		g_int_controller_highest_int = value;
+//		m68k_set_irq(g_int_controller_highest_int);
+//	}
+//}
 
-void output_device_write(unsigned int value)
-{
-	char ch;
-	if(g_output_device_ready)
-	{
-		ch = value & 0xff;
-		printf("%c", ch);
-		g_output_device_last_output = time(NULL);
-		g_output_device_ready = 0;
-		int_controller_clear(IRQ_OUTPUT_DEVICE);
-	}
-}
-
-
-/* Implementation for the interrupt controller */
-void int_controller_set(unsigned int value)
-{
-	unsigned int old_pending = g_int_controller_pending;
-
-	g_int_controller_pending |= (1<<value);
-
-	if(old_pending != g_int_controller_pending && value > g_int_controller_highest_int)
-	{
-		g_int_controller_highest_int = value;
-		m68k_set_irq(g_int_controller_highest_int);
-	}
-}
-
-void int_controller_clear(unsigned int value)
-{
-	g_int_controller_pending &= ~(1<<value);
-
-	for(g_int_controller_highest_int = 7;g_int_controller_highest_int > 0;g_int_controller_highest_int--)
-		if(g_int_controller_pending & (1<<g_int_controller_highest_int))
-			break;
-
-	m68k_set_irq(g_int_controller_highest_int);
-}
+//void int_controller_clear(unsigned int value)
+//{
+//	g_int_controller_pending &= ~(1<<value);
+//
+//	for(g_int_controller_highest_int = 7;g_int_controller_highest_int > 0;g_int_controller_highest_int--)
+//		if(g_int_controller_pending & (1<<g_int_controller_highest_int))
+//			break;
+//
+//	m68k_set_irq(g_int_controller_highest_int);
+//}
 
 
-/* Parse user input and update any devices that need user input */
-void get_user_input(void)
-{
-	static int last_ch = -1;
-//	int ch = osd_get_char();
-	int ch = 0;
-
-	if(ch >= 0)
-	{
-		switch(ch)
-		{
-			case 0x1b:
-				g_quit = 1;
-				break;
-			case '~':
-				if(last_ch != ch)
-					g_nmi = 1;
-				break;
-			default:
-				g_input_device_value = ch;
-		}
-	}
-	last_ch = ch;
-}
+///* Parse user input and update any devices that need user input */
+//void get_user_input(void)
+//{
+//	static int last_ch = -1;
+////	int ch = osd_get_char();
+//	int ch = 0;
+//
+//	if(ch >= 0)
+//	{
+//		switch(ch)
+//		{
+//			case 0x1b:
+//				g_quit = 1;
+//				break;
+//			case '~':
+//				if(last_ch != ch)
+//					g_nmi = 1;
+//				break;
+//			default:
+//				g_input_device_value = ch;
+//		}
+//	}
+//	last_ch = ch;
+//}
 
 // Emulator
 ////////////////////////////////////////////////////////
@@ -1050,6 +1049,28 @@ void emu_set_cpu_reg_val() {
 	}
 }
 
+// Uses the status window to enter external interrupt to trigger
+void emu_trigger_irq() {
+	bool		input_loop = true;
+	char		tmp_store;
+	unsigned int	emu_irq_val;
+
+	while (input_loop) {
+		// Get interrupt number [1-7]
+		if (emu_win_status_ask_4_action("Trigger Interrupt [1-7]", &tmp_store)) {
+			tmp_store = ascii_2_hex(tmp_store);
+			if ((tmp_store >= 1) && (tmp_store <= 7)) {
+				m68k_set_irq(tmp_store);
+				emu_status_message("Interrupt Triggered!");
+				return;
+			}
+		} else {
+			emu_status_message("Canceled");
+			return;
+		}
+	}
+}
+
 // Help screen
 //void emu_dbg_actions() {
 //	printw("Q - Quit\t");
@@ -1217,6 +1238,8 @@ int main(int argc, char* argv[]) {
 			emu_set_cpu_reg_val();
 		} else if (key_press == 'b') {
 			emu_set_breakpoint();
+		} else if (key_press == 'I') {
+			emu_trigger_irq();
 		} else if (key_press == 'L') {
 			if (emu_logging) {
 				emu_logging = false;
