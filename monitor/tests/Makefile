@@ -1,6 +1,13 @@
-TARGET = divide_by_zero.srec trap0.srec
+TARGET = bus_error.srec divide_by_zero.srec trap0.srec
 
 all: $(TARGET)
+
+# Bus error exception
+#################################################################
+bus_error.srec: bus_error.s
+	m68k-linux-gnu-as -m68000 -o bus_error.o bus_error.s
+	m68k-linux-gnu-objcopy -I elf32-m68k --srec-forceS3 -O srec bus_error.o bus_error.tmp
+	srec_cat bus_error.tmp -offset 0x1000 -output bus_error.srec -Motorola -Address_Length 4
 
 # Divide by zero exception
 #################################################################
@@ -19,5 +26,6 @@ trap0.srec: trap0.s
 # Clean
 #################################################################
 clean:
+	$(RM) bus_error.o bus_error.tmp bus_error.srec
 	$(RM) divide_by_zero.o divide_by_zero.tmp divide_by_zero.srec
 	$(RM) trap0.o trap0.tmp trap0.srec
