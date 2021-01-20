@@ -117,11 +117,9 @@ void cpu_set_fc(unsigned int fc)
 	g_fc = fc;
 }
 
-/* Called when the CPU acknowledges an interrupt */
-int cpu_irq_ack(int level)
-{
-	m68k_set_irq(0);
-
+///* Called when the CPU acknowledges an interrupt */
+//int cpu_irq_ack(int level)
+//{
 //	switch(level)
 //	{
 //		case IRQ_NMI_DEVICE:
@@ -132,7 +130,7 @@ int cpu_irq_ack(int level)
 //			return output_device_ack();
 //	}
 //	return M68K_INT_ACK_SPURIOUS;
-}
+//}
 
 ///* Implementation for the NMI device */
 //void nmi_device_reset(void)
