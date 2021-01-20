@@ -28,6 +28,8 @@ void io_system_core_init() {
 	// Init System ID Cookie
 	for (int i = 0; i < 0x20; i++) {
 		g_io_sysid_cookie[i] = 0xff;
+//		g_io_sysid_cookie[i] = 0xf1;			// Alternate Cookie ID
+//		g_io_sysid_cookie[i] = 0x02;			// Alternate Cookie ID
 	}
 }
 
@@ -127,14 +129,14 @@ bool io_system_write_byte(unsigned address, unsigned int value) {
 //		WRITE_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
 //		return true;
 //	}
+	// System ID cookie
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
+		WRITE_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
+		return true;
+	}
 //	// System status register
 //	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
 //		WRITE_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-//		return true;
-//	}
-//	// System ID cookie
-//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-//		WRITE_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
 //		return true;
 //	}
 	return false;
@@ -300,6 +302,14 @@ bool mem_bootrom_read_long(unsigned address, unsigned int *value) {
 // NVRAM
 //////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char g_nvram[C2503_NVRAM_SIZE];
+
+// Added valid header
+void mem_nvram_init() {
+	g_nvram[0] = 0x13;		// Config header
+	g_nvram[1] = 0x15;
+	g_nvram[2] = 0x81;		// Config word
+	g_nvram[3] = 0x01;
+}
 
 bool mem_nvram_read_byte(unsigned address, unsigned int *value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
