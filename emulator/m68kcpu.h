@@ -867,6 +867,20 @@ extern jmp_buf m68ki_aerr_trap;
 
 
 
+/* -------------------------- Special Status Word ------------------------- */
+
+#define SSW_FC0		1 << 0			/* Address space for data cycle */
+#define SSW_FC1		1 << 1
+#define SSW_FC2		1 << 2
+#define SSW_SIZE	3 << 4			/* Size code for data cycle */
+#define SSW_RW		1 << 6			/* Read/write for data cycle — 1=read, 0=write */
+#define SSW_RM		1 << 7			/* Read-modify-write on data cycle */
+#define SSW_DF		1 << 8			/* Fault/rerun flag for data cycle */
+#define SSW_RB		1 << 12			/* Rerun flag for stage B of the instruction pipe */
+#define SSW_RC		1 << 13			/* Rerun flag for stage C of the instruction pipe */
+#define SSW_FB		1 << 14			/* Fault on stage B of the instruction pipe */
+#define SSW_FC		1 << 15			/* Fault on stage C of the instruction pipe */
+
 /* ---------------------------- Cycle Counting ---------------------------- */
 
 #define ADD_CYCLES(A)    m68ki_remaining_cycles += (A)
@@ -1935,7 +1949,8 @@ m68k_read_memory_8(0x00ffff01);
 	}
 
 	uint sr = m68ki_init_exception();
-	m68ki_stack_frame_1000(REG_PPC, sr, EXCEPTION_BUS_ERROR);
+	//m68ki_stack_frame_1000(REG_PPC, sr, EXCEPTION_BUS_ERROR);
+	m68ki_stack_frame_1011(sr, EXCEPTION_BUS_ERROR, REG_PPC);
 
 	m68ki_jump_vector(EXCEPTION_BUS_ERROR);
 	longjmp(m68ki_bus_error_jmp_buf, 1);

@@ -9200,6 +9200,9 @@ M68KMAKE_OP(rtd, 32, ., .)
 
 M68KMAKE_OP(rte, 32, ., .)
 {
+	uint isize;
+	uint exception_ssw;
+
 	if(FLAG_S)
 	{
 		uint new_sr;
@@ -9294,6 +9297,44 @@ rte_loop:
 				new_pc = m68ki_pull_32();
 				m68ki_fake_pull_16();	/* format word */
 				m68ki_fake_pull_32();	/* address */
+				m68ki_jump(new_pc);
+				m68ki_set_sr(new_sr);
+				CPU_INSTR_MODE = INSTRUCTION_YES;
+				CPU_RUN_MODE = RUN_MODE_NORMAL;
+				return;
+			case 11: /* Bus Error (Long Bus Cycle) */
+				new_sr = m68ki_pull_16();
+				new_pc = m68ki_pull_32();
+				m68ki_fake_pull_16();			/* format word */
+				m68ki_fake_pull_16();			/* internal register */
+				exception_ssw = m68ki_pull_16();	/* special status word */
+				m68ki_fake_pull_16();			/* instruction pipe stage c */
+				m68ki_fake_pull_16();			/* instruction pipe stage b */
+				m68ki_fake_pull_32();			/* data cycle fault address */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* data output buffer */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* stage B address */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* data input buffer */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_16();			/* internal register */
+				m68ki_fake_pull_16();			/* version/internal information */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				m68ki_fake_pull_32();			/* internal register x 2 */
+				/* Check whether to skip instruction that caused the fault */
+				if ((exception_ssw & SSW_DF) == 0) {
+					isize = m68k_disassemble(NULL, new_pc, C2503_CPU);
+					new_pc += isize;
+				}
 				m68ki_jump(new_pc);
 				m68ki_set_sr(new_sr);
 				CPU_INSTR_MODE = INSTRUCTION_YES;
