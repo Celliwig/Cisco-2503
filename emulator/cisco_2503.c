@@ -318,7 +318,8 @@ unsigned int cpu_read_byte(unsigned int address) {
 
 	if (cpu_real_read_byte(address, &tmp_int, true)) return tmp_int;
 
-	exit_error("Attempted to read byte from address %08x", address);
+	m68k_pulse_bus_error();
+//	exit_error("Attempted to read byte from address %08x", address);
 }
 
 unsigned int cpu_read_word(unsigned int address) {
@@ -338,7 +339,8 @@ unsigned int cpu_read_word(unsigned int address) {
 	if (io_channela_read_word(address, &tmp_int)) return tmp_int;
 	if (io_channelb_read_word(address, &tmp_int)) return tmp_int;
 
-	exit_error("Attempted to read word from address %08x", address);
+	m68k_pulse_bus_error();
+//	exit_error("Attempted to read word from address %08x", address);
 }
 
 unsigned int cpu_read_long(unsigned int address) {
@@ -358,7 +360,8 @@ unsigned int cpu_read_long(unsigned int address) {
 	if (io_channela_read_long(address, &tmp_int)) return tmp_int;
 	if (io_channelb_read_long(address, &tmp_int)) return tmp_int;
 
-	exit_error("Attempted to read long from address %08x", address);
+	m68k_pulse_bus_error();
+//	exit_error("Attempted to read long from address %08x", address);
 }
 
 void cpu_write_byte(unsigned int address, unsigned int value) {
