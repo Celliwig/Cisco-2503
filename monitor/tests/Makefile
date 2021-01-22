@@ -1,4 +1,4 @@
-TARGET = bus_error.srec divide_by_zero.srec trap0.srec
+TARGET = bus_error.srec divide_by_zero.srec sys_cntrl.srec trap0.srec
 
 all: $(TARGET)
 
@@ -15,6 +15,13 @@ divide_by_zero.srec: divide_by_zero.s
 	m68k-linux-gnu-as -m68000 -o divide_by_zero.o divide_by_zero.s
 	m68k-linux-gnu-objcopy -I elf32-m68k --srec-forceS3 -O srec divide_by_zero.o divide_by_zero.tmp
 	srec_cat divide_by_zero.tmp -offset 0x1000 -output divide_by_zero.srec -Motorola -Address_Length 4
+
+# System control registers
+#################################################################
+sys_cntrl.srec: sys_cntrl.s
+	m68k-linux-gnu-as -m68000 -o sys_cntrl.o sys_cntrl.s
+	m68k-linux-gnu-objcopy -I elf32-m68k --srec-forceS3 -O srec sys_cntrl.o sys_cntrl.tmp
+	srec_cat sys_cntrl.tmp -offset 0x1000 -output sys_cntrl.srec -Motorola -Address_Length 4
 
 # TRAP0
 #################################################################
