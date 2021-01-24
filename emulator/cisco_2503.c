@@ -63,8 +63,12 @@ unsigned int	g_int_controller_highest_int = 0;			// Highest pending interrupt
 unsigned int	g_fc;							// Current function code from CPU
 
 // NCurses interface
-unsigned int	emu_mem_dump_start = 0x00000000;			// Address to start memory dump from
 unsigned int	emu_breakpoint = 0x00000000;				// Breakpoint address
+bool		emu_breakpoint_mem = false;				// Set to true if a flagged region of memory is accessed
+unsigned int	emu_breakpoint_mem_start = 0xffffffff;			// Breakpoint memory start address
+unsigned int	emu_breakpoint_mem_end = 0xffffffff;			// Breakpoint memory end address
+unsigned int	emu_breakpoint_mem_match = 0xffffffff;			// Breakpoint memory address matched
+unsigned int	emu_mem_dump_start = 0x00000000;			// Address to start memory dump from
 unsigned char	emu_mem_dump_type = 0;					// Address space to dump
 bool		emu_show_duart = false;
 char		str_tmp_buf[512];					// Temporary string buffer
@@ -316,6 +320,11 @@ bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int, bool real_r
 unsigned int cpu_read_byte(unsigned int address) {
 	unsigned int tmp_int;
 
+	if ((emu_breakpoint_mem_start <= address) && (emu_breakpoint_mem_end >= address)) {
+		emu_breakpoint_mem = true;
+		emu_breakpoint_mem_match = address;
+	}
+
 	if (cpu_real_read_byte(address, &tmp_int, true)) return tmp_int;
 
 	m68k_pulse_bus_error();
@@ -329,6 +338,11 @@ unsigned int cpu_read_word(unsigned int address) {
 //	if(g_fc & 2) {
 //		return mem_pgrm_read_byte(address, true);
 //	}
+
+	if ((emu_breakpoint_mem_start <= address) && (emu_breakpoint_mem_end >= address)) {
+		emu_breakpoint_mem = true;
+		emu_breakpoint_mem_match = address;
+	}
 
 	if (mem_bootrom_read_word(address, &tmp_int)) return tmp_int;
 	if (mem_nvram_read_word(address, &tmp_int)) return tmp_int;
@@ -351,6 +365,11 @@ unsigned int cpu_read_long(unsigned int address) {
 //		return mem_pgrm_read_byte(address, true);
 //	}
 
+	if ((emu_breakpoint_mem_start <= address) && (emu_breakpoint_mem_end >= address)) {
+		emu_breakpoint_mem = true;
+		emu_breakpoint_mem_match = address;
+	}
+
 	if (mem_bootrom_read_long(address, &tmp_int)) return tmp_int;
 	if (mem_nvram_read_long(address, &tmp_int)) return tmp_int;
 	if (mem_ram_read_long(address, &tmp_int)) return tmp_int;
@@ -369,6 +388,11 @@ void cpu_write_byte(unsigned int address, unsigned int value) {
 //	if(g_fc & 2) {
 //		return mem_pgrm_read_byte(address, true);
 //	}
+
+	if ((emu_breakpoint_mem_start <= address) && (emu_breakpoint_mem_end >= address)) {
+		emu_breakpoint_mem = true;
+		emu_breakpoint_mem_match = address;
+	}
 
 	if (mem_nvram_write_byte(address, value)) return;
 	if (mem_ram_write_byte(address, value)) return;
@@ -389,6 +413,11 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 //		return mem_pgrm_read_byte(address, true);
 //	}
 
+	if ((emu_breakpoint_mem_start <= address) && (emu_breakpoint_mem_end >= address)) {
+		emu_breakpoint_mem = true;
+		emu_breakpoint_mem_match = address;
+	}
+
 	if (mem_nvram_write_word(address, value)) return;
 	if (mem_ram_write_word(address, value)) return;
 	if (io_68302_write_word(address, value)) return;
@@ -406,6 +435,11 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 //	if(g_fc & 2) {
 //		return mem_pgrm_read_byte(address, true);
 //	}
+
+	if ((emu_breakpoint_mem_start <= address) && (emu_breakpoint_mem_end >= address)) {
+		emu_breakpoint_mem = true;
+		emu_breakpoint_mem_match = address;
+	}
 
 	if (mem_nvram_write_long(address, value)) return;
 	if (mem_ram_write_long(address, value)) return;
@@ -781,6 +815,7 @@ bool is_hex_char(char value) {
 
 // Converts an ASCII hex character to it's equivalent value
 unsigned char ascii_2_hex(char value) {
+	if (value == '?') return 0;
 	if ((value >= '0') && (value <= '9')) return (value - '0');
 	if ((value >= 'A') && (value <= 'F')) return (10 + (value - 'A'));
 	if ((value >= 'a') && (value <= 'f')) return (10 + (value - 'a'));
@@ -919,11 +954,12 @@ unsigned char emu_win_status_ask_4_action(char *msg, unsigned char *store) {
 }
 
 // Uses the status window to display a message and input an address
-unsigned char emu_win_status_ask_4_hex32(char *msg, unsigned int *store) {
+// If range_allowed set, allow '?' to represent a range (not first digit), return value is the mask
+int emu_win_status_ask_4_hex32(char *msg, unsigned int *store, bool range_allowed) {
 	bool		input_loop = true;
 	char		hex_addr[8];
-	unsigned char	hex_digit_index, i, rtn = 0;
-	int		key_press;
+	unsigned char	hex_digit_index, i;
+	int		key_press, rtn = 0;
 	unsigned int	tmp_addr = 0;
 
 	nodelay(stdscr, false);							// Temporarily make key scanning blocking
@@ -944,17 +980,22 @@ unsigned char emu_win_status_ask_4_hex32(char *msg, unsigned int *store) {
 			emu_win_resize();					// Handle terminal resize
 		} else if ((key_press == KEY_ENTER) || (key_press == '\n')) {
 			if (hex_digit_index > 0) {
-				// Convert characters to integer address
-				for (i = 0; i < hex_digit_index; i++) {
-					if (i > 0) tmp_addr = tmp_addr << 4;
-					tmp_addr += ascii_2_hex(hex_addr[i]);
+				if (hex_addr[0] != '?') {
+					// Convert characters to integer address
+					for (i = 0; i < hex_digit_index; i++) {
+						if (i > 0) {
+							tmp_addr = tmp_addr << 4;
+							rtn = rtn << 4;
+						}
+						tmp_addr += ascii_2_hex(hex_addr[i]);
+						if (hex_addr[i] == '?') rtn += 0xf;
+					}
+					*store = tmp_addr;
+					input_loop = false;
 				}
-				rtn = 1;
-				*store = tmp_addr;
-				input_loop = false;
 			}
 		} else if (key_press == 0x1b) {					// Escape
-			rtn = 0;
+			rtn = -1;
 			input_loop = false;
 		} else if (key_press == KEY_BACKSPACE) {
 			// Decrement index if not first digit
@@ -968,6 +1009,11 @@ unsigned char emu_win_status_ask_4_hex32(char *msg, unsigned int *store) {
 				hex_addr[hex_digit_index] = key_press;		// Save hex character in store
 				hex_digit_index++;				// Increment index
 			}
+		} else if (range_allowed && (key_press == '?')) {		// If an address range is allowed, allow '?' character
+			if (hex_digit_index < 8) {				// Check that there's room
+				hex_addr[hex_digit_index] = key_press;		// Save hex character in store
+				hex_digit_index++;				// Increment index
+			}
 		}
 	}
 
@@ -977,8 +1023,19 @@ unsigned char emu_win_status_ask_4_hex32(char *msg, unsigned int *store) {
 
 // Uses the status window to accept an address to set as a breakpoint
 void emu_set_breakpoint() {
-	if (emu_win_status_ask_4_hex32("Breakpoint Addr", &emu_breakpoint)) {
+	if (emu_win_status_ask_4_hex32("Breakpoint Addr", &emu_breakpoint, false) >= 0) {
 		sprintf(str_tmp_buf, "Breakpoint set: 0x%x", emu_breakpoint);
+		emu_status_message(str_tmp_buf);
+	} else {
+		emu_status_message("Canceled");
+	}
+}
+
+// Uses the status window to accept an address range to set as a memory breakpoint
+void emu_set_memory_breakpoint() {
+	if ((emu_breakpoint_mem_end = emu_win_status_ask_4_hex32("Breakpoint Memory Addr", &emu_breakpoint_mem_start, true)) >= 0) {
+		emu_breakpoint_mem_end = emu_breakpoint_mem_start | emu_breakpoint_mem_end;
+		sprintf(str_tmp_buf, "Breakpoint Memory: 0x%x-0x%x", emu_breakpoint_mem_start, emu_breakpoint_mem_end);
 		emu_status_message(str_tmp_buf);
 	} else {
 		emu_status_message("Canceled");
@@ -987,7 +1044,7 @@ void emu_set_breakpoint() {
 
 // Uses the status window to accept an address for the memory window
 void emu_set_memory_dump_addr() {
-	if (emu_win_status_ask_4_hex32("Memory Addr", &emu_mem_dump_start)) {
+	if (emu_win_status_ask_4_hex32("Memory Addr", &emu_mem_dump_start, false) >= 0) {
 		emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_SELECTED;
 	} else {
 		emu_status_message("Canceled");
@@ -998,7 +1055,7 @@ void emu_set_memory_dump_addr() {
 void emu_set_pc_reg_addr() {
 	unsigned int emu_pc_reg_newval;
 
-	if (emu_win_status_ask_4_hex32("Memory Addr", &emu_pc_reg_newval)) {
+	if (emu_win_status_ask_4_hex32("Memory Addr", &emu_pc_reg_newval, false) >= 0) {
 		m68k_set_reg(M68K_REG_PC, emu_pc_reg_newval);
 	} else {
 		emu_status_message("Canceled");
@@ -1036,7 +1093,7 @@ void emu_set_cpu_reg_val() {
 					return;
 				}
 			} else {
-				if (emu_win_status_ask_4_hex32("Set Register Value", &emu_reg_newval)) {
+				if (emu_win_status_ask_4_hex32("Set Register Value", &emu_reg_newval, false) >= 0) {
 					selected_reg = M68K_REG_D0;
 					if ((register_type == 'a') || (register_type == 'A')) selected_reg = M68K_REG_A0;
 					selected_reg += register_id;
@@ -1217,6 +1274,14 @@ int main(int argc, char* argv[]) {
 			emu_step = 0;						// Stop execution
 		}
 
+		// Check if memory breakpoint reached
+		if (emu_breakpoint_mem) {
+			sprintf(str_tmp_buf, "Memory Breakpoint Reached: 0x%x", emu_breakpoint_mem_match);
+			emu_status_message(str_tmp_buf);
+			emu_step = 0;						// Stop execution
+			emu_breakpoint_mem = false;
+		}
+
 		// Log if enabled
 		if (emu_logging) {
 			if (emu_logfile_fh != -1) {
@@ -1235,10 +1300,16 @@ int main(int argc, char* argv[]) {
 		if (key_press == KEY_RESIZE) {
 			// Handle terminal resize
 			emu_win_resize();
+		} else if (key_press == '<') {
+			emu_status_message("Step Back");
+			// Rollback instruction
+			m68k_set_reg(M68K_REG_PC, m68k_get_reg(NULL, M68K_REG_PPC));
 		} else if (key_press == 'a') {
 			emu_set_cpu_reg_val();
 		} else if (key_press == 'b') {
 			emu_set_breakpoint();
+		} else if (key_press == 'B') {
+			emu_set_memory_breakpoint();
 		} else if (key_press == 'I') {
 			emu_trigger_irq();
 		} else if (key_press == 'L') {
