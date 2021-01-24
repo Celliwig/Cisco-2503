@@ -999,8 +999,9 @@ int m68k_execute(int num_cycles)
 			m68ki_exception_if_trace(); /* auto-disable (see m68kcpu.h) */
 		} while(GET_CYCLES() > 0);
 
-		/* set previous PC to current PC for the next entry into the loop */
-		REG_PPC = REG_PC;
+		/* Why's this here? Incorrectly updates REG_PPC again. */
+//		/* set previous PC to current PC for the next entry into the loop */
+//		REG_PPC = REG_PC;
 	}
 	else
 		SET_CYCLES(0);
