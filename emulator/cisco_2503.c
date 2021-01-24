@@ -1224,7 +1224,7 @@ int main(int argc, char* argv[]) {
 					make_disasm_str(current_pc, 0);
 					write(emu_logfile_fh, str_tmp_buf, strlen(str_tmp_buf));
 					write(emu_logfile_fh, "\n", 1);
-					fsync(emu_logfile_fh);
+					//fsync(emu_logfile_fh);
 					emu_logging_lastpc = current_pc;
 				}
 			}
@@ -1244,7 +1244,11 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 'L') {
 			if (emu_logging) {
 				emu_logging = false;
-				if (emu_logfile_fh != -1) close(emu_logfile_fh);
+				if (emu_logfile_fh != -1) {
+					fsync(emu_logfile_fh);
+					close(emu_logfile_fh);
+					emu_logfile_fh = -1;
+				}
 				emu_status_message("Logging disabled");
 			} else {
 				emu_logging = true;
@@ -1283,7 +1287,7 @@ int main(int argc, char* argv[]) {
 			emu_step = -1;						// Run
 		} else if (key_press == 't') {
 			if (emu_sleep == 800) {
-				emu_sleep = 100;
+				emu_sleep = 10;
 				emu_status_message("Turbo On");
 			} else {
 				emu_sleep = 800;
