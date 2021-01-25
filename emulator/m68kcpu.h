@@ -1829,7 +1829,7 @@ static inline void m68ki_stack_frame_1011(uint sr, uint vector, uint pc)
 	m68ki_push_16(0);
 
 	/* SPECIAL STATUS REGISTER */
-	m68ki_push_16(0);
+	m68ki_push_16(0x3100);					/* Push re-run flags */
 
 	/* INTERNAL REGISTER */
 	m68ki_push_16(0);
