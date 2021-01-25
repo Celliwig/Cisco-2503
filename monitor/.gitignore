@@ -1,5 +1,8 @@
+junk/*
 *.bin
 *.elf
+*.fw1
+*.fw2
 *.hex
 *.lst
 *.o
