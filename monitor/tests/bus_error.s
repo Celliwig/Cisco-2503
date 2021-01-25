@@ -19,10 +19,11 @@
 	movea.l	#8, %a0							/* Address of bus error exception handler in EVT */
 	lea.l	bus_error_handler, %a1					/* Address of new bus error exception handler */
 	move.l	%a1, (%a0)						/* Save new exception handler */
-	movea.l	#0x02020000, %a0					/* Load A0 with an address which should cause a bus error */
+	movea.l	#0x012000ff, %a0					/* Load A0 with an address which should cause a bus error */
 	move.l	(%a0), %d0						/* Read from that address to cause exception */
 	rts
 
 bus_error_handler:
 	move.l	#0xabad1dea, %d0
+	andi.w	#0xceff, (0xa, %a7)					/* Clear re-run flags */
 	rte
