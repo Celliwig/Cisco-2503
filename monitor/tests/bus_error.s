@@ -15,12 +15,14 @@
 	dc.b	255,255,255,255                                         /* length and checksum (255=unused) */
 	.asciz	"Bus Error"
 
-/* NVRAM */
-#define	C2503_NVRAM_ADDR	0x02000000	/* NVRAM address */
-#define	C2503_NVRAM_SIZE	0x20000		/* NVRAM window size (128k, maybe actually 32k) */
-#define address_should_error	C2503_NVRAM_ADDR+C2503_NVRAM_SIZE
-
 .org	0x40
-	movea.l	address_should_error, %a0				/* Load A0 with an address which should cause a bus error */
+	movea.l	#8, %a0							/* Address of bus error exception handler in EVT */
+	lea.l	bus_error_handler, %a1					/* Address of new bus error exception handler */
+	move.l	%a1, (%a0)						/* Save new exception handler */
+	movea.l	#0x02020000, %a0					/* Load A0 with an address which should cause a bus error */
 	move.l	(%a0), %d0						/* Read from that address to cause exception */
 	rts
+
+bus_error_handler:
+	move.l	#0xabad1dea, %d0
+	rte
