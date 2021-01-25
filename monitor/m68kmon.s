@@ -164,6 +164,8 @@ exception_handler_unknown:
 #  (Assumes stacks working!!!)
 #	In:	A1 - Exception message
 exception_handler_base:
+	jsr	print_newline
+
 	# Print top border
 	mov.b	#M68KMON_EXCEPTION_BORDER_CHAR, %d0
 	mov.w	#M68KMON_EXCEPTION_BORDER_WIDTH, %d1
