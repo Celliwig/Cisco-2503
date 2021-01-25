@@ -36,6 +36,10 @@ system_init_delay_loop:
 	subq.l	#0x1, %d0
 	bgt.w	system_init_delay_loop
 
+	/* Set/Reset VBR */
+	move.l  #0x0, %a0
+	movec   %a0, %VBR
+
 	/* Swap out boot ROM */
 	movea.l	#0x2110000, %a0
 	move.w	(%a0), %d0
@@ -77,6 +81,10 @@ startup_cmd_console_clear:						/* Drain existing data from console UART */
 	jsr	scn2681_in_A_nocheck
 	jsr	scn2681_in_A_check					/* Check if there's any more data */
 	bne.s	startup_cmd_console_clear				/* Loop until buffer clear */
+
+	/* Detect and configure EPROM & RAM */
+	# Need to write
+	#movea.l #0x2110002, %a0						/* System config register 2 */
 
 	rts
 
