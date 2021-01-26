@@ -345,6 +345,116 @@ register_tool_write:
 	jsr	print_str_simple
 	jsr	print_newline
 
+	lea	str_action_write, %a0					/* Request address */
+	jsr	print_str_simple
+	jsr	print_space
+	lea	str_mem_address, %a0
+	jsr	print_str_simple
+	jsr	input_hex32						/* Get address */
+	bcc.w	register_tool_abort
+	move.l	%d0, %d4						/* Save address */
+
+	jsr	print_newline
+	lea	str_action_write, %a0					/* Request operation width */
+	jsr	print_str_simple
+	jsr	print_space
+	lea	str_opwidth, %a0
+	jsr	print_str_simple
+register_tool_write_opwidth_loop:
+	jsr	console_in						/* Get operation width */
+	jsr	char_2_upper						/* Convert to upper to simplify matching */
+	cmp.b	#'B', %d0
+	beq.s	register_tool_write_byte
+	cmp.b	#'W', %d0
+	beq.s	register_tool_write_word
+	cmp.b	#'L', %d0
+	beq.w	register_tool_write_long
+	cmp.b	#0x1b, %d0						/* Escape */
+	beq.w	register_tool_abort
+	bra.s	register_tool_write_opwidth_loop
+
+register_tool_write_byte:
+	lea	str_opwidth_byte, %a0
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_value, %a0						/* Request value */
+	jsr	print_str_simple
+	jsr	input_hex8						/* Get value */
+	bcc.w	register_tool_abort					/* Canceled */
+	move.l	%d0, %d5						/* Save value */
+
+	jsr	print_newline
+	lea	str_action_write, %a0
+	jsr	print_str_simple
+	jsr	print_space
+	move.l	%d4, %d3						/* Print address */
+	jsr	print_hex32
+	jsr	print_colon_space
+	move.l	%d4, %a0
+	move.b	%d5, (%a0)						/* Write data */
+	lea	flag_bus_error, %a0					/* Get address of bus error flag */
+	tst.b	(%a0)							/* Check flag state */
+	bne.w	print_bus_error
+	move.b	%d5, %d1
+	jsr	print_hex8
+	jsr	print_newline
+	jsr	print_newline
+	rts
+
+register_tool_write_word:
+	lea	str_opwidth_word, %a0
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_value, %a0						/* Request value */
+	jsr	print_str_simple
+	jsr	input_hex16						/* Get value */
+	bcc.w	register_tool_abort					/* Canceled */
+	move.l	%d0, %d5						/* Save value */
+
+	jsr	print_newline
+	lea	str_action_write, %a0
+	jsr	print_str_simple
+	jsr	print_space
+	move.l	%d4, %d3						/* Print address */
+	jsr	print_hex32
+	jsr	print_colon_space
+	move.l	%d4, %a0
+	move.w	%d5, (%a0)						/* Write data */
+	lea	flag_bus_error, %a0					/* Get address of bus error flag */
+	tst.b	(%a0)							/* Check flag state */
+	bne.w	print_bus_error
+	move.w	%d5, %d2
+	jsr	print_hex16
+	jsr	print_newline
+	jsr	print_newline
+	rts
+
+register_tool_write_long:
+	lea	str_opwidth_long, %a0
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_value, %a0						/* Request value */
+	jsr	print_str_simple
+	jsr	input_hex32						/* Get value */
+	bcc.w	register_tool_abort					/* Canceled */
+	move.l	%d0, %d5						/* Save value */
+
+	jsr	print_newline
+	lea	str_action_write, %a0
+	jsr	print_str_simple
+	jsr	print_space
+	move.l	%d4, %d3						/* Print address */
+	jsr	print_hex32
+	jsr	print_colon_space
+	move.l	%d4, %a0
+	move.l	%d5, (%a0)						/* Write data */
+	lea	flag_bus_error, %a0					/* Get address of bus error flag */
+	tst.b	(%a0)							/* Check flag state */
+	bne.w	print_bus_error
+	move.l	%d5, %d3
+	jsr	print_hex32
+	jsr	print_newline
+	jsr	print_newline
 	rts
 
 # AND action
@@ -354,6 +464,116 @@ register_tool_and:
 	jsr	print_str_simple
 	jsr	print_newline
 
+	lea	str_action_and, %a0					/* Request address */
+	jsr	print_str_simple
+	jsr	print_space
+	lea	str_mem_address, %a0
+	jsr	print_str_simple
+	jsr	input_hex32						/* Get address */
+	bcc.w	register_tool_abort
+	move.l	%d0, %d4						/* Save address */
+
+	jsr	print_newline
+	lea	str_action_and, %a0					/* Request operation width */
+	jsr	print_str_simple
+	jsr	print_space
+	lea	str_opwidth, %a0
+	jsr	print_str_simple
+register_tool_and_opwidth_loop:
+	jsr	console_in						/* Get operation width */
+	jsr	char_2_upper						/* Convert to upper to simplify matching */
+	cmp.b	#'B', %d0
+	beq.s	register_tool_and_byte
+	cmp.b	#'W', %d0
+	beq.s	register_tool_and_word
+	cmp.b	#'L', %d0
+	beq.w	register_tool_and_long
+	cmp.b	#0x1b, %d0						/* Escape */
+	beq.w	register_tool_abort
+	bra.s	register_tool_and_opwidth_loop
+
+register_tool_and_byte:
+	lea	str_opwidth_byte, %a0
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_value, %a0						/* Request value */
+	jsr	print_str_simple
+	jsr	input_hex8						/* Get value */
+	bcc.w	register_tool_abort					/* Canceled */
+	move.l	%d0, %d5						/* Save value */
+
+	jsr	print_newline
+	lea	str_action_and, %a0
+	jsr	print_str_simple
+	jsr	print_space
+	move.l	%d4, %d3						/* Print address */
+	jsr	print_hex32
+	jsr	print_colon_space
+	move.l	%d4, %a0
+	and.b	%d5, (%a0)						/* AND data */
+	lea	flag_bus_error, %a0					/* Get address of bus error flag */
+	tst.b	(%a0)							/* Check flag state */
+	bne.w	print_bus_error
+	move.b	%d5, %d1
+	jsr	print_hex8
+	jsr	print_newline
+	jsr	print_newline
+	rts
+
+register_tool_and_word:
+	lea	str_opwidth_word, %a0
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_value, %a0						/* Request value */
+	jsr	print_str_simple
+	jsr	input_hex16						/* Get value */
+	bcc.w	register_tool_abort					/* Canceled */
+	move.l	%d0, %d5						/* Save value */
+
+	jsr	print_newline
+	lea	str_action_and, %a0
+	jsr	print_str_simple
+	jsr	print_space
+	move.l	%d4, %d3						/* Print address */
+	jsr	print_hex32
+	jsr	print_colon_space
+	move.l	%d4, %a0
+	and.w	%d5, (%a0)						/* AND data */
+	lea	flag_bus_error, %a0					/* Get address of bus error flag */
+	tst.b	(%a0)							/* Check flag state */
+	bne.w	print_bus_error
+	move.w	%d5, %d2
+	jsr	print_hex16
+	jsr	print_newline
+	jsr	print_newline
+	rts
+
+register_tool_and_long:
+	lea	str_opwidth_long, %a0
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_value, %a0						/* Request value */
+	jsr	print_str_simple
+	jsr	input_hex32						/* Get value */
+	bcc.w	register_tool_abort					/* Canceled */
+	move.l	%d0, %d5						/* Save value */
+
+	jsr	print_newline
+	lea	str_action_and, %a0
+	jsr	print_str_simple
+	jsr	print_space
+	move.l	%d4, %d3						/* Print address */
+	jsr	print_hex32
+	jsr	print_colon_space
+	move.l	%d4, %a0
+	and.l	%d5, (%a0)						/* AND data */
+	lea	flag_bus_error, %a0					/* Get address of bus error flag */
+	tst.b	(%a0)							/* Check flag state */
+	bne.w	print_bus_error
+	move.l	%d5, %d3
+	jsr	print_hex32
+	jsr	print_newline
+	jsr	print_newline
 	rts
 
 # OR action
@@ -363,20 +583,131 @@ register_tool_or:
 	jsr	print_str_simple
 	jsr	print_newline
 
+	lea	str_action_or, %a0					/* Request address */
+	jsr	print_str_simple
+	jsr	print_space
+	lea	str_mem_address, %a0
+	jsr	print_str_simple
+	jsr	input_hex32						/* Get address */
+	bcc.w	register_tool_abort
+	move.l	%d0, %d4						/* Save address */
+
+	jsr	print_newline
+	lea	str_action_or, %a0					/* Request operation width */
+	jsr	print_str_simple
+	jsr	print_space
+	lea	str_opwidth, %a0
+	jsr	print_str_simple
+register_tool_or_opwidth_loop:
+	jsr	console_in						/* Get operation width */
+	jsr	char_2_upper						/* Convert to upper to simplify matching */
+	cmp.b	#'B', %d0
+	beq.s	register_tool_or_byte
+	cmp.b	#'W', %d0
+	beq.s	register_tool_or_word
+	cmp.b	#'L', %d0
+	beq.w	register_tool_or_long
+	cmp.b	#0x1b, %d0						/* Escape */
+	beq.w	register_tool_abort
+	bra.s	register_tool_or_opwidth_loop
+
+register_tool_or_byte:
+	lea	str_opwidth_byte, %a0
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_value, %a0						/* Request value */
+	jsr	print_str_simple
+	jsr	input_hex8						/* Get value */
+	bcc.w	register_tool_abort					/* Canceled */
+	move.l	%d0, %d5						/* Save value */
+
+	jsr	print_newline
+	lea	str_action_or, %a0
+	jsr	print_str_simple
+	jsr	print_space
+	move.l	%d4, %d3						/* Print address */
+	jsr	print_hex32
+	jsr	print_colon_space
+	move.l	%d4, %a0
+	or.b	%d5, (%a0)						/* Write data */
+	lea	flag_bus_error, %a0					/* Get address of bus error flag */
+	tst.b	(%a0)							/* Check flag state */
+	bne.w	print_bus_error
+	move.b	%d5, %d1
+	jsr	print_hex8
+	jsr	print_newline
+	jsr	print_newline
 	rts
 
-.org	0x400
+register_tool_or_word:
+	lea	str_opwidth_word, %a0
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_value, %a0						/* Request value */
+	jsr	print_str_simple
+	jsr	input_hex16						/* Get value */
+	bcc.w	register_tool_abort					/* Canceled */
+	move.l	%d0, %d5						/* Save value */
+
+	jsr	print_newline
+	lea	str_action_or, %a0
+	jsr	print_str_simple
+	jsr	print_space
+	move.l	%d4, %d3						/* Print address */
+	jsr	print_hex32
+	jsr	print_colon_space
+	move.l	%d4, %a0
+	or.w	%d5, (%a0)						/* Write data */
+	lea	flag_bus_error, %a0					/* Get address of bus error flag */
+	tst.b	(%a0)							/* Check flag state */
+	bne.w	print_bus_error
+	move.w	%d5, %d2
+	jsr	print_hex16
+	jsr	print_newline
+	jsr	print_newline
+	rts
+
+register_tool_or_long:
+	lea	str_opwidth_long, %a0
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_value, %a0						/* Request value */
+	jsr	print_str_simple
+	jsr	input_hex32						/* Get value */
+	bcc.w	register_tool_abort					/* Canceled */
+	move.l	%d0, %d5						/* Save value */
+
+	jsr	print_newline
+	lea	str_action_or, %a0
+	jsr	print_str_simple
+	jsr	print_space
+	move.l	%d4, %d3						/* Print address */
+	jsr	print_hex32
+	jsr	print_colon_space
+	move.l	%d4, %a0
+	or.l	%d5, (%a0)						/* Write data */
+	lea	flag_bus_error, %a0					/* Get address of bus error flag */
+	tst.b	(%a0)							/* Check flag state */
+	bne.w	print_bus_error
+	move.l	%d5, %d3
+	jsr	print_hex32
+	jsr	print_newline
+	jsr	print_newline
+	rts
+
+.org	0x800
 flag_bus_error:		dc.b		0x00
 str_action:		.asciz		"Action [(R)ead/(W)rite/(A)nd/(O)r or (Q)uit]: "
 str_action_read:	.asciz		"Read"
 str_action_write:	.asciz		"Write"
-str_action_and:		.asciz		"And"
-str_action_or:		.asciz		"Or"
+str_action_and:		.asciz		"AND"
+str_action_or:		.asciz		"OR"
 str_action_quit:	.asciz		"Quit"
 str_banner:		.asciz		"   Register Tool   \n\r==================="
 str_bus_error:		.asciz		"Bus Error"
 str_canceled:		.asciz		"Canceled"
 str_mem_address:	.asciz		"Memory Address: 0x"
+str_okay:		.asciz		"Okay"
 str_opwidth:		.asciz		"Width [(B)yte/(W)ord/(L)ong]: "
 str_opwidth_byte:	.asciz		"Byte"
 str_opwidth_long:	.asciz		"Long"
@@ -396,7 +727,7 @@ str_sr_flags:		.asciz		"T1"
 			.asciz		"C"
 str_value:		.asciz		"Value: 0x"
 
-.org	0x500
+.org	0x920
 ######################################################################################################################################################
 # From m68kmon.s
 ######################################################################################################################################################
