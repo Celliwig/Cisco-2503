@@ -6,6 +6,18 @@
 /* Time between characters sent to output device (seconds) */
 #define OUTPUT_DEVICE_PERIOD		1
 
+// System Register Intergrator
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+void disableSRI();
+void enableSRI();
+int getSRIFD();
+void setSRIFD(int fd);
+bool statusSRI();
+bool sriReadRequest(unsigned int address, unsigned char op_width, unsigned int *value);
+bool sriReadByte(unsigned int address, unsigned int *value);
+bool sriReadWord(unsigned int address, unsigned int *value);
+bool sriReadLong(unsigned int address, unsigned int *value);
 
 // Boot ROM
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -14,6 +26,7 @@
 #define C2503_BOOTROM_SIZE		0x200000			// 2MB Boot ROM
 
 bool mem_bootrom_init(FILE *fhandle);
+bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2);
 bool mem_bootrom_read_byte(unsigned address, unsigned int *value);
 bool mem_bootrom_read_word(unsigned address, unsigned int *value);
 bool mem_bootrom_read_long(unsigned address, unsigned int *value);
@@ -23,6 +36,7 @@ bool mem_bootrom_read_long(unsigned address, unsigned int *value);
 #define	C2503_NVRAM_ADDR		0x02000000			// NVRAM address
 #define	C2503_NVRAM_SIZE		0x20000				// NVRAM window size (128k, maybe actually 32k)
 
+void mem_nvram_init();
 bool mem_nvram_read_byte(unsigned address, unsigned int *value);
 bool mem_nvram_read_word(unsigned address, unsigned int *value);
 bool mem_nvram_read_long(unsigned address, unsigned int *value);

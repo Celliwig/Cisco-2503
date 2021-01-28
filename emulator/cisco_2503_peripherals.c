@@ -2,12 +2,87 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <string.h>
 //#include <time.h>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include "m68k.h"
 #include "cisco_2503.h"
 #include "cisco_2503_peripherals.h"
+
+// System Register Intergrator
+//////////////////////////////////////////////////////////////////////////////////////////////
+bool sri_enabled = false;					// Flag for System Register Integrator
+char sri_msg[0x20];						// SRI message buffer
+int  sri_fd = -1;						// File descriptor for SRI
+
+void disableSRI() { sri_enabled = false; }
+void enableSRI() { sri_enabled = true; }
+int getSRIFD() { return sri_fd; }
+void setSRIFD(int fd) { sri_fd = fd; }
+bool statusSRI() { return sri_enabled; }
+
+/* Use SRI to read a byte of data from specified address */
+bool sriReadRequest(unsigned int address, unsigned char op_width, unsigned int *value) {
+	bool loop = true;
+	unsigned char char_buffer = 0, char_index = 0, response_header;
+	unsigned int response_address, response_width, response_buserror, response_data;
+
+	if (sri_enabled && (sri_fd >= 0)) {
+		/* Prep SRI message */
+		sprintf(&sri_msg[0], "R%08x%02x\r\n", address, op_width);
+		write(sri_fd, &sri_msg, strlen(&sri_msg[0]));
+
+		/* Read response */
+		while (loop) {
+			if (read(sri_fd, &char_buffer, 1) == 1) {
+				/* Ignore carriage return/newline while buffer empty */
+				if ((char_buffer  == '\r') || (char_buffer == '\n')) {
+					if (char_index > 0) loop = false;
+				} else {
+					sri_msg[char_index] = char_buffer;
+					char_index++;
+				}
+			}
+		}
+
+		/* Process response */
+		/* First, check response length */
+		switch (op_width) {
+			case 1:
+				if (char_index != 15) return false;
+				break;
+			case 2:
+				if (char_index != 17) return false;
+				break;
+			case 4:
+				if (char_index != 21) return false;
+				break;
+			default:
+				return false;
+				break;
+		}
+		/* Parse response */
+		if (sscanf(&sri_msg[0], "%c%8x%2x%2x%8x", &response_header, &response_address, &response_width, &response_buserror, &response_data) == 5) {
+			if ((response_header == 'R') && (response_address == address) && (response_width == op_width)) {
+				if (response_buserror) {
+					m68k_pulse_bus_error();
+					return false;
+				} else {
+					*value = response_data;
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+bool sriReadByte(unsigned int address, unsigned int *value) { return sriReadRequest(address, 1, value); }
+bool sriReadWord(unsigned int address, unsigned int *value) { return sriReadRequest(address, 2, value); }
+bool sriReadLong(unsigned int address, unsigned int *value) { return sriReadRequest(address, 4, value); }
 
 // System Registers
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,7 +108,9 @@ void io_system_core_init() {
 	}
 }
 
-bool io_system_read_byte(unsigned address, unsigned int *value) {
+bool io_system_read_byte(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 //	// System control register 1
 //	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
 //		*value = READ_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
@@ -57,7 +134,9 @@ bool io_system_read_byte(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_system_read_word(unsigned address, unsigned int *value) {
+bool io_system_read_word(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	// System control register 1
 	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
 		*value = g_io_sys_control1;
@@ -86,7 +165,9 @@ bool io_system_read_word(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_system_read_long(unsigned address, unsigned int *value) {
+bool io_system_read_long(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 //#if C2503_IO_SYS_CONTROL1_SIZE >= 4
 //	// System control register 1
 //	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
@@ -118,7 +199,7 @@ bool io_system_read_long(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_system_write_byte(unsigned address, unsigned int value) {
+bool io_system_write_byte(unsigned int address, unsigned int value) {
 //	// System control register 1
 //	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
 //		WRITE_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
@@ -142,7 +223,7 @@ bool io_system_write_byte(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_system_write_word(unsigned address, unsigned int value) {
+bool io_system_write_word(unsigned int address, unsigned int value) {
 	// System control register 1
 	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
 		g_io_sys_control1 = (short) value;
@@ -171,7 +252,7 @@ bool io_system_write_word(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_system_write_long(unsigned address, unsigned int value) {
+bool io_system_write_long(unsigned int address, unsigned int value) {
 //#if C2503_IO_SYS_CONTROL1_SIZE >= 4
 //	// System control register 1
 //	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
@@ -253,7 +334,7 @@ bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2) {
 	return true;
 }
 
-bool mem_bootrom_read_byte(unsigned address, unsigned int *value) {
+bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \
 							((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) > 0)) {
@@ -268,7 +349,7 @@ bool mem_bootrom_read_byte(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool mem_bootrom_read_word(unsigned address, unsigned int *value) {
+bool mem_bootrom_read_word(unsigned int address, unsigned int *value) {
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \
 							((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) > 0)) {
@@ -283,7 +364,7 @@ bool mem_bootrom_read_word(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool mem_bootrom_read_long(unsigned address, unsigned int *value) {
+bool mem_bootrom_read_long(unsigned int address, unsigned int *value) {
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \
 							((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) > 0)) {
@@ -311,7 +392,7 @@ void mem_nvram_init() {
 	g_nvram[3] = 0x01;
 }
 
-bool mem_nvram_read_byte(unsigned address, unsigned int *value) {
+bool mem_nvram_read_byte(unsigned int address, unsigned int *value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
 		*value = READ_BYTE(g_nvram, address - C2503_NVRAM_ADDR);
 		return true;
@@ -319,7 +400,7 @@ bool mem_nvram_read_byte(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool mem_nvram_read_word(unsigned address, unsigned int *value) {
+bool mem_nvram_read_word(unsigned int address, unsigned int *value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
 		*value = READ_WORD(g_nvram, address - C2503_NVRAM_ADDR);
 		return true;
@@ -327,7 +408,7 @@ bool mem_nvram_read_word(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool mem_nvram_read_long(unsigned address, unsigned int *value) {
+bool mem_nvram_read_long(unsigned int address, unsigned int *value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
 		*value = READ_LONG(g_nvram, address - C2503_NVRAM_ADDR);
 		return true;
@@ -335,7 +416,7 @@ bool mem_nvram_read_long(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool mem_nvram_write_byte(unsigned address, unsigned int value) {
+bool mem_nvram_write_byte(unsigned int address, unsigned int value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
 		WRITE_BYTE(g_nvram, address - C2503_NVRAM_ADDR, value);
 		return true;
@@ -343,7 +424,7 @@ bool mem_nvram_write_byte(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool mem_nvram_write_word(unsigned address, unsigned int value) {
+bool mem_nvram_write_word(unsigned int address, unsigned int value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
 		WRITE_WORD(g_nvram, address - C2503_NVRAM_ADDR, value);
 		return true;
@@ -351,7 +432,7 @@ bool mem_nvram_write_word(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool mem_nvram_write_long(unsigned address, unsigned int value) {
+bool mem_nvram_write_long(unsigned int address, unsigned int value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
 		WRITE_LONG(g_nvram, address - C2503_NVRAM_ADDR, value);
 		return true;
@@ -364,7 +445,7 @@ bool mem_nvram_write_long(unsigned address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char g_ram[C2503_RAM_SIZE];
 
-bool mem_ram_read_byte(unsigned address, unsigned int *value) {
+bool mem_ram_read_byte(unsigned int address, unsigned int *value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
@@ -377,7 +458,7 @@ bool mem_ram_read_byte(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool mem_ram_read_word(unsigned address, unsigned int *value) {
+bool mem_ram_read_word(unsigned int address, unsigned int *value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
@@ -390,7 +471,7 @@ bool mem_ram_read_word(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool mem_ram_read_long(unsigned address, unsigned int *value) {
+bool mem_ram_read_long(unsigned int address, unsigned int *value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
@@ -403,7 +484,7 @@ bool mem_ram_read_long(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool mem_ram_write_byte(unsigned address, unsigned int value) {
+bool mem_ram_write_byte(unsigned int address, unsigned int value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
@@ -416,7 +497,7 @@ bool mem_ram_write_byte(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool mem_ram_write_word(unsigned address, unsigned int value) {
+bool mem_ram_write_word(unsigned int address, unsigned int value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
@@ -429,7 +510,7 @@ bool mem_ram_write_word(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool mem_ram_write_long(unsigned address, unsigned int value) {
+bool mem_ram_write_long(unsigned int address, unsigned int value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
 						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
@@ -449,7 +530,7 @@ bool mem_ram_write_long(unsigned address, unsigned int value) {
 unsigned char g_io_68302_reg[C2503_IO_68302_REG_SIZE];
 unsigned char g_io_68302_mem[C2503_IO_68302_RAM_SIZE];
 
-bool io_68302_read_byte(unsigned address, unsigned int *value) {
+bool io_68302_read_byte(unsigned int address, unsigned int *value) {
 	// 68302 registers
 	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
 		*value = READ_BYTE(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
@@ -463,7 +544,7 @@ bool io_68302_read_byte(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_68302_read_word(unsigned address, unsigned int *value) {
+bool io_68302_read_word(unsigned int address, unsigned int *value) {
 #if C2503_IO_68302_REG_SIZE >= 2
 	// 68302 registers
 	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
@@ -481,7 +562,7 @@ bool io_68302_read_word(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_68302_read_long(unsigned address, unsigned int *value) {
+bool io_68302_read_long(unsigned int address, unsigned int *value) {
 #if C2503_IO_68302_REG_SIZE >= 4
 	// 68302 registers
 	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
@@ -499,7 +580,7 @@ bool io_68302_read_long(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_68302_write_byte(unsigned address, unsigned int value) {
+bool io_68302_write_byte(unsigned int address, unsigned int value) {
 	// 68302 registers
 	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
 		WRITE_BYTE(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
@@ -513,7 +594,7 @@ bool io_68302_write_byte(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_68302_write_word(unsigned address, unsigned int value) {
+bool io_68302_write_word(unsigned int address, unsigned int value) {
 #if C2503_IO_68302_REG_SIZE >= 2
 	// 68302 registers
 	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
@@ -531,7 +612,7 @@ bool io_68302_write_word(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_68302_write_long(unsigned address, unsigned int value) {
+bool io_68302_write_long(unsigned int address, unsigned int value) {
 #if C2503_IO_68302_REG_SIZE >= 4
 	// 68302 registers
 	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
@@ -555,7 +636,7 @@ bool io_68302_write_long(unsigned address, unsigned int value) {
 unsigned char g_io_counter[C2503_IO_COUNTER_TIMER_SIZE];
 unsigned char g_io_counter_cntl[C2503_IO_COUNTER_CONTROL_SIZE];
 
-bool io_counter_read_byte(unsigned address, unsigned int *value) {
+bool io_counter_read_byte(unsigned int address, unsigned int *value) {
 	// Counter/Timer register
 	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
 		*value = READ_BYTE(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
@@ -569,7 +650,7 @@ bool io_counter_read_byte(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_counter_read_word(unsigned address, unsigned int *value) {
+bool io_counter_read_word(unsigned int address, unsigned int *value) {
 #if C2503_IO_COUNTER_TIMER_SIZE >= 2
 	// Counter/Timer register
 	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
@@ -587,7 +668,7 @@ bool io_counter_read_word(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_counter_read_long(unsigned address, unsigned int *value) {
+bool io_counter_read_long(unsigned int address, unsigned int *value) {
 #if C2503_IO_COUNTER_TIMER_SIZE >= 4
 	// Counter/Timer register
 	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
@@ -605,7 +686,7 @@ bool io_counter_read_long(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_counter_write_byte(unsigned address, unsigned int value) {
+bool io_counter_write_byte(unsigned int address, unsigned int value) {
 	// Counter/Timer register
 	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
 		WRITE_BYTE(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
@@ -619,7 +700,7 @@ bool io_counter_write_byte(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_counter_write_word(unsigned address, unsigned int value) {
+bool io_counter_write_word(unsigned int address, unsigned int value) {
 #if C2503_IO_COUNTER_TIMER_SIZE >= 2
 	// Counter/Timer register
 	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
@@ -637,7 +718,7 @@ bool io_counter_write_word(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_counter_write_long(unsigned address, unsigned int value) {
+bool io_counter_write_long(unsigned int address, unsigned int value) {
 #if C2503_IO_COUNTER_TIMER_SIZE >= 4
 	// Counter/Timer register
 	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
@@ -1159,7 +1240,6 @@ void io_duart_core_init() {
 //////////////////////////////////////////////////////////////////////////////////////////////
 void io_duart_core_clock_tick() {
 	char	tmp_buffer;
-	unsigned char i;
 
 	// Channel A Registers
 	// Read one byte (if available) from serial device
@@ -1303,7 +1383,7 @@ void io_duart_core_clock_tick() {
 // Read a byte from address in to value from the DUART core
 // Some register update when read, when real_read is false disables that behaviour (needed for memory dump display)
 //////////////////////////////////////////////////////////////////////////////////////////////
-bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
+bool io_duart_read_byte(unsigned int address, unsigned int *value, bool real_read) {
 	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
 		switch (address - C2503_IO_DUART_ADDR) {
 			case SCN2681_REG_RD_MODE_A:				// Channel A: Mode Register 1/2
@@ -1403,7 +1483,7 @@ bool io_duart_read_byte(unsigned address, unsigned int *value, bool real_read) {
 
 // Write value to address in the DUART core
 //////////////////////////////////////////////////////////////////////////////////////////////
-bool io_duart_write_byte(unsigned address, unsigned int value) {
+bool io_duart_write_byte(unsigned int address, unsigned int value) {
 	if ((address >= C2503_IO_DUART_ADDR) && (address < (C2503_IO_DUART_ADDR + C2503_IO_DUART_SIZE))) {
 		switch (address - C2503_IO_DUART_ADDR) {
 			case SCN2681_REG_WR_MODE_A:			// Channel A: Mode Register 1/2
@@ -1520,7 +1600,7 @@ bool io_duart_write_byte(unsigned address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char g_io_chnla_lance[C2503_IO_CHANNELA_LANCE_SIZE];
 
-bool io_channela_read_byte(unsigned address, unsigned int *value) {
+bool io_channela_read_byte(unsigned int address, unsigned int *value) {
 	// Channel A: LANCE
 	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
 		*value = READ_BYTE(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
@@ -1529,7 +1609,7 @@ bool io_channela_read_byte(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_channela_read_word(unsigned address, unsigned int *value) {
+bool io_channela_read_word(unsigned int address, unsigned int *value) {
 #if C2503_IO_CHANNELA_LANCE_SIZE >= 2
 	// Channel A: LANCE
 	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
@@ -1540,7 +1620,7 @@ bool io_channela_read_word(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_channela_read_long(unsigned address, unsigned int *value) {
+bool io_channela_read_long(unsigned int address, unsigned int *value) {
 #if C2503_IO_CHANNELA_LANCE_SIZE >= 4
 	// Channel A: LANCE
 	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
@@ -1551,7 +1631,7 @@ bool io_channela_read_long(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_channela_write_byte(unsigned address, unsigned int value) {
+bool io_channela_write_byte(unsigned int address, unsigned int value) {
 	// Channel A: LANCE
 	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
 		WRITE_BYTE(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
@@ -1560,7 +1640,7 @@ bool io_channela_write_byte(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_channela_write_word(unsigned address, unsigned int value) {
+bool io_channela_write_word(unsigned int address, unsigned int value) {
 #if C2503_IO_CHANNELA_LANCE_SIZE >= 2
 	// Channel A: LANCE
 	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
@@ -1571,7 +1651,7 @@ bool io_channela_write_word(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_channela_write_long(unsigned address, unsigned int value) {
+bool io_channela_write_long(unsigned int address, unsigned int value) {
 #if C2503_IO_CHANNELA_LANCE_SIZE >= 4
 	// Channel A: LANCE
 	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
@@ -1588,7 +1668,7 @@ bool io_channela_write_long(unsigned address, unsigned int value) {
 unsigned char g_io_chnlb_lance[C2503_IO_CHANNELB_LANCE_SIZE];
 unsigned char g_io_chnlb_serial[C2503_IO_CHANNELB_SERIAL_SIZE];
 
-bool io_channelb_read_byte(unsigned address, unsigned int *value) {
+bool io_channelb_read_byte(unsigned int address, unsigned int *value) {
 	// Channel B: LANCE/serial
 	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
 		*value = READ_BYTE(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
@@ -1602,7 +1682,7 @@ bool io_channelb_read_byte(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_channelb_read_word(unsigned address, unsigned int *value) {
+bool io_channelb_read_word(unsigned int address, unsigned int *value) {
 #if C2503_IO_CHANNELB_LANCE_SIZE >= 2
 	// Channel B: LANCE/serial
 	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
@@ -1620,7 +1700,7 @@ bool io_channelb_read_word(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_channelb_read_long(unsigned address, unsigned int *value) {
+bool io_channelb_read_long(unsigned int address, unsigned int *value) {
 #if C2503_IO_CHANNELB_LANCE_SIZE >= 4
 	// Channel B: LANCE/serial
 	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
@@ -1638,7 +1718,7 @@ bool io_channelb_read_long(unsigned address, unsigned int *value) {
 	return false;
 }
 
-bool io_channelb_write_byte(unsigned address, unsigned int value) {
+bool io_channelb_write_byte(unsigned int address, unsigned int value) {
 	// Channel B: LANCE/serial
 	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
 		WRITE_BYTE(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
@@ -1652,7 +1732,7 @@ bool io_channelb_write_byte(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_channelb_write_word(unsigned address, unsigned int value) {
+bool io_channelb_write_word(unsigned int address, unsigned int value) {
 #if C2503_IO_CHANNELB_LANCE_SIZE >= 2
 	// Channel B: LANCE/serial
 	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
@@ -1670,7 +1750,7 @@ bool io_channelb_write_word(unsigned address, unsigned int value) {
 	return false;
 }
 
-bool io_channelb_write_long(unsigned address, unsigned int value) {
+bool io_channelb_write_long(unsigned int address, unsigned int value) {
 #if C2503_IO_CHANNELB_LANCE_SIZE >= 4
 	// Channel B: LANCE/serial
 	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {

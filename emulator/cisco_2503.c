@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 #include "m68k.h"
 #include "cisco_2503.h"
 #include "cisco_2503_peripherals.h"
@@ -312,6 +313,7 @@ bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int, bool real_r
 	if (io_duart_read_byte(address, tmp_int, real_read)) return true;
 	if (io_channela_read_byte(address, tmp_int)) return true;
 	if (io_channelb_read_byte(address, tmp_int)) return true;
+	if (real_read) if (sriReadByte(address, tmp_int)) return true;
 
 	*tmp_int = -1;
 	return false;
@@ -352,6 +354,7 @@ unsigned int cpu_read_word(unsigned int address) {
 	if (io_counter_read_word(address, &tmp_int)) return tmp_int;
 	if (io_channela_read_word(address, &tmp_int)) return tmp_int;
 	if (io_channelb_read_word(address, &tmp_int)) return tmp_int;
+	if (sriReadWord(address, &tmp_int)) return tmp_int;
 
 	m68k_pulse_bus_error();
 //	exit_error("Attempted to read word from address %08x", address);
@@ -378,6 +381,7 @@ unsigned int cpu_read_long(unsigned int address) {
 	if (io_counter_read_long(address, &tmp_int)) return tmp_int;
 	if (io_channela_read_long(address, &tmp_int)) return tmp_int;
 	if (io_channelb_read_long(address, &tmp_int)) return tmp_int;
+	if (sriReadLong(address, &tmp_int)) return tmp_int;
 
 	m68k_pulse_bus_error();
 //	exit_error("Attempted to read long from address %08x", address);
@@ -1111,7 +1115,6 @@ void emu_set_cpu_reg_val() {
 void emu_trigger_irq() {
 	bool		input_loop = true;
 	char		tmp_store;
-	unsigned int	emu_irq_val;
 
 	while (input_loop) {
 		// Get interrupt number [1-7]
@@ -1160,13 +1163,14 @@ void print_usage() {
 //////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
 	FILE		*fh_bootrom1, *fh_bootrom2;
-	int		fd_serial, key_press, tmp_opt, tmp_pc;
+	int		fd_serial, fd_sri, key_press, tmp_opt, tmp_pc;
 	unsigned int	current_pc, emu_sleep = 800;
-	char		emu_step = 0, *bootrom_filename = NULL, *bootrom_filename_fw1 = NULL, *bootrom_filename_fw2 = NULL, *console_devname = NULL;
+	char		emu_step = 0, *bootrom_filename = NULL, *bootrom_filename_fw1 = NULL, *bootrom_filename_fw2 = NULL, *console_devname = NULL, *sri_devname = NULL;
 	struct termios	serial_fd_opts;
+	int serial_hs_status;
 
 	opterr = 0;
-	while ((tmp_opt = getopt(argc, argv, "b:s:1:2:")) != -1) {
+	while ((tmp_opt = getopt(argc, argv, "b:c:s:1:2:")) != -1) {
 		switch (tmp_opt) {
 			case '1':
 				bootrom_filename_fw1 = optarg;
@@ -1177,8 +1181,11 @@ int main(int argc, char* argv[]) {
 			case 'b':
 				bootrom_filename = optarg;
 				break;
-			case 's':
+			case 'c':
 				console_devname = optarg;
+				break;
+			case 's':
+				sri_devname = optarg;
 				break;
 			default:
 				print_usage();
@@ -1242,6 +1249,43 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	// Open SRI serial device, if it's been specified
+	if (sri_devname != NULL) {
+		if ((fd_sri = open(sri_devname, O_RDWR | O_NOCTTY | O_NDELAY)) == -1) {
+			printf("Unable to open %s\n", sri_devname);
+			exit(-1);
+		} else {
+			/* get the current options */
+			tcgetattr(fd_sri, &serial_fd_opts);
+
+			// Clear existing options
+			serial_fd_opts.c_cflag &= ~PARENB;
+			serial_fd_opts.c_cflag &= ~CSTOPB;
+			serial_fd_opts.c_cflag &= ~CSIZE;
+
+			/* set raw input, 1 second timeout */
+			serial_fd_opts.c_cflag |= (CLOCAL | CREAD | CS8);
+			serial_fd_opts.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+			serial_fd_opts.c_oflag &= ~OPOST;
+			serial_fd_opts.c_cc[VMIN] = 0;
+			serial_fd_opts.c_cc[VTIME] = 0;
+
+			/* Set baud rate */
+			cfsetispeed(&serial_fd_opts, B9600);
+			cfsetospeed(&serial_fd_opts, B9600);
+
+			/* set the options */
+			tcsetattr(fd_sri, TCSANOW, &serial_fd_opts);
+
+			/* Ensure RTS set */
+			ioctl(fd_sri, TIOCMGET, &serial_hs_status);
+			serial_hs_status |= TIOCM_RTS;
+			ioctl(fd_sri, TIOCMSET, &serial_hs_status);
+
+			setSRIFD(fd_sri);
+		}
+	}
+
 	// Init ncurses
 	initscr();
 	raw();									// Line buffering disabled
@@ -1300,6 +1344,16 @@ int main(int argc, char* argv[]) {
 		if (key_press == KEY_RESIZE) {
 			// Handle terminal resize
 			emu_win_resize();
+		} else if (key_press == '!') {
+			if (getSRIFD() != -1) {
+				if (statusSRI()) {
+					disableSRI();
+					emu_status_message("SRI disabled");
+				} else {
+					enableSRI();
+					emu_status_message("SRI enabled");
+				}
+			}
 		} else if (key_press == '<') {
 			emu_status_message("Step Back");
 			// Rollback instruction
