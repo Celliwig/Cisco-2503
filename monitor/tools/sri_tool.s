@@ -16,9 +16,9 @@
 #			AAAAAAAA - Address
 #			SS - Num. bytes (01/02/04)
 #	Read Response:
-#		RAAAAAAAA02BEVV
-#		RAAAAAAAA04BEVVVV
-#		RAAAAAAAA08BEVVVVVVVV
+#		RAAAAAAAA01BEVV
+#		RAAAAAAAA02BEVVVV
+#		RAAAAAAAA04BEVVVVVVVV
 #			R - Read Header
 #			AAAAAAAA - Address
 #			SS - Num. bytes (01/02/04)
@@ -33,11 +33,14 @@
 #			SS - Num. bytes (01/02/04)
 #			VVn - Value to write
 #	Write Response:
-#		WAAAAAAAASSBE
+#		WAAAAAAAA01BEVV
+#		WAAAAAAAA02BEVVVV
+#		WAAAAAAAA04BEVVVVVVVV
 #			W - Header
 #			AAAAAAAA - Address
 #			SS - Num. bytes (01/02/04)
 #			BE - 00 = No Bus Error / xx = Bus Error
+#			VVn - Value written
 
 .include "../cisco-2500/scn2681.h"
 .equiv	console_out, scn2681_out_A
@@ -86,6 +89,8 @@ sri_tool_cmd_store_char:
 	bra.s	sri_tool_cmd_loop					/* Loop for more characters */
 
 sri_tool_cmd_process:
+	cmp.b	#0x01, %d4						/* Check if this is just a carriage return/newline */
+	beq.s	sri_tool_cmd_init
 	lea	buffer_str, %a0						/* Load pointer to string buffer */
 	move.b	(%a0)+, %d0						/* Get command character */
 	jsr	char_2_upper						/* Convert to upper to simplify matching */
