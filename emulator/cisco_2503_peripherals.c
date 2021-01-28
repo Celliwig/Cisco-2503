@@ -129,7 +129,7 @@ bool sriReadLong(unsigned int address, unsigned int *value) { return sriReadRequ
 bool sriWriteRequest(unsigned int address, unsigned char op_width, unsigned int value) {
 	bool		loop = true;
 	unsigned char	char_buffer = 0, char_index = 0, response_header;
-	unsigned int	response_address, response_width, response_buserror;
+	unsigned int	response_address, response_width, response_buserror, response_data;
 	char	sri_request[SRI_BUFFER_SIZE];				// SRI request buffer
 	char	sri_response[SRI_BUFFER_SIZE];				// SRI response buffer
 	char	*str_eol = "\r\n";
@@ -166,10 +166,23 @@ bool sriWriteRequest(unsigned int address, unsigned char op_width, unsigned int 
 
 		/* Process response */
 		/* First, check response length */
-		if (char_index != 13) return false;
+		switch (op_width) {
+			case 1:
+				if (char_index != 15) return false;
+				break;
+			case 2:
+				if (char_index != 17) return false;
+				break;
+			case 4:
+				if (char_index != 21) return false;
+				break;
+			default:
+				return false;
+				break;
+		}
 		/* Parse response */
-		if (sscanf(&sri_response[0], "%c%8x%2x%2x", &response_header, &response_address, &response_width, &response_buserror) == 4) {
-			if ((response_header == 'W') && (response_address == address) && (response_width == op_width)) {
+		if (sscanf(&sri_response[0], "%c%8x%2x%2x%8x", &response_header, &response_address, &response_width, &response_buserror, &response_data) == 5) {
+			if ((response_header == 'W') && (response_address == address) && (response_width == op_width) && (response_data == value)) {
 				if (response_buserror) {
 					m68k_pulse_bus_error();
 					return false;
