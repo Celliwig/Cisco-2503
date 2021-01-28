@@ -1366,7 +1366,7 @@ int main(int argc, char* argv[]) {
 			emu_set_memory_breakpoint();
 		} else if (key_press == 'I') {
 			emu_trigger_irq();
-		} else if (key_press == 'L') {
+		} else if (key_press == 'l') {
 			if (emu_logging) {
 				emu_logging = false;
 				if (emu_logfile_fh != -1) {
@@ -1384,6 +1384,14 @@ int main(int argc, char* argv[]) {
 				} else {
 					emu_status_message("Logging enabled");
 				}
+			}
+		} else if (key_press == 'L') {
+			if (statusSRILogging()) {
+				disableSRILogging();
+				emu_status_message("SRI Logging disabled");
+			} else {
+				enableSRILogging();
+				emu_status_message("SRI Logging enabled");
 			}
 		} else if (key_press == 'P') {
 			emu_set_pc_reg_addr();

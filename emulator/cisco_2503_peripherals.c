@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <fcntl.h>
 #include <string.h>
 //#include <time.h>
 #include <unistd.h>
@@ -13,9 +14,11 @@
 
 // System Register Intergrator
 //////////////////////////////////////////////////////////////////////////////////////////////
-bool sri_enabled = false;					// Flag for System Register Integrator
-char sri_msg[0x20];						// SRI message buffer
-int  sri_fd = -1;						// File descriptor for SRI
+bool	sri_enabled = false;					// Flag for System Register Integrator
+int	sri_fd = -1;						// File descriptor for SRI
+char	*sri_logfile = "cisco_2503.sri.log";			// SRI logfile
+bool	sri_logfile_enabled = false;
+int	sri_logfile_fh = -1;
 
 void disableSRI() { sri_enabled = false; }
 void enableSRI() { sri_enabled = true; }
@@ -23,29 +26,67 @@ int getSRIFD() { return sri_fd; }
 void setSRIFD(int fd) { sri_fd = fd; }
 bool statusSRI() { return sri_enabled; }
 
+void disableSRILogging() {
+	sri_logfile_enabled = false;
+	if (sri_logfile_fh != -1) {
+		fsync(sri_logfile_fh);
+		close(sri_logfile_fh);
+		sri_logfile_fh = -1;
+	}
+}
+void enableSRILogging() {
+	sri_logfile_enabled = true;
+	sri_logfile_fh = open(sri_logfile, O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+}
+bool statusSRILogging() { return sri_logfile_enabled; }
+void writeSRILog(char *sri_request, char *sri_response) {
+	char log_buffer[(SRI_BUFFER_SIZE * 2) + 0x10];			/* Buffer sized to maximum size of request and response messages */
+									/* Plus a bit extra for spacing */
+
+	if (sri_logfile_enabled && (sri_logfile_fh != -1)) {
+		sprintf(&log_buffer[0], "%s - %s\n", sri_request, sri_response);
+		write(sri_logfile_fh, &log_buffer[0], strlen(&log_buffer[0]));
+	}
+}
+
 /* Use SRI to read a byte of data from specified address */
 bool sriReadRequest(unsigned int address, unsigned char op_width, unsigned int *value) {
-	bool loop = true;
-	unsigned char char_buffer = 0, char_index = 0, response_header;
-	unsigned int response_address, response_width, response_buserror, response_data;
+	bool		loop = true;
+	unsigned char	char_buffer = 0, char_index = 0, response_header;
+	unsigned int	response_address, response_width, response_buserror, response_data;
+	char	sri_request[SRI_BUFFER_SIZE];				// SRI request buffer
+	char	sri_response[SRI_BUFFER_SIZE];				// SRI response buffer
+	char	*str_eol = "\r\n";
 
 	if (sri_enabled && (sri_fd >= 0)) {
-		/* Prep SRI message */
-		sprintf(&sri_msg[0], "R%08x%02x\r\n", address, op_width);
-		write(sri_fd, &sri_msg, strlen(&sri_msg[0]));
+		/* Prep SRI request */
+		sprintf(&sri_request[0], "R%08x%02x", address, op_width);
+		/* Write out request */
+		write(sri_fd, &sri_request, strlen(&sri_request[0]));
+		write(sri_fd, str_eol, strlen(str_eol));
 
 		/* Read response */
 		while (loop) {
 			if (read(sri_fd, &char_buffer, 1) == 1) {
 				/* Ignore carriage return/newline while buffer empty */
 				if ((char_buffer  == '\r') || (char_buffer == '\n')) {
-					if (char_index > 0) loop = false;
+					if (char_index > 0) {
+						/* Add NULL character for SRI logging */
+						sri_response[char_index] = 0;
+						loop = false;
+					}
 				} else {
-					sri_msg[char_index] = char_buffer;
-					char_index++;
+					/* Check there's space in buffer */
+					if (char_index < SRI_BUFFER_SIZE) {
+						sri_response[char_index] = char_buffer;
+						char_index++;
+					}
 				}
 			}
 		}
+
+		/* Log request/response */
+		writeSRILog(&sri_request, &sri_response);
 
 		/* Process response */
 		/* First, check response length */
@@ -64,7 +105,7 @@ bool sriReadRequest(unsigned int address, unsigned char op_width, unsigned int *
 				break;
 		}
 		/* Parse response */
-		if (sscanf(&sri_msg[0], "%c%8x%2x%2x%8x", &response_header, &response_address, &response_width, &response_buserror, &response_data) == 5) {
+		if (sscanf(&sri_response[0], "%c%8x%2x%2x%8x", &response_header, &response_address, &response_width, &response_buserror, &response_data) == 5) {
 			if ((response_header == 'R') && (response_address == address) && (response_width == op_width)) {
 				if (response_buserror) {
 					m68k_pulse_bus_error();

@@ -8,12 +8,18 @@
 
 // System Register Intergrator
 //////////////////////////////////////////////////////////////////////////////////////////////
+#define SRI_BUFFER_SIZE			0x20
 
 void disableSRI();
 void enableSRI();
 int getSRIFD();
 void setSRIFD(int fd);
 bool statusSRI();
+
+void disableSRILogging();
+void enableSRILogging();
+bool statusSRILogging();
+
 bool sriReadRequest(unsigned int address, unsigned char op_width, unsigned int *value);
 bool sriReadByte(unsigned int address, unsigned int *value);
 bool sriReadWord(unsigned int address, unsigned int *value);
