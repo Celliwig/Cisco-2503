@@ -406,6 +406,7 @@ void cpu_write_byte(unsigned int address, unsigned int value) {
 	if (io_duart_write_byte(address, value)) return;
 	if (io_channela_write_byte(address, value)) return;
 	if (io_channelb_write_byte(address, value)) return;
+	if (sriWriteByte(address, value)) return;
 
 	m68k_pulse_bus_error();
 //	exit_error("Attempted to write byte to address %08x", address);
@@ -429,6 +430,7 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 	if (io_counter_write_word(address, value)) return;
 	if (io_channela_write_word(address, value)) return;
 	if (io_channelb_write_word(address, value)) return;
+	if (sriWriteWord(address, value)) return;
 
 	m68k_pulse_bus_error();
 //	exit_error("Attempted to write word to address %08x", address);
@@ -452,6 +454,7 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 	if (io_counter_write_long(address, value)) return;
 	if (io_channela_write_long(address, value)) return;
 	if (io_channelb_write_long(address, value)) return;
+	if (sriWriteLong(address, value)) return;
 
 	m68k_pulse_bus_error();
 //	exit_error("Attempted to write long to address %08x", address);

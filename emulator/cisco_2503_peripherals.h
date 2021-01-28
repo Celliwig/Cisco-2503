@@ -20,10 +20,12 @@ void disableSRILogging();
 void enableSRILogging();
 bool statusSRILogging();
 
-bool sriReadRequest(unsigned int address, unsigned char op_width, unsigned int *value);
 bool sriReadByte(unsigned int address, unsigned int *value);
 bool sriReadWord(unsigned int address, unsigned int *value);
 bool sriReadLong(unsigned int address, unsigned int *value);
+bool sriWriteByte(unsigned int address, unsigned int value);
+bool sriWriteWord(unsigned int address, unsigned int value);
+bool sriWriteLong(unsigned int address, unsigned int value);
 
 // Boot ROM
 //////////////////////////////////////////////////////////////////////////////////////////////

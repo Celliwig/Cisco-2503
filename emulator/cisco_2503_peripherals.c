@@ -125,6 +125,68 @@ bool sriReadByte(unsigned int address, unsigned int *value) { return sriReadRequ
 bool sriReadWord(unsigned int address, unsigned int *value) { return sriReadRequest(address, 2, value); }
 bool sriReadLong(unsigned int address, unsigned int *value) { return sriReadRequest(address, 4, value); }
 
+/* Use SRI to write a byte of data to the specified address */
+bool sriWriteRequest(unsigned int address, unsigned char op_width, unsigned int value) {
+	bool		loop = true;
+	unsigned char	char_buffer = 0, char_index = 0, response_header;
+	unsigned int	response_address, response_width, response_buserror;
+	char	sri_request[SRI_BUFFER_SIZE];				// SRI request buffer
+	char	sri_response[SRI_BUFFER_SIZE];				// SRI response buffer
+	char	*str_eol = "\r\n";
+
+	if (sri_enabled && (sri_fd >= 0)) {
+		/* Prep SRI request */
+		sprintf(&sri_request[0], "W%08x%02x%0*x", address, op_width, (op_width * 2), value);
+		/* Write out request */
+		write(sri_fd, &sri_request, strlen(&sri_request[0]));
+		write(sri_fd, str_eol, strlen(str_eol));
+
+		/* Read response */
+		while (loop) {
+			if (read(sri_fd, &char_buffer, 1) == 1) {
+				/* Ignore carriage return/newline while buffer empty */
+				if ((char_buffer  == '\r') || (char_buffer == '\n')) {
+					if (char_index > 0) {
+						/* Add NULL character for SRI logging */
+						sri_response[char_index] = 0;
+						loop = false;
+					}
+				} else {
+					/* Check there's space in buffer */
+					if (char_index < SRI_BUFFER_SIZE) {
+						sri_response[char_index] = char_buffer;
+						char_index++;
+					}
+				}
+			}
+		}
+
+		/* Log request/response */
+		writeSRILog(&sri_request, &sri_response);
+
+		/* Process response */
+		/* First, check response length */
+		if (char_index != 13) return false;
+		/* Parse response */
+		if (sscanf(&sri_response[0], "%c%8x%2x%2x", &response_header, &response_address, &response_width, &response_buserror) == 4) {
+			if ((response_header == 'W') && (response_address == address) && (response_width == op_width)) {
+				if (response_buserror) {
+					m68k_pulse_bus_error();
+					return false;
+				} else {
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+bool sriWriteByte(unsigned int address, unsigned int value) { return sriWriteRequest(address, 1, value); }
+bool sriWriteWord(unsigned int address, unsigned int value) { return sriWriteRequest(address, 2, value); }
+bool sriWriteLong(unsigned int address, unsigned int value) { return sriWriteRequest(address, 4, value); }
+
 // System Registers
 //////////////////////////////////////////////////////////////////////////////////////////////
 //unsigned char g_io_sys_cntl1[C2503_IO_SYS_CONTROL1_SIZE];
@@ -241,6 +303,8 @@ bool io_system_read_long(unsigned int address, unsigned int *value) {
 }
 
 bool io_system_write_byte(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass write
+
 //	// System control register 1
 //	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
 //		WRITE_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
@@ -265,6 +329,8 @@ bool io_system_write_byte(unsigned int address, unsigned int value) {
 }
 
 bool io_system_write_word(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass write
+
 	// System control register 1
 	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
 		g_io_sys_control1 = (short) value;
@@ -294,6 +360,8 @@ bool io_system_write_word(unsigned int address, unsigned int value) {
 }
 
 bool io_system_write_long(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass write
+
 //#if C2503_IO_SYS_CONTROL1_SIZE >= 4
 //	// System control register 1
 //	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
