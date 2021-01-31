@@ -829,6 +829,15 @@ unsigned char ascii_2_hex(char value) {
 	return -1;
 }
 
+// Returns true if character printable
+bool is_print_char(char value) {
+	if ((value >= 0x20) && (value < 0x7f)) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 // Draws, with borders, the various windows
 // Window creation and size is determined by the overall size of the terminal screen
 void emu_win_resize() {
@@ -1053,6 +1062,70 @@ void emu_set_memory_breakpoint() {
 void emu_set_memory_dump_addr() {
 	if (emu_win_status_ask_4_hex32("Memory Addr", &emu_mem_dump_start, false) >= 0) {
 		emu_mem_dump_type = (emu_mem_dump_type & EMU_WIN_MEM_DISP_SPACE) | EMU_WIN_MEM_DISP_SELECTED;
+	} else {
+		emu_status_message("Canceled");
+	}
+}
+
+// Uses the status window to accept an address range to dump to file
+void emu_dump_memory_2_file() {
+	unsigned int dump_mem_start, dump_mem_end;
+	bool loop = true;
+	char *dumpfile = "cisco_2503.mem.log", hex_buffer[16], tmp_char;
+	int dumpfile_fh = -1, i, tmp_int;
+
+	if (emu_win_status_ask_4_hex32("Memory Dump Start Addr", &dump_mem_start, false) >= 0) {
+		if (emu_win_status_ask_4_hex32("Memory Dump End Addr", &dump_mem_end, false) >= 0) {
+			if (dump_mem_start <= dump_mem_end) {
+				dumpfile_fh = open(dumpfile, O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+				if (dumpfile_fh == -1) {
+					emu_status_message("Failed to open log file.");
+				} else {
+					while (loop) {
+						// Print memory address
+						sprintf(&hex_buffer[0], "%08x: ", dump_mem_start);
+						write(dumpfile_fh, &hex_buffer[0], strlen(&hex_buffer[0]));
+
+						// Row of 16 hex digits
+						for (int i = 0x0; i < 0x10; i++) {
+							if (dump_mem_end < (dump_mem_start + i)) break;
+							cpu_real_read_byte(dump_mem_start + i, &tmp_int, false);
+							sprintf(&hex_buffer[0], "%02x ", tmp_int);
+							write(dumpfile_fh, &hex_buffer[0], strlen(&hex_buffer[0]));
+						}
+
+						write(dumpfile_fh, "\t", 1);
+
+						// Row of 16 characters
+						for (int i = 0x0; i < 0x10; i++) {
+							if (dump_mem_end < (dump_mem_start + i)) break;
+							cpu_real_read_byte(dump_mem_start + i, &tmp_int, false);
+							tmp_char = tmp_int & 0xff;
+							if (is_print_char(tmp_char)) {
+								write(dumpfile_fh, &tmp_char, 1);
+							} else {
+								write(dumpfile_fh, ".", 1);
+							}
+						}
+
+						write(dumpfile_fh, "\n", 1);
+
+						// Update start address for next row
+						dump_mem_start += 0x10;
+						if (dump_mem_end < dump_mem_start) loop = false;
+					}
+
+					fsync(dumpfile_fh);
+					close(dumpfile_fh);
+					dumpfile_fh = -1;
+					emu_status_message("Memory Range Dumped");
+				}
+			} else {
+				emu_status_message("Invalid Address Range");
+			}
+		} else {
+			emu_status_message("Canceled");
+		}
 	} else {
 		emu_status_message("Canceled");
 	}
@@ -1367,6 +1440,8 @@ int main(int argc, char* argv[]) {
 			emu_set_breakpoint();
 		} else if (key_press == 'B') {
 			emu_set_memory_breakpoint();
+		} else if (key_press == 'D') {
+			emu_dump_memory_2_file();
 		} else if (key_press == 'I') {
 			emu_trigger_irq();
 		} else if (key_press == 'l') {
