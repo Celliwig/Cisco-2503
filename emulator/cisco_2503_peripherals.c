@@ -206,9 +206,17 @@ bool sriWriteLong(unsigned int address, unsigned int value) { return sriWriteReq
 //unsigned char g_io_sys_cntl2[C2503_IO_SYS_CONTROL2_SIZE];
 unsigned char		g_io_sysid_cookie[C2503_IO_SYS_ID_COOKIE_SIZE];
 unsigned char		g_io_sys_status[C2503_IO_SYS_STATUS_SIZE];
+unsigned char		g_io_sysid_cookie2, g_x24c44_cmd_reg;
+unsigned short int	g_x24c44_shift_reg;
 
 unsigned short int 	g_io_sys_control1, \
 			g_io_sys_control2;
+
+// PROM Cookie (taken from hardware)
+// 0x0b, 0x01, 0x00, 0xe0, 0x1e, 0xb9, 0x23, 0x91, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00
+// 0x07, 0x00, 0x33, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+unsigned short cookie_prom_data[16] = { 0x0b01, 0x0700, 0x0600, 0x0000, 0x1eb9, 0x0000, 0x0100, 0x0000, \
+					0x00e0, 0x3370, 0x0000, 0x0000, 0x2391, 0x0000, 0x0000, 0x0000 };
 
 // Initialise (reset) system control core
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -222,6 +230,10 @@ void io_system_core_init() {
 //		g_io_sysid_cookie[i] = 0xf1;			// Alternate Cookie ID
 //		g_io_sysid_cookie[i] = 0x02;			// Alternate Cookie ID
 	}
+	// Init alternate System ID Cookie subsystem
+	g_io_sysid_cookie2 = 0x03;
+	g_x24c44_cmd_reg = 0x00;
+	g_x24c44_shift_reg = 0x0000;
 }
 
 bool io_system_read_byte(unsigned int address, unsigned int *value) {
@@ -237,9 +249,15 @@ bool io_system_read_byte(unsigned int address, unsigned int *value) {
 //		*value = READ_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
 //		return true;
 //	}
-	// System ID cookie
+	// System ID cookie (Old interface)
 	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
 		*value = READ_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
+		return true;
+	}
+	// System ID cookie (New interface)
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR2) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR2 + C2503_IO_SYS_ID_COOKIE_SIZE2))) {
+		// Bit 0 is the output from X24C44 EEPROM
+		*value = (g_io_sysid_cookie2 & 0xfe) | (g_x24c44_shift_reg & 0x0001);
 		return true;
 	}
 //	// System status register
@@ -328,9 +346,42 @@ bool io_system_write_byte(unsigned int address, unsigned int value) {
 //		WRITE_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
 //		return true;
 //	}
-	// System ID cookie
+	// System ID cookie (Old interface)
 	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
 		WRITE_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
+		return true;
+	}
+	// System ID cookie (New interface)
+	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR2) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR2 + C2503_IO_SYS_ID_COOKIE_SIZE2))) {
+		// Check if the PROM is selected
+		if (g_io_sysid_cookie2 & 0x08) {
+			// Check for clock pulse
+			if ((~g_io_sysid_cookie2 & value) & 0x04) {
+				// Check whether EEPROM command complete
+				if (g_x24c44_cmd_reg & 0x80) {
+					// Value in shift register shifted on clock pulse
+					g_x24c44_shift_reg = g_x24c44_shift_reg >> 1;
+				} else {
+					// Shift command value
+					g_x24c44_cmd_reg = g_x24c44_cmd_reg << 1;
+					// Add bit value
+					if (value & 0x02) g_x24c44_cmd_reg |= 1;
+
+					// If command complete, do setup
+					if (g_x24c44_cmd_reg & 0x80) {
+						// Check for read command
+						if ((0x86 & g_x24c44_cmd_reg) == 0x86) {
+							// Extract address from command
+							// And move data from storage array into shift register
+							g_x24c44_shift_reg = cookie_prom_data[(g_x24c44_cmd_reg >> 3) & 0xf];
+						}
+					}
+				}
+			}
+		} else {
+			g_x24c44_cmd_reg = 0x0;
+		}
+		g_io_sysid_cookie2 = value;
 		return true;
 	}
 //	// System status register

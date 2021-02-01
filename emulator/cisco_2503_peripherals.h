@@ -85,8 +85,10 @@ bool io_68302_write_long(unsigned address, unsigned int value);
 #define C2503_IO_SYS_CONTROL1_SIZE		0x2				// System control register 1 size
 #define C2503_IO_SYS_CONTROL2_ADDR		0x02110002			// System control register 1 address
 #define C2503_IO_SYS_CONTROL2_SIZE		0x2				// System control register 1 size
-#define C2503_IO_SYS_ID_COOKIE_ADDR		0x02110040			// System ID cookie address
-#define C2503_IO_SYS_ID_COOKIE_SIZE		0x21				// System ID cookie size
+#define C2503_IO_SYS_ID_COOKIE_ADDR		0x02110040			// Original System ID cookie address
+#define C2503_IO_SYS_ID_COOKIE_SIZE		0x20				// Original System ID cookie size
+#define C2503_IO_SYS_ID_COOKIE_ADDR2		0x02110060			// New System ID cookie interface
+#define C2503_IO_SYS_ID_COOKIE_SIZE2		0x1				// New System ID cookie size
 #define C2503_IO_SYS_STATUS_ADDR		0x02110100			// System status register address
 #define C2503_IO_SYS_STATUS_SIZE		0x1				// System status register size
 
