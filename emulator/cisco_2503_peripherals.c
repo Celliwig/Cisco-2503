@@ -806,106 +806,149 @@ bool io_68302_write_long(unsigned int address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Counter / Timer
 //////////////////////////////////////////////////////////////////////////////////////////////
-unsigned char g_io_counter[C2503_IO_COUNTER_TIMER_SIZE];
-unsigned char g_io_counter_cntl[C2503_IO_COUNTER_CONTROL_SIZE];
+bool		g_io_counter_running;
+bool		g_io_counter_watchdog_enabled;
+unsigned char	g_io_counter_irq_status;
+unsigned short	g_io_counter_reg2, \
+		g_io_counter_reg3, \
+		g_io_counter_count, \
+		g_io_counter_initial;
+
+void io_counter_core_init() {
+		g_io_counter_running = false;
+		g_io_counter_watchdog_enabled = false;
+		g_io_counter_irq_status = 0;
+		g_io_counter_reg2 = 0;
+		g_io_counter_reg3 = 0;
+		g_io_counter_count = 0;
+		g_io_counter_initial = 0xffff;
+}
+
+void io_counter_core_clock_tick() {
+	if (g_io_counter_running) {					/* If the counter is running */
+		g_io_counter_count--;					/* Decrement the count */
+		if (g_io_counter_count == 0x00) {			/* If the count is zero */
+			g_io_counter_count = g_io_counter_initial;	/* Reset counter */
+			m68k_set_irq(7);				/* Trigger NMI */
+		}
+	}
+}
 
 bool io_counter_read_byte(unsigned int address, unsigned int *value) {
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		*value = READ_BYTE(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
+	// Interrupt status
+	if ((address >= C2503_IO_COUNTER_REG1_ADDR) && (address < (C2503_IO_COUNTER_REG1_ADDR + C2503_IO_COUNTER_REG1_SIZE))) {
+		*value = g_io_counter_irq_status;
 		return true;
 	}
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		*value = READ_BYTE(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR);
+	// Counter Register 2
+	if ((address >= C2503_IO_COUNTER_REG2_ADDR) && (address < (C2503_IO_COUNTER_REG2_ADDR + C2503_IO_COUNTER_REG2_SIZE))) {
+		if (address & 0x1) {
+			*value = g_io_counter_reg2 & 0x00ff;
+		} else {
+			*value = (g_io_counter_reg2 & 0xff00) >> 8;
+		}
 		return true;
 	}
+	// Counter Register 3
+	if ((address >= C2503_IO_COUNTER_REG3_ADDR) && (address < (C2503_IO_COUNTER_REG3_ADDR + C2503_IO_COUNTER_REG3_SIZE))) {
+		if (address & 0x1) {
+			*value = g_io_counter_reg3 & 0x00ff;
+		} else {
+			*value = (g_io_counter_reg3 & 0xff00) >> 8;
+		}
+		return true;
+	}
+	// Get current value of counter
+	if ((address >= C2503_IO_COUNTER_REG4_ADDR) && (address < (C2503_IO_COUNTER_REG4_ADDR + C2503_IO_COUNTER_REG4_SIZE))) {
+		if (address & 0x1) {
+			*value = g_io_counter_count & 0x00ff;
+		} else {
+			*value = (g_io_counter_count & 0xff00) >> 8;
+		}
+		return true;
+	}
+
 	return false;
 }
 
 bool io_counter_read_word(unsigned int address, unsigned int *value) {
-#if C2503_IO_COUNTER_TIMER_SIZE >= 2
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		*value = READ_WORD(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
+	// Counter Register 2
+	if ((address >= C2503_IO_COUNTER_REG2_ADDR) && (address < (C2503_IO_COUNTER_REG2_ADDR + C2503_IO_COUNTER_REG2_SIZE))) {
+		*value = g_io_counter_reg2;
 		return true;
 	}
-#endif
-#if C2503_IO_COUNTER_CONTROL_SIZE >= 2
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		*value = READ_WORD(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR);
+	// Counter Register 3
+	if ((address >= C2503_IO_COUNTER_REG3_ADDR) && (address < (C2503_IO_COUNTER_REG3_ADDR + C2503_IO_COUNTER_REG3_SIZE))) {
+		*value = g_io_counter_reg3;
 		return true;
 	}
-#endif
-	return false;
-}
+	// Get current value of counter
+	if ((address >= C2503_IO_COUNTER_REG4_ADDR) && (address < (C2503_IO_COUNTER_REG4_ADDR + C2503_IO_COUNTER_REG4_SIZE))) {
+		*value = g_io_counter_count;
+		return true;
+	}
 
-bool io_counter_read_long(unsigned int address, unsigned int *value) {
-#if C2503_IO_COUNTER_TIMER_SIZE >= 4
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		*value = READ_LONG(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR);
-		return true;
-	}
-#endif
-#if C2503_IO_COUNTER_CONTROL_SIZE >= 4
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		*value = READ_LONG(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR);
-		return true;
-	}
-#endif
 	return false;
 }
 
 bool io_counter_write_byte(unsigned int address, unsigned int value) {
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		WRITE_BYTE(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
+	// Counter control
+	if ((address >= C2503_IO_COUNTER_REG1_ADDR) && (address < (C2503_IO_COUNTER_REG1_ADDR + C2503_IO_COUNTER_REG1_SIZE))) {
+		if (value == 0x00) {
+			g_io_counter_running = true;
+			g_io_counter_count = g_io_counter_initial;
+		}
+		if (value == 0x40) g_io_counter_watchdog_enabled = true;
 		return true;
 	}
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		WRITE_BYTE(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR, value);
+	// Counter Register 2
+	if ((address >= C2503_IO_COUNTER_REG2_ADDR) && (address < (C2503_IO_COUNTER_REG2_ADDR + C2503_IO_COUNTER_REG2_SIZE))) {
+		if (address & 0x1) {
+			g_io_counter_reg2 = (g_io_counter_reg2 & 0xff00) | (value & 0xff);
+		} else {
+			g_io_counter_reg2 = (g_io_counter_reg2 & 0x00ff) | ((value & 0xff) << 8);
+		}
 		return true;
 	}
+	// Counter Register 3
+	if ((address >= C2503_IO_COUNTER_REG3_ADDR) && (address < (C2503_IO_COUNTER_REG3_ADDR + C2503_IO_COUNTER_REG3_SIZE))) {
+		if (address & 0x1) {
+			g_io_counter_reg3 = (g_io_counter_reg3 & 0xff00) | (value & 0xff);
+		} else {
+			g_io_counter_reg3 = (g_io_counter_reg3 & 0x00ff) | ((value & 0xff) << 8);
+		}
+		return true;
+	}
+	// Set initial value of counter on rollover
+	if ((address >= C2503_IO_COUNTER_REG4_ADDR) && (address < (C2503_IO_COUNTER_REG4_ADDR + C2503_IO_COUNTER_REG4_SIZE))) {
+		if (address & 0x1) {
+			g_io_counter_initial = (g_io_counter_count & 0xff00) | (value & 0xff);
+		} else {
+			g_io_counter_initial = (g_io_counter_count & 0x00ff) | ((value & 0xff) << 8);
+		}
+		return true;
+	}
+
 	return false;
 }
 
 bool io_counter_write_word(unsigned int address, unsigned int value) {
-#if C2503_IO_COUNTER_TIMER_SIZE >= 2
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		WRITE_WORD(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
+	// Counter Register 2
+	if ((address >= C2503_IO_COUNTER_REG2_ADDR) && (address < (C2503_IO_COUNTER_REG2_ADDR + C2503_IO_COUNTER_REG2_SIZE))) {
+		g_io_counter_reg2 = value & 0xffff;
 		return true;
 	}
-#endif
-#if C2503_IO_COUNTER_CONTROL_SIZE >= 2
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		WRITE_WORD(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR, value);
+	// Counter Register 3
+	if ((address >= C2503_IO_COUNTER_REG3_ADDR) && (address < (C2503_IO_COUNTER_REG3_ADDR + C2503_IO_COUNTER_REG3_SIZE))) {
+		g_io_counter_reg3 = value & 0xffff;
 		return true;
 	}
-#endif
-	return false;
-}
+	// Set initial value of counter on rollover
+	if ((address >= C2503_IO_COUNTER_REG4_ADDR) && (address < (C2503_IO_COUNTER_REG4_ADDR + C2503_IO_COUNTER_REG4_SIZE))) {
+		g_io_counter_initial = value & 0xffff;
+		return true;
+	}
 
-bool io_counter_write_long(unsigned int address, unsigned int value) {
-#if C2503_IO_COUNTER_TIMER_SIZE >= 4
-	// Counter/Timer register
-	if ((address >= C2503_IO_COUNTER_TIMER_ADDR) && (address < (C2503_IO_COUNTER_TIMER_ADDR + C2503_IO_COUNTER_TIMER_SIZE))) {
-		WRITE_LONG(g_io_counter, address - C2503_IO_COUNTER_TIMER_ADDR, value);
-		return true;
-	}
-#endif
-#if C2503_IO_COUNTER_CONTROL_SIZE >= 4
-	// Counter/Timer control register
-	if ((address >= C2503_IO_COUNTER_CONTROL_ADDR) && (address < (C2503_IO_COUNTER_CONTROL_ADDR + C2503_IO_COUNTER_CONTROL_SIZE))) {
-		WRITE_LONG(g_io_counter_cntl, address - C2503_IO_COUNTER_CONTROL_ADDR, value);
-		return true;
-	}
-#endif
 	return false;
 }
 

@@ -290,6 +290,7 @@ void cpu_set_fc(unsigned int fc)
 /* Called when the CPU pulses the RESET line */
 void cpu_pulse_reset(void) {
 	io_system_core_init();
+	io_counter_core_init();
 	io_duart_core_init();
 	mem_nvram_init();
 
@@ -378,7 +379,6 @@ unsigned int cpu_read_long(unsigned int address) {
 	if (mem_ram_read_long(address, &tmp_int)) return tmp_int;
 	if (io_68302_read_long(address, &tmp_int)) return tmp_int;
 	if (io_system_read_long(address, &tmp_int)) return tmp_int;
-	if (io_counter_read_long(address, &tmp_int)) return tmp_int;
 	if (io_channela_read_long(address, &tmp_int)) return tmp_int;
 	if (io_channelb_read_long(address, &tmp_int)) return tmp_int;
 	if (sriReadLong(address, &tmp_int)) return tmp_int;
@@ -451,7 +451,6 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 	if (mem_ram_write_long(address, value)) return;
 	if (io_68302_write_long(address, value)) return;
 	if (io_system_write_long(address, value)) return;
-	if (io_counter_write_long(address, value)) return;
 	if (io_channela_write_long(address, value)) return;
 	if (io_channelb_write_long(address, value)) return;
 	if (sriWriteLong(address, value)) return;
@@ -462,6 +461,7 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 
 // For peripherals that are clocked
 void system_tick() {
+	io_counter_core_clock_tick();
 	io_duart_core_clock_tick();
 }
 

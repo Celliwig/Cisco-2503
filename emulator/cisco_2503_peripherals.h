@@ -104,17 +104,19 @@ bool io_system_write_long(unsigned address, unsigned int value);
 
 // Counter / Timer
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define C2503_IO_COUNTER_TIMER_ADDR	0x02120000			// Counter/Timer regiter address
-#define C2503_IO_COUNTER_TIMER_SIZE	0x4				// Counter/Timer register size
-#define C2503_IO_COUNTER_CONTROL_ADDR	0x02120040			// Counter/Timer control register address
-#define C2503_IO_COUNTER_CONTROL_SIZE	0x1				// Counter/Timer control register size
+#define	C2503_IO_COUNTER_REG1_ADDR	0x2120040
+#define	C2503_IO_COUNTER_REG1_SIZE	0x1
+#define	C2503_IO_COUNTER_REG2_ADDR	0x2120050
+#define	C2503_IO_COUNTER_REG2_SIZE	0x2
+#define	C2503_IO_COUNTER_REG3_ADDR	0x2120060
+#define	C2503_IO_COUNTER_REG3_SIZE	0x2
+#define	C2503_IO_COUNTER_REG4_ADDR	0x2120070
+#define	C2503_IO_COUNTER_REG4_SIZE	0x2
 
 bool io_counter_read_byte(unsigned address, unsigned int *value);
 bool io_counter_read_word(unsigned address, unsigned int *value);
-bool io_counter_read_long(unsigned address, unsigned int *value);
 bool io_counter_write_byte(unsigned address, unsigned int value);
 bool io_counter_write_word(unsigned address, unsigned int value);
-bool io_counter_write_long(unsigned address, unsigned int value);
 
 // Dual UART
 //////////////////////////////////////////////////////////////////////////////////////////////
