@@ -574,7 +574,8 @@ void mem_nvram_init() {
 	g_nvram[0] = 0x13;		// Config header
 	g_nvram[1] = 0x15;
 	g_nvram[2] = 0x81;		// Config word
-	g_nvram[3] = 0x01;
+//	g_nvram[3] = 0x01;
+	g_nvram[3] = 0x00;
 }
 
 bool mem_nvram_read_byte(unsigned int address, unsigned int *value) {
@@ -822,7 +823,6 @@ bool io_68302_write_long(unsigned int address, unsigned int value) {
 
 bool		g_io_counter_running;
 bool		g_io_counter_watchdog_enabled;
-unsigned char	g_io_counter_irq_status;
 unsigned short	g_io_counter_reg2, \
 		g_io_counter_reg3, \
 		g_io_counter_count, \
@@ -831,7 +831,6 @@ unsigned short	g_io_counter_reg2, \
 void io_counter_core_init() {
 		g_io_counter_running = false;
 		g_io_counter_watchdog_enabled = false;
-		g_io_counter_irq_status = 0;
 		g_io_counter_reg2 = 0;
 		g_io_counter_reg3 = 0;
 		g_io_counter_count = 0;
@@ -851,7 +850,7 @@ void io_counter_core_clock_tick() {
 bool io_counter_read_byte(unsigned int address, unsigned int *value) {
 	// Interrupt status
 	if ((address >= C2503_IO_COUNTER_REG1_ADDR) && (address < (C2503_IO_COUNTER_REG1_ADDR + C2503_IO_COUNTER_REG1_SIZE))) {
-		*value = g_io_counter_irq_status;
+		if (g_io_counter_watchdog_enabled) *value |= 0x40;
 		return true;
 	}
 	// Counter Register 2
@@ -912,7 +911,11 @@ bool io_counter_write_byte(unsigned int address, unsigned int value) {
 			g_io_counter_running = true;
 			g_io_counter_count = g_io_counter_initial;
 		}
-		if (value == 0x40) g_io_counter_watchdog_enabled = true;
+		if (value & 0x40) {
+			g_io_counter_watchdog_enabled = true;
+		} else {
+			g_io_counter_watchdog_enabled = false;
+		}
 		return true;
 	}
 	// Counter Register 2
@@ -959,7 +962,11 @@ bool io_counter_write_word(unsigned int address, unsigned int value) {
 	}
 	// Set initial value of counter on rollover
 	if ((address >= C2503_IO_COUNTER_REG4_ADDR) && (address < (C2503_IO_COUNTER_REG4_ADDR + C2503_IO_COUNTER_REG4_SIZE))) {
-		g_io_counter_initial = value & 0xffff;
+		if (value == 0x1) {
+			g_io_counter_running = false;
+		} else {
+			g_io_counter_initial = value & 0xffff;
+		}
 		return true;
 	}
 
