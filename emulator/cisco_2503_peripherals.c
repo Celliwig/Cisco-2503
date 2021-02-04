@@ -210,7 +210,8 @@ unsigned char		g_io_sysid_cookie2, g_x24c44_cmd_reg;
 unsigned short int	g_x24c44_shift_reg;
 
 unsigned short int 	g_io_sys_control1, \
-			g_io_sys_control2;
+			g_io_sys_control2, \
+			g_io_sys_control3;
 
 // PROM Cookie (taken from hardware)
 // 0x0b, 0x01, 0x00, 0xe0, 0x1e, 0xb9, 0x23, 0x91, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00
@@ -278,7 +279,13 @@ bool io_system_read_word(unsigned int address, unsigned int *value) {
 	}
 	// System control register 2
 	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		*value = g_io_sys_control2;
+		// Top byte is hardware revision
+		*value = 0x0e00 | (g_io_sys_control2 & 0x00ff);
+		return true;
+	}
+	// System control register 3
+	if ((address >= C2503_IO_SYS_CONTROL3_ADDR) && (address < (C2503_IO_SYS_CONTROL3_ADDR + C2503_IO_SYS_CONTROL3_SIZE))) {
+		*value = g_io_sys_control3;
 		return true;
 	}
 
@@ -403,6 +410,11 @@ bool io_system_write_word(unsigned int address, unsigned int value) {
 	// System control register 2
 	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
 		g_io_sys_control2 = (short) value;
+		return true;
+	}
+	// System control register 3
+	if ((address >= C2503_IO_SYS_CONTROL3_ADDR) && (address < (C2503_IO_SYS_CONTROL3_ADDR + C2503_IO_SYS_CONTROL3_SIZE))) {
+		g_io_sys_control3 = (short) value;
 		return true;
 	}
 
@@ -806,6 +818,8 @@ bool io_68302_write_long(unsigned int address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Counter / Timer
 //////////////////////////////////////////////////////////////////////////////////////////////
+// Need to implement irq status clearing
+
 bool		g_io_counter_running;
 bool		g_io_counter_watchdog_enabled;
 unsigned char	g_io_counter_irq_status;

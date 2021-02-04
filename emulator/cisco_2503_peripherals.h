@@ -83,8 +83,27 @@ bool io_68302_write_long(unsigned address, unsigned int value);
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define C2503_IO_SYS_CONTROL1_ADDR		0x02110000			// System control register 1 address
 #define C2503_IO_SYS_CONTROL1_SIZE		0x2				// System control register 1 size
-#define C2503_IO_SYS_CONTROL2_ADDR		0x02110002			// System control register 1 address
-#define C2503_IO_SYS_CONTROL2_SIZE		0x2				// System control register 1 size
+#define C2503_IO_SYS_CONTROL2_ADDR		0x02110002			// System control register 2 address
+#define C2503_IO_SYS_CONTROL2_SIZE		0x2				// System control register 2 size
+#define C2503_IO_SYS_CONTROL3_ADDR		0x02110004			// System control register 3 address
+#define C2503_IO_SYS_CONTROL3_SIZE		0x2				// System control register 3 size
+#define C2503_IO_SYS_CONTROL4_ADDR		0x02110006			// System control register 4 address
+#define C2503_IO_SYS_CONTROL4_SIZE		0x2				// System control register 4 size
+#define C2503_IO_SYS_CONTROL5_ADDR		0x02110008			// System control register 5 address
+#define C2503_IO_SYS_CONTROL5_SIZE		0x2				// System control register 5 size
+#define C2503_IO_SYS_CONTROL6_ADDR		0x0211000a			// System control register 6 address
+#define C2503_IO_SYS_CONTROL6_SIZE		0x2				// System control register 6 size
+#define C2503_IO_SYS_CONTROL7_ADDR		0x02110010			// System control register 7 address
+#define C2503_IO_SYS_CONTROL7_SIZE		0x2				// System control register 7 size
+#define C2503_IO_SYS_CONTROL8_ADDR		0x02110012			// System control register 8 address
+#define C2503_IO_SYS_CONTROL8_SIZE		0x2				// System control register 8 size
+#define C2503_IO_SYS_CONTROL9_ADDR		0x02110014			// System control register 9 address
+#define C2503_IO_SYS_CONTROL9_SIZE		0x2				// System control register 9 size
+#define C2503_IO_SYS_CONTROL10_ADDR		0x02110016			// System control register 10 address
+#define C2503_IO_SYS_CONTROL10_SIZE		0x2				// System control register 10 size
+#define C2503_IO_SYS_CONTROL11_ADDR		0x02110018			// System control register 11 address
+#define C2503_IO_SYS_CONTROL11_SIZE		0x2				// System control register 11 size
+
 #define C2503_IO_SYS_ID_COOKIE_ADDR		0x02110040			// Original System ID cookie address
 #define C2503_IO_SYS_ID_COOKIE_SIZE		0x20				// Original System ID cookie size
 #define C2503_IO_SYS_ID_COOKIE_ADDR2		0x02110060			// New System ID cookie interface
