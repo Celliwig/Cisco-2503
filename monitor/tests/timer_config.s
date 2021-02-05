@@ -8,6 +8,8 @@
 .equiv  console_out, scn2681_out_A
 .equiv  console_in, scn2681_in_A
 .equiv  console_in_nocheck, scn2681_in_A_nocheck
+.equiv	count_from, 0xfa0
+.equiv	timer_reg_val, 0x3e80
 
 .org	0x0
 	dc.b	0xA5,0xE5,0xE0,0xA5                                     /* signiture bytes */
@@ -31,11 +33,12 @@ timer_init:
 	lea.l	nmi_handler, %a1					/* Address of new NMI handler */
 	move.l	%a1, (%a0)						/* Save new exception handler */
 
-timer_cisco_C:
-	move.w	#0xfa0, 0x2120070.l
-	move.w	#0x3e80, 0x2120050.l
+timer_init_hw:
+	move.w	#count_from, 0x2120070.l
+	move.w	#timer_reg_val, 0x2120050.l
 	movea.l #0x2120040, %a0
-	clr.b	(%a0)
+	clr.b	(%a0)							/* Start counter */
+	move.b	#0x40, 0x2120040.l					/* Enable watchdog */
 	move.b	(%a0), %d0						/* Clear interrupt flag */
 
 timer_read_loop:
@@ -44,6 +47,11 @@ timer_read_loop:
 
 	lea	str_timer, %a0
 	jsr	print_str_simple
+	lea	irq_status, %a0
+	move.b	(%a0), %d1
+	jsr	print_hex8
+	move.b	#':', %d0
+	jsr	console_out
 	lea	time_reg_h, %a0
 	move.l	(%a0), %d3
 	jsr	print_hex32
@@ -57,12 +65,21 @@ timer_read_loop:
 	cmp.b	#' ', %d0
 	bne.s	timer_read_loop
 
+	move.w  #0x1, 0x2120070.l					/* Disable timer */
+
+	jsr	print_newline
+	move.w	0xffff, %d0
+timer_finish:
+	dbra	%d0, timer_finish
+
 	rts
 
 nmi_handler:
 	movem.l	%d0-%d1/%a0-%a1, -(%a7)
+	lea	irq_status, %a0
 	move.b	0x2120040.l, %d0					/* Clear interrupt flag */
-	move.w	#0x3e80, 0x2120050.l
+	move.b	%d0, (%a0)						/* Save irq status */
+	move.w	#timer_reg_val, 0x2120050.l
 
 	lea	time_reg_l, %a0						/* Get addresses of time store */
 	lea	time_reg_h, %a1
@@ -80,9 +97,10 @@ nmi_handler_finish:
 
 time_reg_l:	dc.l	0x00000000
 time_reg_h:	dc.l	0x00000000
+irq_status:	dc.b	0x00
 str_timer:	.asciz	"Timer value: "
 
-.org	0x120
+.org	0x140
 ######################################################################################################################################################
 # From m68kmon.s
 ######################################################################################################################################################
