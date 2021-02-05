@@ -1647,12 +1647,14 @@ bool io_duart_read_byte(unsigned int address, unsigned int *value, bool real_rea
 				if (scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE) {
 					// Get value, stripping status flags
 					*value = 0xff & scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx];
-					// Reset flags
-					scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] = *value;
-					// Increment index
-					scn2681_channelA_rx_rd_idx++;
-					// Reset FIFO index if it overflows
-					if (scn2681_channelA_rx_rd_idx > 2) scn2681_channelA_rx_rd_idx = 0;
+					if (real_read) {
+						// Reset flags
+						scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] = *value;
+						// Increment index
+						scn2681_channelA_rx_rd_idx++;
+						// Reset FIFO index if it overflows
+						if (scn2681_channelA_rx_rd_idx > 2) scn2681_channelA_rx_rd_idx = 0;
+					}
 				}
 				break;
 			case SCN2681_REG_RD_INPUT_PORT_CHANGE:		// Input Port Change Register
@@ -1691,12 +1693,14 @@ bool io_duart_read_byte(unsigned int address, unsigned int *value, bool real_rea
 				if (scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE) {
 					// Get value, stripping status flags
 					*value = 0xff & scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx];
-					// Reset flags
-					scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] = *value;
-					// Increment index
-					scn2681_channelB_rx_rd_idx++;
-					// Reset FIFO index if it overflows
-					if (scn2681_channelB_rx_rd_idx > 2) scn2681_channelB_rx_rd_idx = 0;
+					if (real_read) {
+						// Reset flags
+						scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] = *value;
+						// Increment index
+						scn2681_channelB_rx_rd_idx++;
+						// Reset FIFO index if it overflows
+						if (scn2681_channelB_rx_rd_idx > 2) scn2681_channelB_rx_rd_idx = 0;
+					}
 				}
 				break;
 			case SCN2681_REG_RD_RESERVED:			// Reserved
