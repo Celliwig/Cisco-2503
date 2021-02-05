@@ -1,0 +1,27 @@
+15.38MHz Crystal?
+
+Timer Controller
+------------------------------
+Address: 0x2120040 (Width: Byte)
+Default: 0x00
+Read - Clears Interrupt Status
+Write - 0x00 = Start timer
+	0x40 = Enable Watchdog
+
+Timer Watchdog Reset
+------------------------------
+Address: 0x2120050 (Width: Word)
+Default: 0x0000
+Write - Writing to this register while watchdog active, resets watchdog
+
+------------------------------
+Address: 0x2120060 (Width: Word)
+Default: 0x0000
+
+Timer Counter Value
+------------------------------
+Address: 0x2120070 (Width: Word)
+Default: 0x0000
+Read - Current counter value
+Write - Value loaded into the counter on rollover
+	0x1 = Disables counter
