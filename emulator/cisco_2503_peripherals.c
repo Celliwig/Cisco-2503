@@ -1895,69 +1895,220 @@ bool io_duart_write_byte(unsigned int address, unsigned int value) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
-// Channel A: LANCE
+// Channel A: LANCE AM79C90
 //////////////////////////////////////////////////////////////////////////////////////////////
-unsigned char g_io_chnla_lance[C2503_IO_CHANNELA_LANCE_SIZE];
+unsigned short	g_io_chnla_lance_rap;
+unsigned short	g_io_chnla_lance_csr1;
+unsigned short	g_io_chnla_lance_csr2;
+unsigned short	g_io_chnla_lance_csr3;
 
-bool io_channela_read_byte(unsigned int address, unsigned int *value) {
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		*value = READ_BYTE(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
-		return true;
+unsigned int	g_io_chnla_lance_iblock_start;
+unsigned char	g_io_chnla_lance_iblock_offset;
+
+bool		g_io_chnla_lance_csr0_babl, \
+		g_io_chnla_lance_csr0_cerr, \
+		g_io_chnla_lance_csr0_miss, \
+		g_io_chnla_lance_csr0_merr, \
+		g_io_chnla_lance_csr0_rint, \
+		g_io_chnla_lance_csr0_tint, \
+		g_io_chnla_lance_csr0_idon, \
+		g_io_chnla_lance_csr0_inea, \
+		g_io_chnla_lance_csr0_rxon, \
+		g_io_chnla_lance_csr0_txon, \
+		g_io_chnla_lance_csr0_tdmd, \
+		g_io_chnla_lance_csr0_stop, \
+		g_io_chnla_lance_csr0_strt, \
+		g_io_chnla_lance_csr0_init;
+
+/* Equivalent to device reset or STOP */
+void io_channela_reset() {
+	g_io_chnla_lance_rap = 0;
+	g_io_chnla_lance_csr3 = 0;
+
+	g_io_chnla_lance_csr0_babl = false;
+	g_io_chnla_lance_csr0_cerr = false;
+	g_io_chnla_lance_csr0_miss = false;
+	g_io_chnla_lance_csr0_merr = false;
+	g_io_chnla_lance_csr0_rint = false;
+	g_io_chnla_lance_csr0_tint = false;
+	g_io_chnla_lance_csr0_idon = false;
+	g_io_chnla_lance_csr0_inea = false;
+	g_io_chnla_lance_csr0_rxon = false;
+	g_io_chnla_lance_csr0_txon = false;
+	g_io_chnla_lance_csr0_tdmd = false;
+	g_io_chnla_lance_csr0_strt = false;
+	g_io_chnla_lance_csr0_init = false;
+
+	g_io_chnla_lance_csr0_stop = true;
+}
+
+void io_channela_core_init() {
+	g_io_chnla_lance_csr1 = 0;
+	g_io_chnla_lance_csr2 = 0;
+	g_io_chnla_lance_iblock_start = 0x00000000;
+
+	io_channela_reset();
+}
+
+/* Events */
+void io_channela_event_babble() {
+	if (!g_io_chnla_lance_csr0_babl) {				// Check if not already set
+		g_io_chnla_lance_csr0_babl = true;			// Set flag
+		if (g_io_chnla_lance_csr0_inea) {			// Check whether interrupts are enabled
+//			m68k_set_irq();					// Trigger interrupt
+		}
 	}
-	return false;
+}
+
+void io_channela_event_missed_packet() {
+	if (!g_io_chnla_lance_csr0_miss) {				// Check if not already set
+		g_io_chnla_lance_csr0_miss = true;			// Set flag
+		if (g_io_chnla_lance_csr0_inea) {			// Check whether interrupts are enabled
+//			m68k_set_irq();					// Trigger interrupt
+		}
+	}
+}
+
+void io_channela_event_memory_error() {
+	if (!g_io_chnla_lance_csr0_merr) {				// Check if not already set
+		g_io_chnla_lance_csr0_merr = true;			// Set flag
+		if (g_io_chnla_lance_csr0_inea) {			// Check whether interrupts are enabled
+//			m68k_set_irq();					// Trigger interrupt
+		}
+	}
+}
+
+void io_channela_event_rx_interrupt() {
+	if (!g_io_chnla_lance_csr0_rint) {				// Check if not already set
+		g_io_chnla_lance_csr0_rint = true;			// Set flag
+		if (g_io_chnla_lance_csr0_inea) {			// Check whether interrupts are enabled
+//			m68k_set_irq();					// Trigger interrupt
+		}
+	}
+}
+
+void io_channela_event_tx_interrupt() {
+	if (!g_io_chnla_lance_csr0_tint) {				// Check if not already set
+		g_io_chnla_lance_csr0_tint = true;			// Set flag
+		if (g_io_chnla_lance_csr0_inea) {			// Check whether interrupts are enabled
+//			m68k_set_irq();					// Trigger interrupt
+		}
+	}
+}
+
+void io_channela_event_init_done() {
+	if (!g_io_chnla_lance_csr0_idon) {				// Check if not already set
+		g_io_chnla_lance_csr0_idon = true;			// Set flag
+		if (g_io_chnla_lance_csr0_inea) {			// Check whether interrupts are enabled
+//			m68k_set_irq();					// Trigger interrupt
+		}
+	}
+}
+
+void io_channela_core_clock_tick() {
+	// Configure LANCE if INIT enabled
+	if (g_io_chnla_lance_csr0_init) {
+		/* Process initialisation block */
+//		switch (g_io_chnla_lance_iblock_offset) {
+//			....
+
+		if (g_io_chnla_lance_iblock_offset == 0x18) {
+			io_channela_event_init_done();			// Set CSR0 flag and trigger interrupt
+		} else {
+			/* Increment init block pointer */
+			g_io_chnla_lance_iblock_offset += 0x02;
+		}
+	}
 }
 
 bool io_channela_read_word(unsigned int address, unsigned int *value) {
-#if C2503_IO_CHANNELA_LANCE_SIZE >= 2
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		*value = READ_WORD(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
+	if (address == C2503_IO_CHANNELA_LANCE_RDP_ADDR) {
+		switch (g_io_chnla_lance_rap) {
+			case 0:
+				if (g_io_chnla_lance_csr0_babl | g_io_chnla_lance_csr0_cerr | \
+					g_io_chnla_lance_csr0_miss | g_io_chnla_lance_csr0_merr) *value |= 0x8000;
+				if (g_io_chnla_lance_csr0_babl) *value |= 0x4000;
+				if (g_io_chnla_lance_csr0_cerr) *value |= 0x2000;
+				if (g_io_chnla_lance_csr0_miss) *value |= 0x1000;
+				if (g_io_chnla_lance_csr0_merr) *value |= 0x0800;
+				if (g_io_chnla_lance_csr0_rint) *value |= 0x0400;
+				if (g_io_chnla_lance_csr0_tint) *value |= 0x0200;
+				if (g_io_chnla_lance_csr0_idon) *value |= 0x0100;
+				if (g_io_chnla_lance_csr0_babl | g_io_chnla_lance_csr0_miss | g_io_chnla_lance_csr0_merr | \
+					g_io_chnla_lance_csr0_rint | g_io_chnla_lance_csr0_tint | g_io_chnla_lance_csr0_idon) *value |= 0x0080;
+				if (g_io_chnla_lance_csr0_inea) *value |= 0x0040;
+				if (g_io_chnla_lance_csr0_rxon) *value |= 0x0020;
+				if (g_io_chnla_lance_csr0_txon) *value |= 0x0010;
+				if (g_io_chnla_lance_csr0_tdmd) *value |= 0x0008;
+				if (g_io_chnla_lance_csr0_stop) *value |= 0x0004;
+				if (g_io_chnla_lance_csr0_strt) *value |= 0x0002;
+				if (g_io_chnla_lance_csr0_init) *value |= 0x0001;
+
+				break;
+			case 1:
+				*value = g_io_chnla_lance_csr1;
+				break;
+			case 2:
+				*value = g_io_chnla_lance_csr2;
+				break;
+			case 3:
+				*value = g_io_chnla_lance_csr3;
+				break;
+		}
 		return true;
 	}
-#endif
-	return false;
-}
-
-bool io_channela_read_long(unsigned int address, unsigned int *value) {
-#if C2503_IO_CHANNELA_LANCE_SIZE >= 4
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		*value = READ_LONG(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR);
-		return true;
-	}
-#endif
-	return false;
-}
-
-bool io_channela_write_byte(unsigned int address, unsigned int value) {
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		WRITE_BYTE(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
+	if (address == C2503_IO_CHANNELA_LANCE_RAP_ADDR) {
+		*value = g_io_chnla_lance_rap;
 		return true;
 	}
 	return false;
 }
 
 bool io_channela_write_word(unsigned int address, unsigned int value) {
-#if C2503_IO_CHANNELA_LANCE_SIZE >= 2
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		WRITE_WORD(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
-		return true;
-	}
-#endif
-	return false;
-}
+	if (address == C2503_IO_CHANNELA_LANCE_RDP_ADDR) {
+		switch (g_io_chnla_lance_rap) {
+			case 0:
+				if (value & 0x4000) g_io_chnla_lance_csr0_babl = false;
+				if (value & 0x2000) g_io_chnla_lance_csr0_cerr = false;
+				if (value & 0x1000) g_io_chnla_lance_csr0_miss = false;
+				if (value & 0x0800) g_io_chnla_lance_csr0_merr = false;
+				if (value & 0x0400) g_io_chnla_lance_csr0_rint = false;
+				if (value & 0x0200) g_io_chnla_lance_csr0_tint = false;
+				if (value & 0x0100) g_io_chnla_lance_csr0_idon = false;
+				g_io_chnla_lance_csr0_inea = (value & 0x0040) ? true : false;
+				if (value & 0x0008) g_io_chnla_lance_csr0_tdmd = true;
+				if ((value & 0x0002) & g_io_chnla_lance_csr0_stop) g_io_chnla_lance_csr0_strt = true;
+				if ((value & 0x0001) & g_io_chnla_lance_csr0_stop) {
+					// Configure init block address
+					g_io_chnla_lance_iblock_start = ((g_io_chnla_lance_csr2 && 0x00ff) << 16) | g_io_chnla_lance_csr1;
+					// Reset init block pointer offset
+					g_io_chnla_lance_iblock_offset = 0x00;
+					// Reset STOP flag
+					g_io_chnla_lance_csr0_stop = false;
+					// Set INIT flag
+					g_io_chnla_lance_csr0_init = true;
+				}
 
-bool io_channela_write_long(unsigned int address, unsigned int value) {
-#if C2503_IO_CHANNELA_LANCE_SIZE >= 4
-	// Channel A: LANCE
-	if ((address >= C2503_IO_CHANNELA_LANCE_ADDR) && (address < (C2503_IO_CHANNELA_LANCE_ADDR + C2503_IO_CHANNELA_LANCE_SIZE))) {
-		WRITE_LONG(g_io_chnla_lance, address - C2503_IO_CHANNELA_LANCE_ADDR, value);
+				/* STOP overrides other bits */
+				if (value & 0x0004) io_channela_reset();
+
+				break;
+			case 1:
+				g_io_chnla_lance_csr1 = value & 0xfffe;
+				break;
+			case 2:
+				g_io_chnla_lance_csr2 = value & 0x00ff;
+				break;
+			case 3:
+				g_io_chnla_lance_csr3 = value & 0x7;
+				break;
+		}
 		return true;
 	}
-#endif
+	if (address == C2503_IO_CHANNELA_LANCE_RAP_ADDR) {
+		g_io_chnla_lance_rap = value;
+		return true;
+	}
 	return false;
 }
 
@@ -2061,6 +2212,67 @@ bool io_channelb_write_long(unsigned int address, unsigned int value) {
 	// Channel B: serial DTR
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
+		return true;
+	}
+#endif
+	return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Unknown1 device
+//////////////////////////////////////////////////////////////////////////////////////////////
+unsigned char g_io_unknown1[C2503_IO_UNKNOWN1_SIZE];
+
+bool io_unknown1_read_byte(unsigned int address, unsigned int *value) {
+	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
+		*value = READ_BYTE(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR);
+		return true;
+	}
+	return false;
+}
+
+bool io_unknown1_read_word(unsigned int address, unsigned int *value) {
+#if C2503_IO_UNKNOWN1_SIZE >= 2
+	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
+		*value = READ_WORD(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR);
+		return true;
+	}
+#endif
+	return false;
+}
+
+bool io_unknown1_read_long(unsigned int address, unsigned int *value) {
+#if C2503_IO_UNKNOWN1_SIZE >= 4
+	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
+		*value = READ_LONG(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR);
+		return true;
+	}
+#endif
+	return false;
+}
+
+bool io_unknown1_write_byte(unsigned int address, unsigned int value) {
+	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
+		WRITE_BYTE(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR, value);
+		return true;
+	}
+	return false;
+}
+
+bool io_unknown1_write_word(unsigned int address, unsigned int value) {
+#if C2503_IO_UNKNOWN1_SIZE >= 2
+	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
+		WRITE_WORD(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR, value);
+		return true;
+	}
+#endif
+	return false;
+}
+
+bool io_unknown1_write_long(unsigned int address, unsigned int value) {
+#if C2503_IO_UNKNOWN1_SIZE >= 4
+	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
+		WRITE_LONG(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR, value);
 		return true;
 	}
 #endif

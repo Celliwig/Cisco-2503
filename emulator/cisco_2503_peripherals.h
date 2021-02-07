@@ -132,6 +132,8 @@ bool io_system_write_long(unsigned address, unsigned int value);
 #define	C2503_IO_COUNTER_REG4_ADDR	0x2120070
 #define	C2503_IO_COUNTER_REG4_SIZE	0x2
 
+void io_counter_core_init();
+void io_counter_core_clock_tick();
 bool io_counter_read_byte(unsigned address, unsigned int *value);
 bool io_counter_read_word(unsigned address, unsigned int *value);
 bool io_counter_write_byte(unsigned address, unsigned int value);
@@ -355,15 +357,13 @@ bool io_duart_write_byte(unsigned address, unsigned int value);
 
 // Channel A: LANCE
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define C2503_IO_CHANNELA_LANCE_ADDR	0x02130000			// Channel A: LANCE address
-#define C2503_IO_CHANNELA_LANCE_SIZE	0x4				// Channel A: LANCE size
+#define C2503_IO_CHANNELA_LANCE_RDP_ADDR	0x02130000		// Channel A: LANCE (Register Data Port)
+#define C2503_IO_CHANNELA_LANCE_RAP_ADDR	0x02130002		// Channel A: LANCE (Register Address Port)
 
-bool io_channela_read_byte(unsigned address, unsigned int *value);
+void io_channela_core_init();
+void io_channela_core_clock_tick();
 bool io_channela_read_word(unsigned address, unsigned int *value);
-bool io_channela_read_long(unsigned address, unsigned int *value);
-bool io_channela_write_byte(unsigned address, unsigned int value);
 bool io_channela_write_word(unsigned address, unsigned int value);
-bool io_channela_write_long(unsigned address, unsigned int value);
 
 // Channel B: LANCE / Serial
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -378,3 +378,15 @@ bool io_channelb_read_long(unsigned address, unsigned int *value);
 bool io_channelb_write_byte(unsigned address, unsigned int value);
 bool io_channelb_write_word(unsigned address, unsigned int value);
 bool io_channelb_write_long(unsigned address, unsigned int value);
+
+// Unknown1
+//////////////////////////////////////////////////////////////////////////////////////////////
+#define C2503_IO_UNKNOWN1_ADDR		0x02132100
+#define C2503_IO_UNKNOWN1_SIZE		0x8
+
+bool io_unknown1_read_byte(unsigned address, unsigned int *value);
+bool io_unknown1_read_word(unsigned address, unsigned int *value);
+bool io_unknown1_read_long(unsigned address, unsigned int *value);
+bool io_unknown1_write_byte(unsigned address, unsigned int value);
+bool io_unknown1_write_word(unsigned address, unsigned int value);
+bool io_unknown1_write_long(unsigned address, unsigned int value);
