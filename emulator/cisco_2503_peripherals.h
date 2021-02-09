@@ -67,11 +67,20 @@ bool mem_ram_write_long(unsigned address, unsigned int value);
 
 // 68302
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define C2503_IO_68302_REG_ADDR		0x02100000			// 68302 registers address
-#define C2503_IO_68302_REG_SIZE		0x1000				// 68302 registers window size
-#define C2503_IO_68302_RAM_ADDR		0x02101000			// 68302 RAM address
-#define C2503_IO_68302_RAM_SIZE		0x1000				// 68302 RAM window size
+#define C2503_IO_68302_BASE_ADDR	0x02100000			// 68302 Base Address
+#define C2503_IO_68302_BAR_ADDR		0xf0				// 68302 Base Address Register
+#define C2503_IO_68302_SCR_ADDR		0xf4				// 68302 System Control Register
+#define C2503_IO_68302_CKCR_ADDR	0xf8				// 68302 Clock Control Register
 
+#define	C2503_IO_68302_RAM1_ADDR	0x0000				// 68302 System RAM
+#define C2503_IO_68302_RAM1_SIZE	0x240				// 68302 RAM Window Size
+#define	C2503_IO_68302_RAM2_ADDR	0x0400				// 68302 Parameter RAM
+#define C2503_IO_68302_RAM2_SIZE	0x2c0				// 68302 RAM Window Size
+
+#define C2503_IO_68302_REGS_ADDR	0x0800				// 68302 Internal Register Addresses
+#define C2503_IO_68302_REGS_SIZE	0xb6				// 68302 Internal Register Window Size
+
+void io_68302_core_init();
 bool io_68302_read_byte(unsigned address, unsigned int *value);
 bool io_68302_read_word(unsigned address, unsigned int *value);
 bool io_68302_read_long(unsigned address, unsigned int *value);
@@ -365,12 +374,10 @@ void io_channela_core_clock_tick();
 bool io_channela_read_word(unsigned address, unsigned int *value);
 bool io_channela_write_word(unsigned address, unsigned int value);
 
-// Channel B: LANCE / Serial
+// Channel B: Serial (HD64570)
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define C2503_IO_CHANNELB_LANCE_ADDR	0x02130040			// Channel B: LANCE/serial address
-#define C2503_IO_CHANNELB_LANCE_SIZE	0x4				// Channel B: LANCE/serial size
-#define C2503_IO_CHANNELB_SERIAL_ADDR	0x02130080			// Channel B: serial DTR address
-#define C2503_IO_CHANNELB_SERIAL_SIZE	0x4				// Channel B: serial DTR size
+#define C2503_IO_CHANNELB_SERIAL_ADDR	0x02132000			// Channel B: Serial Address
+#define C2503_IO_CHANNELB_SERIAL_SIZE	0xff				// Channel B: Serial Window Size
 
 bool io_channelb_read_byte(unsigned address, unsigned int *value);
 bool io_channelb_read_word(unsigned address, unsigned int *value);

@@ -415,6 +415,7 @@ bool io_system_write_word(unsigned int address, unsigned int value) {
 	// System control register 3
 	if ((address >= C2503_IO_SYS_CONTROL3_ADDR) && (address < (C2503_IO_SYS_CONTROL3_ADDR + C2503_IO_SYS_CONTROL3_SIZE))) {
 		g_io_sys_control3 = (short) value;
+		if (g_io_sys_control3 & 0x0008) io_68302_core_init();
 		return true;
 	}
 
@@ -771,106 +772,371 @@ bool mem_ram_write_long(unsigned int address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 // 68302
 //////////////////////////////////////////////////////////////////////////////////////////////
-unsigned char g_io_68302_reg[C2503_IO_68302_REG_SIZE];
-unsigned char g_io_68302_mem[C2503_IO_68302_RAM_SIZE];
+unsigned int	g_io_68302_reg_bar, \
+		g_io_68302_reg_scr, \
+		g_io_68302_reg_ckcr;
+
+int		g_io_68302_reg_bar_offset;
+
+unsigned char	g_io_68302_ram1[C2503_IO_68302_RAM1_SIZE];
+unsigned char	g_io_68302_ram2[C2503_IO_68302_RAM2_SIZE];
+unsigned char	g_io_68302_iregs[C2503_IO_68302_REGS_SIZE];
+
+void io_68302_core_init() {
+	g_io_68302_reg_bar_offset = -1;
+	g_io_68302_reg_bar = 0x0000bfff;
+	g_io_68302_reg_scr = 0x00000f00;
+	g_io_68302_reg_ckcr = 0x00000000;
+}
 
 bool io_68302_read_byte(unsigned int address, unsigned int *value) {
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		*value = READ_BYTE(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
+	// 68302 BAR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
+				(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR + 4))) {
+		switch (address & 0x3) {
+			case 0:
+				*value = (g_io_68302_reg_bar & 0xff000000) >> 24;
+				break;
+			case 1:
+				*value = (g_io_68302_reg_bar & 0x00ff0000) >> 16;
+				break;
+			case 2:
+				*value = (g_io_68302_reg_bar & 0x0000ff00) >> 8;
+				break;
+			case 3:
+				*value = g_io_68302_reg_bar & 0x000000ff;
+				break;
+		}
 		return true;
 	}
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		*value = READ_BYTE(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR);
+	// 68302 CSR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR)) && \
+				(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR + 4))) {
+		switch (address & 0x3) {
+			case 0:
+				*value = (g_io_68302_reg_scr & 0xff000000) >> 24;
+				break;
+			case 1:
+				*value = (g_io_68302_reg_scr & 0x00ff0000) >> 16;
+				break;
+			case 2:
+				*value = (g_io_68302_reg_scr & 0x0000ff00) >> 8;
+				break;
+			case 3:
+				*value = g_io_68302_reg_scr & 0x000000ff;
+				break;
+		}
 		return true;
+	}
+	// 68302 CKCR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR)) && \
+				(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR + 4))) {
+		switch (address & 0x3) {
+			case 0:
+				*value = (g_io_68302_reg_ckcr & 0xff000000) >> 24;
+				break;
+			case 1:
+				*value = (g_io_68302_reg_ckcr & 0x00ff0000) >> 16;
+				break;
+			case 2:
+				*value = (g_io_68302_reg_ckcr & 0x0000ff00) >> 8;
+				break;
+			case 3:
+				*value = g_io_68302_reg_ckcr & 0x000000ff;
+				break;
+		}
+		return true;
+	}
+	if (g_io_68302_reg_bar_offset >= 0) {
+		// System RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR + C2503_IO_68302_RAM1_SIZE))) {
+			*value = READ_BYTE(g_io_68302_ram1, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR));
+			return true;
+		}
+		// Parameter RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR + C2503_IO_68302_RAM2_SIZE))) {
+			*value = READ_BYTE(g_io_68302_ram2, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR));
+			return true;
+		}
+		// Internal Registers
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR + C2503_IO_68302_REGS_SIZE))) {
+			*value = READ_BYTE(g_io_68302_iregs, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR));
+			return true;
+		}
 	}
 	return false;
 }
 
 bool io_68302_read_word(unsigned int address, unsigned int *value) {
-#if C2503_IO_68302_REG_SIZE >= 2
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		*value = READ_WORD(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
+	// 68302 BAR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
+			(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR + 4))) {
+		if (address & 0x2) {				// Upper or Lower?
+			*value = g_io_68302_reg_bar & 0x0000ffff;
+		} else {
+			*value = (g_io_68302_reg_bar & 0xffff0000) >> 16;
+		}
 		return true;
 	}
-#endif
-#if C2503_IO_68302_RAM_SIZE >= 2
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		*value = READ_WORD(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR);
+	// 68302 SCR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR)) && \
+			(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR + 4))) {
+		if (address & 0x2) {				// Upper or Lower?
+			*value = g_io_68302_reg_scr & 0x0000ffff;
+		} else {
+			*value = (g_io_68302_reg_scr & 0xffff0000) >> 16;
+		}
 		return true;
 	}
-#endif
+	// 68302 CKCR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR)) && \
+			(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR + 4))) {
+		if (address & 0x2) {				// Upper or Lower?
+			*value = g_io_68302_reg_ckcr & 0x0000ffff;
+		} else {
+			*value = (g_io_68302_reg_ckcr & 0xffff0000) >> 16;
+		}
+		return true;
+	}
+	if (g_io_68302_reg_bar_offset >= 0) {
+		// System RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR + C2503_IO_68302_RAM1_SIZE))) {
+			*value = READ_WORD(g_io_68302_ram1, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR));
+			return true;
+		}
+		// Parameter RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR + C2503_IO_68302_RAM2_SIZE))) {
+			*value = READ_WORD(g_io_68302_ram2, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR));
+			return true;
+		}
+		// Internal Registers
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR + C2503_IO_68302_REGS_SIZE))) {
+			*value = READ_WORD(g_io_68302_iregs, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR));
+			return true;
+		}
+	}
 	return false;
 }
 
 bool io_68302_read_long(unsigned int address, unsigned int *value) {
-#if C2503_IO_68302_REG_SIZE >= 4
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		*value = READ_LONG(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR);
+	// 68302 BAR register
+	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) {
+		*value = g_io_68302_reg_bar;
 		return true;
 	}
-#endif
-#if C2503_IO_68302_RAM_SIZE >= 4
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		*value = READ_LONG(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR);
+	// 68302 SCR register
+	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR)) {
+		*value = g_io_68302_reg_scr;
 		return true;
 	}
-#endif
+	// 68302 CKCR register
+	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR)) {
+		*value = g_io_68302_reg_ckcr;
+		return true;
+	}
+	if (g_io_68302_reg_bar_offset >= 0) {
+		// System RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR + C2503_IO_68302_RAM1_SIZE))) {
+			*value = READ_LONG(g_io_68302_ram1, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR));
+			return true;
+		}
+		// Parameter RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR + C2503_IO_68302_RAM2_SIZE))) {
+			*value = READ_LONG(g_io_68302_ram2, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR));
+			return true;
+		}
+		// Internal Registers
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR + C2503_IO_68302_REGS_SIZE))) {
+			*value = READ_LONG(g_io_68302_iregs, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR));
+			return true;
+		}
+	}
 	return false;
 }
 
 bool io_68302_write_byte(unsigned int address, unsigned int value) {
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		WRITE_BYTE(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
+	// 68302 BAR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
+				(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR + 4))) {
+		switch (address & 0x3) {
+			case 0:
+				g_io_68302_reg_bar = (g_io_68302_reg_bar & 0x00ffffff) | ((value & 0xff) << 24);
+				break;
+			case 1:
+				g_io_68302_reg_bar = (g_io_68302_reg_bar & 0xff00ffff) | ((value & 0xff) << 16);
+				break;
+			case 2:
+				g_io_68302_reg_bar = (g_io_68302_reg_bar & 0xffff00ff) | ((value & 0xff) << 8);
+				break;
+			case 3:
+				g_io_68302_reg_bar = (g_io_68302_reg_bar & 0xffffff00) | (value & 0xff);
+				g_io_68302_reg_bar_offset = (g_io_68302_reg_bar & 0x00000fff) << 12;
+				break;
+		}
 		return true;
 	}
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		WRITE_BYTE(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
+	// 68302 CSR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR)) && \
+				(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR + 4))) {
+		switch (address & 0x3) {
+			case 0:
+				g_io_68302_reg_scr = (g_io_68302_reg_scr & 0x00ffffff) | ((value & 0xff) << 24);
+				break;
+			case 1:
+				g_io_68302_reg_scr = (g_io_68302_reg_scr & 0xff00ffff) | ((value & 0xff) << 16);
+				break;
+			case 2:
+				g_io_68302_reg_scr = (g_io_68302_reg_scr & 0xffff00ff) | ((value & 0xff) << 8);
+				break;
+			case 3:
+				g_io_68302_reg_scr = (g_io_68302_reg_scr & 0xffffff00) | (value & 0xff);
+				break;
+		}
 		return true;
+	}
+	// 68302 CKCR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR)) && \
+				(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR + 4))) {
+		switch (address & 0x3) {
+			case 0:
+				g_io_68302_reg_ckcr = (g_io_68302_reg_ckcr & 0x00ffffff) | ((value & 0xff) << 24);
+				break;
+			case 1:
+				g_io_68302_reg_ckcr = (g_io_68302_reg_ckcr & 0xff00ffff) | ((value & 0xff) << 16);
+				break;
+			case 2:
+				g_io_68302_reg_ckcr = (g_io_68302_reg_ckcr & 0xffff00ff) | ((value & 0xff) << 8);
+				break;
+			case 3:
+				g_io_68302_reg_ckcr = (g_io_68302_reg_ckcr & 0xffffff00) | (value & 0xff);
+				break;
+		}
+		return true;
+	}
+	if (g_io_68302_reg_bar_offset >= 0) {
+		// System RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR + C2503_IO_68302_RAM1_SIZE))) {
+			WRITE_BYTE(g_io_68302_ram1, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR), value);
+			return true;
+		}
+		// Parameter RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR + C2503_IO_68302_RAM2_SIZE))) {
+			WRITE_BYTE(g_io_68302_ram2, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR), value);
+			return true;
+		}
+		// Internal Registers
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR + C2503_IO_68302_REGS_SIZE))) {
+			WRITE_BYTE(g_io_68302_iregs, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR), value);
+			return true;
+		}
 	}
 	return false;
 }
 
 bool io_68302_write_word(unsigned int address, unsigned int value) {
-#if C2503_IO_68302_REG_SIZE >= 2
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		WRITE_WORD(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
+	// 68302 BAR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
+			(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR + 4))) {
+		if (address & 0x2) {				// Upper or Lower?
+			g_io_68302_reg_bar = (g_io_68302_reg_bar & 0xffff0000) | (value & 0x0000ffff);
+			g_io_68302_reg_bar_offset = (g_io_68302_reg_bar & 0x00000fff) << 12;
+		} else {
+			g_io_68302_reg_bar = (g_io_68302_reg_bar & 0x0000ffff) | ((value & 0x0000ffff) << 16);
+		}
 		return true;
 	}
-#endif
-#if C2503_IO_68302_RAM_SIZE >= 2
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		WRITE_WORD(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
+	// 68302 SCR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR)) && \
+			(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR + 4))) {
+		if (address & 0x2) {				// Upper or Lower?
+			g_io_68302_reg_scr = (g_io_68302_reg_scr & 0xffff0000) | (value & 0x0000ffff);
+		} else {
+			g_io_68302_reg_scr = (g_io_68302_reg_scr & 0x0000ffff) | ((value & 0x0000ffff) << 16);
+		}
 		return true;
 	}
-#endif
+	// 68302 CKCR register
+	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR)) && \
+			(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR + 4))) {
+		if (address & 0x2) {				// Upper or Lower?
+			g_io_68302_reg_ckcr = (g_io_68302_reg_ckcr & 0xffff0000) | (value & 0x0000ffff);
+		} else {
+			g_io_68302_reg_ckcr = (g_io_68302_reg_ckcr & 0x0000ffff) | ((value & 0x0000ffff) << 16);
+		}
+		return true;
+	}
+	if (g_io_68302_reg_bar_offset >= 0) {
+		// System RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR + C2503_IO_68302_RAM1_SIZE))) {
+			WRITE_WORD(g_io_68302_ram1, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR), value);
+			return true;
+		}
+		// Parameter RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR + C2503_IO_68302_RAM2_SIZE))) {
+			WRITE_WORD(g_io_68302_ram2, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR), value);
+			return true;
+		}
+		// Internal Registers
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR + C2503_IO_68302_REGS_SIZE))) {
+			WRITE_WORD(g_io_68302_iregs, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR), value);
+			return true;
+		}
+	}
 	return false;
 }
 
 bool io_68302_write_long(unsigned int address, unsigned int value) {
-#if C2503_IO_68302_REG_SIZE >= 4
-	// 68302 registers
-	if ((address >= C2503_IO_68302_REG_ADDR) && (address < (C2503_IO_68302_REG_ADDR + C2503_IO_68302_REG_SIZE))) {
-		WRITE_LONG(g_io_68302_reg, address - C2503_IO_68302_REG_ADDR, value);
+	// 68302 BAR register
+	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) {
+		g_io_68302_reg_bar = value;
+		g_io_68302_reg_bar_offset = (g_io_68302_reg_bar & 0x00000fff) << 12;
 		return true;
 	}
-#endif
-#if C2503_IO_68302_RAM_SIZE >= 4
-	// 68302 memory
-	if ((address >= C2503_IO_68302_RAM_ADDR) && (address < (C2503_IO_68302_RAM_ADDR + C2503_IO_68302_RAM_SIZE))) {
-		WRITE_LONG(g_io_68302_mem, address - C2503_IO_68302_RAM_ADDR, value);
+	// 68302 SCR register
+	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_SCR_ADDR)) {
+		g_io_68302_reg_scr = value;
 		return true;
 	}
-#endif
+	// 68302 CKCR register
+	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_CKCR_ADDR)) {
+		g_io_68302_reg_ckcr = value;
+		return true;
+	}
+	if (g_io_68302_reg_bar_offset >= 0) {
+		// System RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR + C2503_IO_68302_RAM1_SIZE))) {
+			WRITE_LONG(g_io_68302_ram1, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM1_ADDR), value);
+			return true;
+		}
+		// Parameter RAM
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR + C2503_IO_68302_RAM2_SIZE))) {
+			WRITE_LONG(g_io_68302_ram2, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_RAM2_ADDR), value);
+			return true;
+		}
+		// Internal Registers
+		if ((address >= (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR)) && \
+					(address < (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR + C2503_IO_68302_REGS_SIZE))) {
+			WRITE_LONG(g_io_68302_iregs, address - (C2503_IO_68302_BASE_ADDR + g_io_68302_reg_bar_offset + C2503_IO_68302_REGS_ADDR), value);
+			return true;
+		}
+	}
 	return false;
 }
 
@@ -2113,18 +2379,11 @@ bool io_channela_write_word(unsigned int address, unsigned int value) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
-// Channel B: LANCE / Serial
+// Channel B: Serial (HD64570)
 //////////////////////////////////////////////////////////////////////////////////////////////
-unsigned char g_io_chnlb_lance[C2503_IO_CHANNELB_LANCE_SIZE];
 unsigned char g_io_chnlb_serial[C2503_IO_CHANNELB_SERIAL_SIZE];
 
 bool io_channelb_read_byte(unsigned int address, unsigned int *value) {
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		*value = READ_BYTE(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
-		return true;
-	}
-	// Channel B: serial DTR
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		*value = READ_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
 		return true;
@@ -2133,48 +2392,22 @@ bool io_channelb_read_byte(unsigned int address, unsigned int *value) {
 }
 
 bool io_channelb_read_word(unsigned int address, unsigned int *value) {
-#if C2503_IO_CHANNELB_LANCE_SIZE >= 2
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		*value = READ_WORD(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
-		return true;
-	}
-#endif
-#if C2503_IO_CHANNELB_SERIAL_SIZE >= 2
-	// Channel B: serial DTR
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		*value = READ_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
 		return true;
 	}
-#endif
 	return false;
 }
 
 bool io_channelb_read_long(unsigned int address, unsigned int *value) {
-#if C2503_IO_CHANNELB_LANCE_SIZE >= 4
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		*value = READ_LONG(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR);
-		return true;
-	}
-#endif
-#if C2503_IO_CHANNELB_SERIAL_SIZE >= 4
-	// Channel B: serial DTR
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		*value = READ_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
 		return true;
 	}
-#endif
 	return false;
 }
 
 bool io_channelb_write_byte(unsigned int address, unsigned int value) {
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		WRITE_BYTE(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
-		return true;
-	}
-	// Channel B: serial DTR
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
 		return true;
@@ -2183,38 +2416,18 @@ bool io_channelb_write_byte(unsigned int address, unsigned int value) {
 }
 
 bool io_channelb_write_word(unsigned int address, unsigned int value) {
-#if C2503_IO_CHANNELB_LANCE_SIZE >= 2
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		WRITE_WORD(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
-		return true;
-	}
-#endif
-#if C2503_IO_CHANNELB_SERIAL_SIZE >= 2
-	// Channel B: serial DTR
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
 		return true;
 	}
-#endif
 	return false;
 }
 
 bool io_channelb_write_long(unsigned int address, unsigned int value) {
-#if C2503_IO_CHANNELB_LANCE_SIZE >= 4
-	// Channel B: LANCE/serial
-	if ((address >= C2503_IO_CHANNELB_LANCE_ADDR) && (address < (C2503_IO_CHANNELB_LANCE_ADDR + C2503_IO_CHANNELB_LANCE_SIZE))) {
-		WRITE_LONG(g_io_chnlb_lance, address - C2503_IO_CHANNELB_LANCE_ADDR, value);
-		return true;
-	}
-#endif
-#if C2503_IO_CHANNELB_SERIAL_SIZE >= 4
-	// Channel B: serial DTR
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
 		return true;
 	}
-#endif
 	return false;
 }
 
