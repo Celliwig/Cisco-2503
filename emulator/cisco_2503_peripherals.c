@@ -211,7 +211,8 @@ unsigned short int	g_x24c44_shift_reg;
 
 unsigned short int 	g_io_sys_control1, \
 			g_io_sys_control2, \
-			g_io_sys_control3;
+			g_io_sys_control3, \
+			g_io_sys_control4;
 
 // PROM Cookie (taken from hardware)
 // 0x0b, 0x01, 0x00, 0xe0, 0x1e, 0xb9, 0x23, 0x91, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00
@@ -286,6 +287,11 @@ bool io_system_read_word(unsigned int address, unsigned int *value) {
 	// System control register 3
 	if ((address >= C2503_IO_SYS_CONTROL3_ADDR) && (address < (C2503_IO_SYS_CONTROL3_ADDR + C2503_IO_SYS_CONTROL3_SIZE))) {
 		*value = g_io_sys_control3;
+		return true;
+	}
+	// System control register 4
+	if ((address >= C2503_IO_SYS_CONTROL4_ADDR) && (address < (C2503_IO_SYS_CONTROL4_ADDR + C2503_IO_SYS_CONTROL4_SIZE))) {
+		*value = g_io_sys_control4;
 		return true;
 	}
 
@@ -416,6 +422,11 @@ bool io_system_write_word(unsigned int address, unsigned int value) {
 	if ((address >= C2503_IO_SYS_CONTROL3_ADDR) && (address < (C2503_IO_SYS_CONTROL3_ADDR + C2503_IO_SYS_CONTROL3_SIZE))) {
 		g_io_sys_control3 = (short) value;
 		if (g_io_sys_control3 & 0x0008) io_68302_core_init();
+		return true;
+	}
+	// System control register 4
+	if ((address >= C2503_IO_SYS_CONTROL4_ADDR) && (address < (C2503_IO_SYS_CONTROL4_ADDR + C2503_IO_SYS_CONTROL4_SIZE))) {
+		g_io_sys_control4 = (short) value;
 		return true;
 	}
 
@@ -787,6 +798,32 @@ void io_68302_core_init() {
 	g_io_68302_reg_bar = 0x0000bfff;
 	g_io_68302_reg_scr = 0x00000f00;
 	g_io_68302_reg_ckcr = 0x00000000;
+}
+
+void io_68302_core_clock_tick() {
+	// Clear SCP register
+	g_io_68302_ram2[0x27a] = 0x0;
+	g_io_68302_ram2[0x27b] = 0x0;
+
+	// Fake values from SCC modules
+	g_io_68302_ram2[0x200] = 0x5B;			// Parameter RAM [SCC3]: RxBD0
+	g_io_68302_ram2[0x208] = 0xFF;			// Parameter RAM [SCC3]: RxBD1
+	g_io_68302_ram2[0x000] = 0xDF;			// Parameter RAM [SCC1]: RxBD0
+	g_io_68302_ram2[0x008] = 0xFB;			// Parameter RAM [SCC1]: RxBD1
+	g_io_68302_ram2[0x010] = 0xF7;			// Parameter RAM [SCC1]: RxBD2
+	g_io_68302_ram2[0x018] = 0xEA;			// Parameter RAM [SCC1]: RxBD3
+	g_io_68302_ram2[0x020] = 0xEF;			// Parameter RAM [SCC1]: RxBD4
+	g_io_68302_ram2[0x028] = 0xFF;			// Parameter RAM [SCC1]: RxBD5
+	g_io_68302_ram2[0x030] = 0xDF;			// Parameter RAM [SCC1]: RxBD6
+	g_io_68302_ram2[0x038] = 0xFE;			// Parameter RAM [SCC1]: RxBD7
+	g_io_68302_ram2[0x100] = 0x77;			// Parameter RAM [SCC2]: RxBD0
+	g_io_68302_ram2[0x108] = 0xDD;			// Parameter RAM [SCC2]: RxBD1
+	g_io_68302_ram2[0x110] = 0xBB;			// Parameter RAM [SCC2]: RxBD2
+	g_io_68302_ram2[0x118] = 0xDF;			// Parameter RAM [SCC2]: RxBD3
+	g_io_68302_ram2[0x120] = 0x9F;			// Parameter RAM [SCC2]: RxBD4
+	g_io_68302_ram2[0x128] = 0xFB;			// Parameter RAM [SCC2]: RxBD5
+	g_io_68302_ram2[0x130] = 0xEF;			// Parameter RAM [SCC2]: RxBD6
+	g_io_68302_ram2[0x138] = 0xBC;			// Parameter RAM [SCC2]: RxBD7
 }
 
 bool io_68302_read_byte(unsigned int address, unsigned int *value) {

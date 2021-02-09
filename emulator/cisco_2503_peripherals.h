@@ -81,6 +81,7 @@ bool mem_ram_write_long(unsigned address, unsigned int value);
 #define C2503_IO_68302_REGS_SIZE	0xb6				// 68302 Internal Register Window Size
 
 void io_68302_core_init();
+void io_68302_core_clock_tick();
 bool io_68302_read_byte(unsigned address, unsigned int *value);
 bool io_68302_read_word(unsigned address, unsigned int *value);
 bool io_68302_read_long(unsigned address, unsigned int *value);
@@ -90,6 +91,8 @@ bool io_68302_write_long(unsigned address, unsigned int value);
 
 // System Registers
 //////////////////////////////////////////////////////////////////////////////////////////////
+// IRQ 3/4 appears associated
+
 #define C2503_IO_SYS_CONTROL1_ADDR		0x02110000			// System control register 1 address
 #define C2503_IO_SYS_CONTROL1_SIZE		0x2				// System control register 1 size
 #define C2503_IO_SYS_CONTROL2_ADDR		0x02110002			// System control register 2 address
