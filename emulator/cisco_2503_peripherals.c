@@ -827,6 +827,8 @@ void io_68302_core_clock_tick() {
 }
 
 bool io_68302_read_byte(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	// 68302 BAR register
 	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
 				(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR + 4))) {
@@ -908,6 +910,8 @@ bool io_68302_read_byte(unsigned int address, unsigned int *value) {
 }
 
 bool io_68302_read_word(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	// 68302 BAR register
 	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
 			(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR + 4))) {
@@ -962,6 +966,8 @@ bool io_68302_read_word(unsigned int address, unsigned int *value) {
 }
 
 bool io_68302_read_long(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	// 68302 BAR register
 	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) {
 		*value = g_io_68302_reg_bar;
@@ -1001,6 +1007,8 @@ bool io_68302_read_long(unsigned int address, unsigned int *value) {
 }
 
 bool io_68302_write_byte(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	// 68302 BAR register
 	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
 				(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR + 4))) {
@@ -1083,6 +1091,8 @@ bool io_68302_write_byte(unsigned int address, unsigned int value) {
 }
 
 bool io_68302_write_word(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	// 68302 BAR register
 	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
 			(address < (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR + 4))) {
@@ -1138,6 +1148,8 @@ bool io_68302_write_word(unsigned int address, unsigned int value) {
 }
 
 bool io_68302_write_long(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	// 68302 BAR register
 	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) {
 		g_io_68302_reg_bar = value;
@@ -2325,6 +2337,8 @@ void io_channela_core_clock_tick() {
 }
 
 bool io_channela_read_word(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if (address == C2503_IO_CHANNELA_LANCE_RDP_ADDR) {
 		switch (g_io_chnla_lance_rap) {
 			case 0:
@@ -2368,6 +2382,8 @@ bool io_channela_read_word(unsigned int address, unsigned int *value) {
 }
 
 bool io_channela_write_word(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if (address == C2503_IO_CHANNELA_LANCE_RDP_ADDR) {
 		switch (g_io_chnla_lance_rap) {
 			case 0:
@@ -2421,6 +2437,8 @@ bool io_channela_write_word(unsigned int address, unsigned int value) {
 unsigned char g_io_chnlb_serial[C2503_IO_CHANNELB_SERIAL_SIZE];
 
 bool io_channelb_read_byte(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		*value = READ_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
 		return true;
@@ -2429,6 +2447,8 @@ bool io_channelb_read_byte(unsigned int address, unsigned int *value) {
 }
 
 bool io_channelb_read_word(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		*value = READ_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
 		return true;
@@ -2437,6 +2457,8 @@ bool io_channelb_read_word(unsigned int address, unsigned int *value) {
 }
 
 bool io_channelb_read_long(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		*value = READ_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
 		return true;
@@ -2445,6 +2467,8 @@ bool io_channelb_read_long(unsigned int address, unsigned int *value) {
 }
 
 bool io_channelb_write_byte(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
 		return true;
@@ -2453,6 +2477,8 @@ bool io_channelb_write_byte(unsigned int address, unsigned int value) {
 }
 
 bool io_channelb_write_word(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
 		return true;
@@ -2461,6 +2487,8 @@ bool io_channelb_write_word(unsigned int address, unsigned int value) {
 }
 
 bool io_channelb_write_long(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
 		return true;
@@ -2474,6 +2502,8 @@ bool io_channelb_write_long(unsigned int address, unsigned int value) {
 unsigned char g_io_unknown1[C2503_IO_UNKNOWN1_SIZE];
 
 bool io_unknown1_read_byte(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
 		*value = READ_BYTE(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR);
 		return true;
@@ -2482,6 +2512,8 @@ bool io_unknown1_read_byte(unsigned int address, unsigned int *value) {
 }
 
 bool io_unknown1_read_word(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 #if C2503_IO_UNKNOWN1_SIZE >= 2
 	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
 		*value = READ_WORD(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR);
@@ -2492,6 +2524,8 @@ bool io_unknown1_read_word(unsigned int address, unsigned int *value) {
 }
 
 bool io_unknown1_read_long(unsigned int address, unsigned int *value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 #if C2503_IO_UNKNOWN1_SIZE >= 4
 	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
 		*value = READ_LONG(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR);
@@ -2502,6 +2536,8 @@ bool io_unknown1_read_long(unsigned int address, unsigned int *value) {
 }
 
 bool io_unknown1_write_byte(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
 		WRITE_BYTE(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR, value);
 		return true;
@@ -2510,6 +2546,8 @@ bool io_unknown1_write_byte(unsigned int address, unsigned int value) {
 }
 
 bool io_unknown1_write_word(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 #if C2503_IO_UNKNOWN1_SIZE >= 2
 	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
 		WRITE_WORD(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR, value);
@@ -2520,6 +2558,8 @@ bool io_unknown1_write_word(unsigned int address, unsigned int value) {
 }
 
 bool io_unknown1_write_long(unsigned int address, unsigned int value) {
+	if (sri_enabled) return false;				// If SRI enabled, bypass read
+
 #if C2503_IO_UNKNOWN1_SIZE >= 4
 	if ((address >= C2503_IO_UNKNOWN1_ADDR) && (address < (C2503_IO_UNKNOWN1_ADDR + C2503_IO_UNKNOWN1_SIZE))) {
 		WRITE_LONG(g_io_unknown1, address - C2503_IO_UNKNOWN1_ADDR, value);
