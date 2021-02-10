@@ -88,6 +88,10 @@ int		emu_logfile_fh = -1;
 unsigned int	emu_logging_lastpc = 0;
 bool		emu_logging;
 
+char		*emu_bflogfile = "cisco_2503.bus_fault.log";
+int		emu_bflogfile_fh = -1;
+bool		emu_bflogging;
+
 /* Exit with an error message.  Use printf syntax. */
 void exit_error(char* fmt, ...)
 {
@@ -120,6 +124,25 @@ void exit_error(char* fmt, ...)
 void cpu_set_fc(unsigned int fc)
 {
 	g_fc = fc;
+}
+
+/* Log bus errors */
+void emu_bus_error(unsigned int failed_address) {
+	unsigned int	current_pc = m68k_get_reg(NULL, M68K_REG_PPC);
+
+	// Log if enabled
+	if (emu_bflogging) {
+		if (emu_bflogfile_fh != -1) {
+			sprintf(&str_tmp_buf[0], "0x%08x: ", failed_address);
+			write(emu_bflogfile_fh, str_tmp_buf, strlen(str_tmp_buf));
+			make_disasm_str(current_pc, 0);
+			write(emu_bflogfile_fh, str_tmp_buf, strlen(str_tmp_buf));
+			write(emu_bflogfile_fh, "\n", 1);
+			//fsync(emu_bflogfile_fh);
+		}
+	}
+
+	m68k_pulse_bus_error();
 }
 
 ///* Called when the CPU acknowledges an interrupt */
@@ -292,6 +315,8 @@ void cpu_pulse_reset(void) {
 	io_system_core_init();
 	io_counter_core_init();
 	io_duart_core_init();
+	io_channela_core_init();
+	io_68302_core_init();
 	mem_nvram_init();
 
 //	nmi_device_reset();
@@ -308,11 +333,11 @@ bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int, bool real_r
 	if (mem_bootrom_read_byte(address, tmp_int)) return true;
 	if (mem_nvram_read_byte(address, tmp_int)) return true;
 	if (mem_ram_read_byte(address, tmp_int)) return true;
-	if (io_68302_read_byte(address, tmp_int)) return true;
 	if (io_system_read_byte(address, tmp_int)) return true;
 	if (io_counter_read_byte(address, tmp_int)) return true;
 	if (io_duart_read_byte(address, tmp_int, real_read)) return true;
-	if (io_channela_read_byte(address, tmp_int)) return true;
+	if (io_unknown1_read_byte(address, tmp_int)) return true;
+	if (io_68302_read_byte(address, tmp_int)) return true;
 	if (io_channelb_read_byte(address, tmp_int)) return true;
 	if (real_read) if (sriReadByte(address, tmp_int)) return true;
 
@@ -330,7 +355,7 @@ unsigned int cpu_read_byte(unsigned int address) {
 
 	if (cpu_real_read_byte(address, &tmp_int, true)) return tmp_int;
 
-	m68k_pulse_bus_error();
+	emu_bus_error(address);
 //	exit_error("Attempted to read byte from address %08x", address);
 }
 
@@ -350,14 +375,15 @@ unsigned int cpu_read_word(unsigned int address) {
 	if (mem_bootrom_read_word(address, &tmp_int)) return tmp_int;
 	if (mem_nvram_read_word(address, &tmp_int)) return tmp_int;
 	if (mem_ram_read_word(address, &tmp_int)) return tmp_int;
-	if (io_68302_read_word(address, &tmp_int)) return tmp_int;
 	if (io_system_read_word(address, &tmp_int)) return tmp_int;
 	if (io_counter_read_word(address, &tmp_int)) return tmp_int;
+	if (io_unknown1_read_word(address, &tmp_int)) return tmp_int;
 	if (io_channela_read_word(address, &tmp_int)) return tmp_int;
+	if (io_68302_read_word(address, &tmp_int)) return tmp_int;
 	if (io_channelb_read_word(address, &tmp_int)) return tmp_int;
 	if (sriReadWord(address, &tmp_int)) return tmp_int;
 
-	m68k_pulse_bus_error();
+	emu_bus_error(address);
 //	exit_error("Attempted to read word from address %08x", address);
 }
 
@@ -377,13 +403,13 @@ unsigned int cpu_read_long(unsigned int address) {
 	if (mem_bootrom_read_long(address, &tmp_int)) return tmp_int;
 	if (mem_nvram_read_long(address, &tmp_int)) return tmp_int;
 	if (mem_ram_read_long(address, &tmp_int)) return tmp_int;
-	if (io_68302_read_long(address, &tmp_int)) return tmp_int;
 	if (io_system_read_long(address, &tmp_int)) return tmp_int;
-	if (io_channela_read_long(address, &tmp_int)) return tmp_int;
+	if (io_unknown1_read_long(address, &tmp_int)) return tmp_int;
+	if (io_68302_read_long(address, &tmp_int)) return tmp_int;
 	if (io_channelb_read_long(address, &tmp_int)) return tmp_int;
 	if (sriReadLong(address, &tmp_int)) return tmp_int;
 
-	m68k_pulse_bus_error();
+	emu_bus_error(address);
 //	exit_error("Attempted to read long from address %08x", address);
 }
 
@@ -400,15 +426,15 @@ void cpu_write_byte(unsigned int address, unsigned int value) {
 
 	if (mem_nvram_write_byte(address, value)) return;
 	if (mem_ram_write_byte(address, value)) return;
-	if (io_68302_write_byte(address, value)) return;
 	if (io_system_write_byte(address, value)) return;
 	if (io_counter_write_byte(address, value)) return;
 	if (io_duart_write_byte(address, value)) return;
-	if (io_channela_write_byte(address, value)) return;
+	if (io_unknown1_write_byte(address, value)) return;
+	if (io_68302_write_byte(address, value)) return;
 	if (io_channelb_write_byte(address, value)) return;
 	if (sriWriteByte(address, value)) return;
 
-	m68k_pulse_bus_error();
+	emu_bus_error(address);
 //	exit_error("Attempted to write byte to address %08x", address);
 }
 
@@ -425,14 +451,15 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 
 	if (mem_nvram_write_word(address, value)) return;
 	if (mem_ram_write_word(address, value)) return;
-	if (io_68302_write_word(address, value)) return;
 	if (io_system_write_word(address, value)) return;
 	if (io_counter_write_word(address, value)) return;
+	if (io_unknown1_write_word(address, value)) return;
 	if (io_channela_write_word(address, value)) return;
+	if (io_68302_write_word(address, value)) return;
 	if (io_channelb_write_word(address, value)) return;
 	if (sriWriteWord(address, value)) return;
 
-	m68k_pulse_bus_error();
+	emu_bus_error(address);
 //	exit_error("Attempted to write word to address %08x", address);
 }
 
@@ -449,13 +476,13 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 
 	if (mem_nvram_write_long(address, value)) return;
 	if (mem_ram_write_long(address, value)) return;
-	if (io_68302_write_long(address, value)) return;
 	if (io_system_write_long(address, value)) return;
-	if (io_channela_write_long(address, value)) return;
+	if (io_unknown1_write_long(address, value)) return;
+	if (io_68302_write_long(address, value)) return;
 	if (io_channelb_write_long(address, value)) return;
 	if (sriWriteLong(address, value)) return;
 
-	m68k_pulse_bus_error();
+	emu_bus_error(address);
 //	exit_error("Attempted to write long to address %08x", address);
 }
 
@@ -463,6 +490,8 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 void system_tick() {
 	io_counter_core_clock_tick();
 	io_duart_core_clock_tick();
+	io_channela_core_clock_tick();
+	io_68302_core_clock_tick();
 }
 
 // Debugger
@@ -1434,6 +1463,24 @@ int main(int argc, char* argv[]) {
 			emu_status_message("Step Back");
 			// Rollback instruction
 			m68k_set_reg(M68K_REG_PC, m68k_get_reg(NULL, M68K_REG_PPC));
+		} else if (key_press == '>') {
+			if (emu_bflogging) {
+				emu_bflogging = false;
+				if (emu_bflogfile_fh != -1) {
+					fsync(emu_bflogfile_fh);
+					close(emu_bflogfile_fh);
+					emu_bflogfile_fh = -1;
+				}
+				emu_status_message("Bus Fault logging disabled");
+			} else {
+				emu_bflogging = true;
+				emu_bflogfile_fh = open(emu_bflogfile, O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+				if (emu_bflogfile_fh == -1) {
+					emu_status_message("Failed to open bus fault log file.");
+				} else {
+					emu_status_message("Bus Fault logging enabled");
+				}
+			}
 		} else if (key_press == 'a') {
 			emu_set_cpu_reg_val();
 		} else if (key_press == 'b') {
