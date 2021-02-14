@@ -391,6 +391,8 @@ bool io_channelb_write_long(unsigned address, unsigned int value);
 
 // Unknown1
 //////////////////////////////////////////////////////////////////////////////////////////////
+// IRQ 5?
+
 #define C2503_IO_UNKNOWN1_ADDR		0x02132100
 #define C2503_IO_UNKNOWN1_SIZE		0x8
 

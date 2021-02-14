@@ -212,7 +212,9 @@ unsigned short int	g_x24c44_shift_reg;
 unsigned short int 	g_io_sys_control1, \
 			g_io_sys_control2, \
 			g_io_sys_control3, \
-			g_io_sys_control4;
+			g_io_sys_control4, \
+			g_io_sys_control5, \
+			g_io_sys_control6;
 
 // PROM Cookie (taken from hardware)
 // 0x0b, 0x01, 0x00, 0xe0, 0x1e, 0xb9, 0x23, 0x91, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00
@@ -292,6 +294,16 @@ bool io_system_read_word(unsigned int address, unsigned int *value) {
 	// System control register 4
 	if ((address >= C2503_IO_SYS_CONTROL4_ADDR) && (address < (C2503_IO_SYS_CONTROL4_ADDR + C2503_IO_SYS_CONTROL4_SIZE))) {
 		*value = g_io_sys_control4;
+		return true;
+	}
+	// System control register 5
+	if ((address >= C2503_IO_SYS_CONTROL5_ADDR) && (address < (C2503_IO_SYS_CONTROL5_ADDR + C2503_IO_SYS_CONTROL5_SIZE))) {
+		*value = g_io_sys_control5;
+		return true;
+	}
+	// System control register 6
+	if ((address >= C2503_IO_SYS_CONTROL6_ADDR) && (address < (C2503_IO_SYS_CONTROL6_ADDR + C2503_IO_SYS_CONTROL6_SIZE))) {
+		*value = g_io_sys_control6;
 		return true;
 	}
 
@@ -427,6 +439,16 @@ bool io_system_write_word(unsigned int address, unsigned int value) {
 	// System control register 4
 	if ((address >= C2503_IO_SYS_CONTROL4_ADDR) && (address < (C2503_IO_SYS_CONTROL4_ADDR + C2503_IO_SYS_CONTROL4_SIZE))) {
 		g_io_sys_control4 = (short) value;
+		return true;
+	}
+	// System control register 5
+	if ((address >= C2503_IO_SYS_CONTROL5_ADDR) && (address < (C2503_IO_SYS_CONTROL5_ADDR + C2503_IO_SYS_CONTROL5_SIZE))) {
+		g_io_sys_control5 = (short) value;
+		return true;
+	}
+	// System control register 6
+	if ((address >= C2503_IO_SYS_CONTROL6_ADDR) && (address < (C2503_IO_SYS_CONTROL6_ADDR + C2503_IO_SYS_CONTROL6_SIZE))) {
+		g_io_sys_control6 = (short) value;
 		return true;
 	}
 
