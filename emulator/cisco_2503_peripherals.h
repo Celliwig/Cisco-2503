@@ -39,6 +39,19 @@ bool mem_bootrom_read_byte(unsigned address, unsigned int *value);
 bool mem_bootrom_read_word(unsigned address, unsigned int *value);
 bool mem_bootrom_read_long(unsigned address, unsigned int *value);
 
+// Flash ROM
+//////////////////////////////////////////////////////////////////////////////////////////////
+#define C2503_FLASHROM_ADDR		0x03000000			// Address of main flash ROM
+#define C2503_FLASHROM_SIZE		0x800000			// 8MB Flash ROM
+
+bool mem_flashrom_init(FILE *fhandle);
+bool mem_flashrom_read_byte(unsigned address, unsigned int *value);
+bool mem_flashrom_read_word(unsigned address, unsigned int *value);
+bool mem_flashrom_read_long(unsigned address, unsigned int *value);
+bool mem_flashrom_write_byte(unsigned address, unsigned int value);
+bool mem_flashrom_write_word(unsigned address, unsigned int value);
+bool mem_flashrom_write_long(unsigned address, unsigned int value);
+
 // NVRAM
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define	C2503_NVRAM_ADDR		0x02000000			// NVRAM address

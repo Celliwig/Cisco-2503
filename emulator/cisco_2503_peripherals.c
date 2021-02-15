@@ -599,6 +599,68 @@ bool mem_bootrom_read_long(unsigned int address, unsigned int *value) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
+// Flash ROM
+//////////////////////////////////////////////////////////////////////////////////////////////
+unsigned char g_flashrom[C2503_FLASHROM_SIZE];
+
+// Initialise flash ROM with contents from file
+bool mem_flashrom_init(FILE *fhandle) {
+	unsigned int i;
+	// Fake erased sectors
+	for (i = 0; i < C2503_FLASHROM_SIZE; i++) {
+		g_flashrom[i] = 0xFF;
+	}
+
+	if (fread(g_flashrom, 1, C2503_FLASHROM_SIZE, fhandle) <= 0) return false;
+	return true;
+}
+
+bool mem_flashrom_read_byte(unsigned int address, unsigned int *value) {
+	if ((address >= C2503_FLASHROM_ADDR) && (address < (C2503_FLASHROM_ADDR + C2503_FLASHROM_SIZE))) {
+		*value = READ_BYTE(g_flashrom, address - C2503_FLASHROM_ADDR);
+		return true;
+	}
+	return false;
+}
+
+bool mem_flashrom_read_word(unsigned int address, unsigned int *value) {
+	if ((address >= C2503_FLASHROM_ADDR) && (address < (C2503_FLASHROM_ADDR + C2503_FLASHROM_SIZE))) {
+		*value = READ_WORD(g_flashrom, address - C2503_FLASHROM_ADDR);
+		return true;
+	}
+	return false;
+}
+
+bool mem_flashrom_read_long(unsigned int address, unsigned int *value) {
+	if ((address >= C2503_FLASHROM_ADDR) && (address < (C2503_FLASHROM_ADDR + C2503_FLASHROM_SIZE))) {
+		*value = READ_LONG(g_flashrom, address - C2503_FLASHROM_ADDR);
+		return true;
+	}
+	return false;
+}
+
+bool mem_flashrom_write_byte(unsigned int address, unsigned int value) {
+	if ((address >= C2503_FLASHROM_ADDR) && (address < (C2503_FLASHROM_ADDR + C2503_FLASHROM_SIZE))) {
+		return true;
+	}
+	return false;
+}
+
+bool mem_flashrom_write_word(unsigned int address, unsigned int value) {
+	if ((address >= C2503_FLASHROM_ADDR) && (address < (C2503_FLASHROM_ADDR + C2503_FLASHROM_SIZE))) {
+		return true;
+	}
+	return false;
+}
+
+bool mem_flashrom_write_long(unsigned int address, unsigned int value) {
+	if ((address >= C2503_FLASHROM_ADDR) && (address < (C2503_FLASHROM_ADDR + C2503_FLASHROM_SIZE))) {
+		return true;
+	}
+	return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
 // NVRAM
 //////////////////////////////////////////////////////////////////////////////////////////////
 /* Data extracted from hardware */

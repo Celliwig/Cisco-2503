@@ -331,6 +331,7 @@ bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int, bool real_r
 //	}
 
 	if (mem_bootrom_read_byte(address, tmp_int)) return true;
+	if (mem_flashrom_read_byte(address, tmp_int)) return true;
 	if (mem_nvram_read_byte(address, tmp_int)) return true;
 	if (mem_ram_read_byte(address, tmp_int)) return true;
 	if (io_system_read_byte(address, tmp_int)) return true;
@@ -373,6 +374,7 @@ unsigned int cpu_read_word(unsigned int address) {
 	}
 
 	if (mem_bootrom_read_word(address, &tmp_int)) return tmp_int;
+	if (mem_flashrom_read_word(address, &tmp_int)) return tmp_int;
 	if (mem_nvram_read_word(address, &tmp_int)) return tmp_int;
 	if (mem_ram_read_word(address, &tmp_int)) return tmp_int;
 	if (io_system_read_word(address, &tmp_int)) return tmp_int;
@@ -401,6 +403,7 @@ unsigned int cpu_read_long(unsigned int address) {
 	}
 
 	if (mem_bootrom_read_long(address, &tmp_int)) return tmp_int;
+	if (mem_flashrom_read_long(address, &tmp_int)) return tmp_int;
 	if (mem_nvram_read_long(address, &tmp_int)) return tmp_int;
 	if (mem_ram_read_long(address, &tmp_int)) return tmp_int;
 	if (io_system_read_long(address, &tmp_int)) return tmp_int;
@@ -426,6 +429,7 @@ void cpu_write_byte(unsigned int address, unsigned int value) {
 
 	if (mem_nvram_write_byte(address, value)) return;
 	if (mem_ram_write_byte(address, value)) return;
+	if (mem_flashrom_write_byte(address, value)) return;
 	if (io_system_write_byte(address, value)) return;
 	if (io_counter_write_byte(address, value)) return;
 	if (io_duart_write_byte(address, value)) return;
@@ -451,6 +455,7 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 
 	if (mem_nvram_write_word(address, value)) return;
 	if (mem_ram_write_word(address, value)) return;
+	if (mem_flashrom_write_word(address, value)) return;
 	if (io_system_write_word(address, value)) return;
 	if (io_counter_write_word(address, value)) return;
 	if (io_unknown1_write_word(address, value)) return;
@@ -476,6 +481,7 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 
 	if (mem_nvram_write_long(address, value)) return;
 	if (mem_ram_write_long(address, value)) return;
+	if (mem_flashrom_write_long(address, value)) return;
 	if (io_system_write_long(address, value)) return;
 	if (io_unknown1_write_long(address, value)) return;
 	if (io_68302_write_long(address, value)) return;
@@ -1260,6 +1266,7 @@ void print_usage() {
 	printf("Usage: cisco_2503 -b <ROM file> -s <serial device> \n");
 	printf("	-b <ROM file>		Initial boot ROM file.\n");
 	printf("	-1/-2 <ROM file>	Use upper/lower bit swapped ROM files.\n");
+	printf("	-f <ROM file>		Main flash ROM file.\n");
 	printf("	-s <serial device>	Device to connect to, to provide serial emulation.\n");
 	exit(-1);
 }
@@ -1267,15 +1274,16 @@ void print_usage() {
 // Main loop
 //////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
-	FILE		*fh_bootrom1, *fh_bootrom2;
+	FILE		*fh_bootrom1, *fh_bootrom2, *fh_flashrom;
 	int		fd_serial, fd_sri, key_press, tmp_opt, tmp_pc;
 	unsigned int	current_pc, emu_sleep = 800;
-	char		emu_step = 0, *bootrom_filename = NULL, *bootrom_filename_fw1 = NULL, *bootrom_filename_fw2 = NULL, *console_devname = NULL, *sri_devname = NULL;
+	char		emu_step = 0, *bootrom_filename = NULL, *bootrom_filename_fw1 = NULL, *bootrom_filename_fw2 = NULL, \
+				*flashrom_filename = NULL, *console_devname = NULL, *sri_devname = NULL;
 	struct termios	serial_fd_opts;
 	int serial_hs_status;
 
 	opterr = 0;
-	while ((tmp_opt = getopt(argc, argv, "b:c:s:1:2:")) != -1) {
+	while ((tmp_opt = getopt(argc, argv, "b:c:f:s:1:2:")) != -1) {
 		switch (tmp_opt) {
 			case '1':
 				bootrom_filename_fw1 = optarg;
@@ -1288,6 +1296,9 @@ int main(int argc, char* argv[]) {
 				break;
 			case 'c':
 				console_devname = optarg;
+				break;
+			case 'f':
+				flashrom_filename = optarg;
 				break;
 			case 's':
 				sri_devname = optarg;
@@ -1328,6 +1339,18 @@ int main(int argc, char* argv[]) {
 		if (!mem_bootrom_split_init(fh_bootrom1, fh_bootrom2)) {
 			printf("Error reading split ROM\n");
 			exit(-1);
+		}
+	}
+
+	if (flashrom_filename != NULL) {
+		if ((fh_flashrom = fopen(flashrom_filename, "rb")) == NULL) {
+			printf("Unable to open %s\n", flashrom_filename);
+			exit(-1);
+		} else {
+			if (!mem_flashrom_init(fh_flashrom)) {
+				printf("Error reading %s\n", flashrom_filename);
+				exit(-1);
+			}
 		}
 	}
 
