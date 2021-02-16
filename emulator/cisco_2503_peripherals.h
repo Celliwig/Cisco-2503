@@ -95,6 +95,7 @@ bool mem_ram_write_long(unsigned address, unsigned int value);
 
 void io_68302_core_init();
 void io_68302_core_clock_tick();
+bool io_68302_isIRQ();
 bool io_68302_read_byte(unsigned address, unsigned int *value);
 bool io_68302_read_word(unsigned address, unsigned int *value);
 bool io_68302_read_long(unsigned address, unsigned int *value);
@@ -106,28 +107,10 @@ bool io_68302_write_long(unsigned address, unsigned int value);
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IRQ 3/4 appears associated
 
-#define C2503_IO_SYS_CONTROL1_ADDR		0x02110000			// System control register 1 address
-#define C2503_IO_SYS_CONTROL1_SIZE		0x2				// System control register 1 size
-#define C2503_IO_SYS_CONTROL2_ADDR		0x02110002			// System control register 2 address
-#define C2503_IO_SYS_CONTROL2_SIZE		0x2				// System control register 2 size
-#define C2503_IO_SYS_CONTROL3_ADDR		0x02110004			// System control register 3 address
-#define C2503_IO_SYS_CONTROL3_SIZE		0x2				// System control register 3 size
-#define C2503_IO_SYS_CONTROL4_ADDR		0x02110006			// System control register 4 address
-#define C2503_IO_SYS_CONTROL4_SIZE		0x2				// System control register 4 size
-#define C2503_IO_SYS_CONTROL5_ADDR		0x02110008			// System control register 5 address
-#define C2503_IO_SYS_CONTROL5_SIZE		0x2				// System control register 5 size
-#define C2503_IO_SYS_CONTROL6_ADDR		0x0211000a			// System control register 6 address
-#define C2503_IO_SYS_CONTROL6_SIZE		0x2				// System control register 6 size
-#define C2503_IO_SYS_CONTROL7_ADDR		0x02110010			// System control register 7 address
-#define C2503_IO_SYS_CONTROL7_SIZE		0x2				// System control register 7 size
-#define C2503_IO_SYS_CONTROL8_ADDR		0x02110012			// System control register 8 address
-#define C2503_IO_SYS_CONTROL8_SIZE		0x2				// System control register 8 size
-#define C2503_IO_SYS_CONTROL9_ADDR		0x02110014			// System control register 9 address
-#define C2503_IO_SYS_CONTROL9_SIZE		0x2				// System control register 9 size
-#define C2503_IO_SYS_CONTROL10_ADDR		0x02110016			// System control register 10 address
-#define C2503_IO_SYS_CONTROL10_SIZE		0x2				// System control register 10 size
-#define C2503_IO_SYS_CONTROL11_ADDR		0x02110018			// System control register 11 address
-#define C2503_IO_SYS_CONTROL11_SIZE		0x2				// System control register 11 size
+#define C2503_IO_SYS_CONTROL_BASE_ADDR		0x02110000			// System control registers base address
+#define C2503_IO_SYS_CONTROL_WIN_SIZE		12				// System control registers window size
+
+#define C2503_IO_SYS_CONTROL_HW_VERSION		0x0E				// Hardware version
 
 #define C2503_IO_SYS_ID_COOKIE_ADDR		0x02110040			// Original System ID cookie address
 #define C2503_IO_SYS_ID_COOKIE_SIZE		0x20				// Original System ID cookie size
@@ -135,8 +118,6 @@ bool io_68302_write_long(unsigned address, unsigned int value);
 #define C2503_IO_SYS_ID_COOKIE_SIZE2		0x1				// New System ID cookie size
 #define C2503_IO_SYS_STATUS_ADDR		0x02110100			// System status register address
 #define C2503_IO_SYS_STATUS_SIZE		0x1				// System status register size
-
-#define C2503_IO_SYS_CONTROL1_BOOTROM_REMAP	0x1				// Initially remap bootrom to 0x00000000
 
 void io_system_core_init();
 bool io_system_read_byte(unsigned address, unsigned int *value);
@@ -159,6 +140,8 @@ bool io_system_write_long(unsigned address, unsigned int value);
 
 void io_counter_core_init();
 void io_counter_core_clock_tick();
+bool io_system_cntl_reg_read(unsigned char address_offset, unsigned char *value);
+bool io_system_cntl_reg_write(unsigned char address_offset, unsigned char value);
 bool io_counter_read_byte(unsigned address, unsigned int *value);
 bool io_counter_read_word(unsigned address, unsigned int *value);
 bool io_counter_write_byte(unsigned address, unsigned int value);
@@ -387,6 +370,7 @@ bool io_duart_write_byte(unsigned address, unsigned int value);
 
 void io_channela_core_init();
 void io_channela_core_clock_tick();
+bool io_channela_isIRQ();
 bool io_channela_read_word(unsigned address, unsigned int *value);
 bool io_channela_write_word(unsigned address, unsigned int value);
 
@@ -395,6 +379,7 @@ bool io_channela_write_word(unsigned address, unsigned int value);
 #define C2503_IO_CHANNELB_SERIAL_ADDR	0x02132000			// Channel B: Serial Address
 #define C2503_IO_CHANNELB_SERIAL_SIZE	0xff				// Channel B: Serial Window Size
 
+bool io_channelb_isIRQ();
 bool io_channelb_read_byte(unsigned address, unsigned int *value);
 bool io_channelb_read_word(unsigned address, unsigned int *value);
 bool io_channelb_read_long(unsigned address, unsigned int *value);

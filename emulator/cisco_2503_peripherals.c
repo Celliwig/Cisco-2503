@@ -202,19 +202,9 @@ bool sriWriteLong(unsigned int address, unsigned int value) { return sriWriteReq
 
 // System Registers
 //////////////////////////////////////////////////////////////////////////////////////////////
-//unsigned char g_io_sys_cntl1[C2503_IO_SYS_CONTROL1_SIZE];
-//unsigned char g_io_sys_cntl2[C2503_IO_SYS_CONTROL2_SIZE];
 unsigned char		g_io_sysid_cookie[C2503_IO_SYS_ID_COOKIE_SIZE];
-unsigned char		g_io_sys_status[C2503_IO_SYS_STATUS_SIZE];
 unsigned char		g_io_sysid_cookie2, g_x24c44_cmd_reg;
 unsigned short int	g_x24c44_shift_reg;
-
-unsigned short int 	g_io_sys_control1, \
-			g_io_sys_control2, \
-			g_io_sys_control3, \
-			g_io_sys_control4, \
-			g_io_sys_control5, \
-			g_io_sys_control6;
 
 // PROM Cookie (taken from hardware)
 // 0x0b, 0x01, 0x00, 0xe0, 0x1e, 0xb9, 0x23, 0x91, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00
@@ -222,37 +212,414 @@ unsigned short int 	g_io_sys_control1, \
 unsigned short cookie_prom_data[16] = { 0x0b01, 0x0700, 0x0600, 0x0000, 0x1eb9, 0x0000, 0x0100, 0x0000, \
 					0x00e0, 0x3370, 0x0000, 0x0000, 0x2391, 0x0000, 0x0000, 0x0000 };
 
+bool
+			/* System control register (Offset: 0x00) */
+			g_io_sysctrl00_0_unkwn, \
+			g_io_sysctrl00_1_unkwn, \
+			g_io_sysctrl00_2_unkwn, \
+			g_io_sysctrl00_3_unkwn, \
+			g_io_sysctrl00_4_unkwn, \
+			g_io_sysctrl00_5_unkwn, \
+			g_io_sysctrl00_6_unkwn, \
+			g_io_sysctrl00_7_unkwn, \
+
+			// System control register (Offset: 0x01)
+			g_io_sysctrl01_0_remap_rom, \
+			g_io_sysctrl01_1_unkwn, \
+			g_io_sysctrl01_2_unkwn, \
+			g_io_sysctrl01_3_unkwn, \
+			g_io_sysctrl01_4_status_led, \
+			g_io_sysctrl01_5_unkwn, \
+			g_io_sysctrl01_6_unkwn, \
+			g_io_sysctrl01_7_unkwn, \
+
+			// System control register (Offset: 0x03)
+			g_io_sysctrl03_0_prom_bw0, \
+			g_io_sysctrl03_1_prom_bw1, \
+			g_io_sysctrl03_2_prom_ws0, \
+			g_io_sysctrl03_3_prom_ws1, \
+			g_io_sysctrl03_4_ram_ws0, \
+			g_io_sysctrl03_5_ram_ws1, \
+			g_io_sysctrl03_6_unkwn, \
+			g_io_sysctrl03_7_unkwn, \
+
+			// System control register (Offset: 0x04)
+			g_io_sysctrl04_0_unkwn, \
+			g_io_sysctrl04_1_unkwn, \
+			g_io_sysctrl04_2_unkwn, \
+			g_io_sysctrl04_3_unkwn, \
+			g_io_sysctrl04_4_unkwn, \
+			g_io_sysctrl04_5_unkwn, \
+			g_io_sysctrl04_6_unkwn, \
+			g_io_sysctrl04_7_unkwn, \
+
+			// System control register (Offset: 0x05)
+			g_io_sysctrl05_0_unkwn, \
+			g_io_sysctrl05_1_reset_channela, \
+			g_io_sysctrl05_2_reset_channelb, \
+			g_io_sysctrl05_3_reset_68302, \
+			g_io_sysctrl05_4_unkwn, \
+			g_io_sysctrl05_5_unkwn, \
+			g_io_sysctrl05_6_unkwn, \
+			g_io_sysctrl05_7_unkwn, \
+
+			// System control register (Offset: 0x06)
+			g_io_sysctrl06_0_unkwn, \
+			g_io_sysctrl06_1_unkwn, \
+			g_io_sysctrl06_2_unkwn, \
+			g_io_sysctrl06_3_unkwn, \
+			g_io_sysctrl06_4_unkwn, \
+			g_io_sysctrl06_5_unkwn, \
+			g_io_sysctrl06_6_unkwn, \
+			g_io_sysctrl06_7_unkwn, \
+
+			// System control register (Offset: 0x07)
+/*			g_io_sysctrl07_0_unkwn, \
+			g_io_sysctrl07_1_unkwn, \
+			g_io_sysctrl07_2_unkwn, \
+			g_io_sysctrl07_3_unkwn, \
+			g_io_sysctrl07_4_unkwn, \
+			g_io_sysctrl07_5_unkwn, \
+			g_io_sysctrl07_6_unkwn, \
+			g_io_sysctrl07_7_unkwn, \ */
+
+			// System control register (Offset: 0x08)
+			g_io_sysctrl08_0_unkwn, \
+			g_io_sysctrl08_1_unkwn, \
+			g_io_sysctrl08_2_unkwn, \
+			g_io_sysctrl08_3_unkwn, \
+			g_io_sysctrl08_4_unkwn, \
+			g_io_sysctrl08_5_unkwn, \
+			g_io_sysctrl08_6_unkwn, \
+			g_io_sysctrl08_7_unkwn, \
+
+			// System control register (Offset: 0x09)
+			g_io_sysctrl09_0_unkwn, \
+			g_io_sysctrl09_1_unkwn, \
+			g_io_sysctrl09_2_unkwn, \
+			g_io_sysctrl09_3_unkwn, \
+			g_io_sysctrl09_4_unkwn, \
+			g_io_sysctrl09_5_unkwn, \
+			g_io_sysctrl09_6_unkwn, \
+			g_io_sysctrl09_7_unkwn, \
+
+			// System control register (Offset: 0x0a)
+			g_io_sysctrl0a_0_unkwn, \
+			g_io_sysctrl0a_1_unkwn, \
+			g_io_sysctrl0a_2_unkwn, \
+			g_io_sysctrl0a_3_unkwn, \
+			g_io_sysctrl0a_4_unkwn, \
+			g_io_sysctrl0a_5_unkwn, \
+			g_io_sysctrl0a_6_unkwn, \
+			g_io_sysctrl0a_7_unkwn, \
+
+			// System control register (Offset: 0x0b)
+			g_io_sysctrl0b_0_unkwn, \
+			g_io_sysctrl0b_1_unkwn, \
+			g_io_sysctrl0b_2_unkwn, \
+			g_io_sysctrl0b_3_unkwn, \
+			g_io_sysctrl0b_4_unkwn, \
+			g_io_sysctrl0b_5_unkwn, \
+			g_io_sysctrl0b_6_unkwn, \
+			g_io_sysctrl0b_7_unkwn;
+
+
 // Initialise (reset) system control core
 //////////////////////////////////////////////////////////////////////////////////////////////
 void io_system_core_init() {
-	g_io_sys_control1 = C2503_IO_SYS_CONTROL1_BOOTROM_REMAP;
-	g_io_sys_control2 = 0;
-
 	// Init System ID Cookie
 	for (int i = 0; i < 0x20; i++) {
 		g_io_sysid_cookie[i] = 0xff;
-//		g_io_sysid_cookie[i] = 0xf1;			// Alternate Cookie ID
-//		g_io_sysid_cookie[i] = 0x02;			// Alternate Cookie ID
 	}
 	// Init alternate System ID Cookie subsystem
 	g_io_sysid_cookie2 = 0x03;
 	g_x24c44_cmd_reg = 0x00;
 	g_x24c44_shift_reg = 0x0000;
+
+	// Configure control registers
+	io_system_cntl_reg_write(0x00, 0x00);
+	io_system_cntl_reg_write(0x01, 0x01);				// Map boot ROM to 0x00000000
+	io_system_cntl_reg_write(0x03, 0x00);
+	io_system_cntl_reg_write(0x04, 0x00);
+	io_system_cntl_reg_write(0x05, 0x3F);
+	io_system_cntl_reg_write(0x06, 0x00);
+	io_system_cntl_reg_write(0x07, 0x00);
+	io_system_cntl_reg_write(0x08, 0x41);
+	io_system_cntl_reg_write(0x09, 0xFA);
+	io_system_cntl_reg_write(0x0a, 0x6F);
+	io_system_cntl_reg_write(0x0b, 0x40);
+}
+
+bool io_system_cntl_reg_read(unsigned char address_offset, unsigned char *value) {
+	*value = 0;
+
+	switch (address_offset) {
+		case 0x00:
+			if (g_io_sysctrl00_0_unkwn) *value |= 0x01;
+			if (g_io_sysctrl00_1_unkwn) *value |= 0x02;
+			if (g_io_sysctrl00_2_unkwn) *value |= 0x04;
+			if (g_io_sysctrl00_3_unkwn) *value |= 0x08;
+			if (g_io_sysctrl00_4_unkwn) *value |= 0x10;
+			if (g_io_sysctrl00_5_unkwn) *value |= 0x20;
+			if (g_io_sysctrl00_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl00_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		case 0x01:
+			if (g_io_sysctrl01_0_remap_rom) *value |= 0x01;
+			if (g_io_sysctrl01_1_unkwn) *value |= 0x02;
+			if (g_io_sysctrl01_2_unkwn) *value |= 0x04;
+			if (g_io_sysctrl01_3_unkwn) *value |= 0x08;
+			if (g_io_sysctrl01_4_status_led) *value |= 0x10;
+			if (g_io_sysctrl01_5_unkwn) *value |= 0x20;
+			if (g_io_sysctrl01_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl01_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		case 0x02:
+			*value = C2503_IO_SYS_CONTROL_HW_VERSION;
+			return true;
+			break;
+		case 0x03:
+			if (g_io_sysctrl03_0_prom_bw0) *value |= 0x01;
+			if (g_io_sysctrl03_1_prom_bw1) *value |= 0x02;
+			if (g_io_sysctrl03_2_prom_ws0) *value |= 0x04;
+			if (g_io_sysctrl03_3_prom_ws1) *value |= 0x08;
+			if (g_io_sysctrl03_4_ram_ws0) *value |= 0x10;
+			if (g_io_sysctrl03_5_ram_ws1) *value |= 0x20;
+			if (g_io_sysctrl03_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl03_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		case 0x04:
+			if (g_io_sysctrl04_0_unkwn) *value |= 0x01;
+			if (g_io_sysctrl04_1_unkwn) *value |= 0x02;
+			if (g_io_sysctrl04_2_unkwn) *value |= 0x04;
+			if (g_io_sysctrl04_3_unkwn) *value |= 0x08;
+			if (g_io_sysctrl04_4_unkwn) *value |= 0x10;
+			if (g_io_sysctrl04_5_unkwn) *value |= 0x20;
+			if (g_io_sysctrl04_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl04_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		case 0x05:
+			if (g_io_sysctrl05_0_unkwn) *value |= 0x01;
+			if (g_io_sysctrl05_1_reset_channela) *value |= 0x02;
+			if (g_io_sysctrl05_2_reset_channelb) *value |= 0x04;
+			if (g_io_sysctrl05_3_reset_68302) *value |= 0x08;
+			if (g_io_sysctrl05_4_unkwn) *value |= 0x10;
+			if (g_io_sysctrl05_5_unkwn) *value |= 0x20;
+			if (g_io_sysctrl05_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl05_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		case 0x06:
+			if (g_io_sysctrl06_0_unkwn) *value |= 0x01;
+			if (g_io_sysctrl06_1_unkwn) *value |= 0x02;
+			if (g_io_sysctrl06_2_unkwn) *value |= 0x04;
+			if (g_io_sysctrl06_3_unkwn) *value |= 0x08;
+			if (g_io_sysctrl06_4_unkwn) *value |= 0x10;
+			if (g_io_sysctrl06_5_unkwn) *value |= 0x20;
+			if (g_io_sysctrl06_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl06_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		case 0x07:
+			if (io_channela_isIRQ()) *value |= 0x02;
+			if (io_channelb_isIRQ()) *value |= 0x04;
+			if (io_68302_isIRQ()) *value |= 0x08;
+			return true;
+			break;
+		case 0x08:
+			if (g_io_sysctrl08_0_unkwn) *value |= 0x01;
+			if (g_io_sysctrl08_1_unkwn) *value |= 0x02;
+			if (g_io_sysctrl08_2_unkwn) *value |= 0x04;
+			if (g_io_sysctrl08_3_unkwn) *value |= 0x08;
+			if (g_io_sysctrl08_4_unkwn) *value |= 0x10;
+			if (g_io_sysctrl08_5_unkwn) *value |= 0x20;
+			if (g_io_sysctrl08_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl08_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		case 0x09:
+			if (g_io_sysctrl09_0_unkwn) *value |= 0x01;
+			if (g_io_sysctrl09_1_unkwn) *value |= 0x02;
+			if (g_io_sysctrl09_2_unkwn) *value |= 0x04;
+			if (g_io_sysctrl09_3_unkwn) *value |= 0x08;
+			if (g_io_sysctrl09_4_unkwn) *value |= 0x10;
+			if (g_io_sysctrl09_5_unkwn) *value |= 0x20;
+			if (g_io_sysctrl09_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl09_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		case 0x0a:
+			if (g_io_sysctrl0a_0_unkwn) *value |= 0x01;
+			if (g_io_sysctrl0a_1_unkwn) *value |= 0x02;
+			if (g_io_sysctrl0a_2_unkwn) *value |= 0x04;
+			if (g_io_sysctrl0a_3_unkwn) *value |= 0x08;
+			if (g_io_sysctrl0a_4_unkwn) *value |= 0x10;
+			if (g_io_sysctrl0a_5_unkwn) *value |= 0x20;
+			if (g_io_sysctrl0a_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl0a_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		case 0x0b:
+			if (g_io_sysctrl0b_0_unkwn) *value |= 0x01;
+			if (g_io_sysctrl0b_1_unkwn) *value |= 0x02;
+			if (g_io_sysctrl0b_2_unkwn) *value |= 0x04;
+			if (g_io_sysctrl0b_3_unkwn) *value |= 0x08;
+			if (g_io_sysctrl0b_4_unkwn) *value |= 0x10;
+			if (g_io_sysctrl0b_5_unkwn) *value |= 0x20;
+			if (g_io_sysctrl0b_6_unkwn) *value |= 0x40;
+			if (g_io_sysctrl0b_7_unkwn) *value |= 0x80;
+			return true;
+			break;
+		default:
+			return false;
+	}
+
+	return false;
+}
+
+bool io_system_cntl_reg_write(unsigned char address_offset, unsigned char value) {
+	switch (address_offset) {
+		case 0x00:
+			if (value & 0x01) { g_io_sysctrl00_0_unkwn = true; } else { g_io_sysctrl00_0_unkwn = false; }
+			if (value & 0x02) { g_io_sysctrl00_1_unkwn = true; } else { g_io_sysctrl00_1_unkwn = false; }
+			if (value & 0x04) { g_io_sysctrl00_2_unkwn = true; } else { g_io_sysctrl00_2_unkwn = false; }
+			if (value & 0x08) { g_io_sysctrl00_3_unkwn = true; } else { g_io_sysctrl00_3_unkwn = false; }
+			if (value & 0x10) { g_io_sysctrl00_4_unkwn = true; } else { g_io_sysctrl00_4_unkwn = false; }
+			if (value & 0x20) { g_io_sysctrl00_5_unkwn = true; } else { g_io_sysctrl00_5_unkwn = false; }
+			if (value & 0x40) { g_io_sysctrl00_6_unkwn = true; } else { g_io_sysctrl00_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl00_7_unkwn = true; } else { g_io_sysctrl00_7_unkwn = false; }
+			return true;
+			break;
+		case 0x01:
+			if (value & 0x01) { g_io_sysctrl01_0_remap_rom = true; } else { g_io_sysctrl01_0_remap_rom = false; }
+			if (value & 0x02) { g_io_sysctrl01_1_unkwn = true; } else { g_io_sysctrl01_1_unkwn = false; }
+			if (value & 0x04) { g_io_sysctrl01_2_unkwn = true; } else { g_io_sysctrl01_2_unkwn = false; }
+			if (value & 0x08) { g_io_sysctrl01_3_unkwn = true; } else { g_io_sysctrl01_3_unkwn = false; }
+			if (value & 0x10) { g_io_sysctrl01_4_status_led = true; } else { g_io_sysctrl01_4_status_led = false; }
+			if (value & 0x20) { g_io_sysctrl01_5_unkwn = true; } else { g_io_sysctrl01_5_unkwn = false; }
+			if (value & 0x40) { g_io_sysctrl01_6_unkwn = true; } else { g_io_sysctrl01_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl01_7_unkwn = true; } else { g_io_sysctrl01_7_unkwn = false; }
+			return true;
+			break;
+		case 0x02:
+			// Hardware version register read-only
+			return true;
+			break;
+		case 0x03:
+			if (value & 0x01) { g_io_sysctrl03_0_prom_bw0 = true; } else { g_io_sysctrl03_0_prom_bw0 = false; }
+			if (value & 0x02) { g_io_sysctrl03_1_prom_bw1 = true; } else { g_io_sysctrl03_1_prom_bw1 = false; }
+			if (value & 0x04) { g_io_sysctrl03_2_prom_ws0 = true; } else { g_io_sysctrl03_2_prom_ws0 = false; }
+			if (value & 0x08) { g_io_sysctrl03_3_prom_ws1 = true; } else { g_io_sysctrl03_3_prom_ws1 = false; }
+			if (value & 0x10) { g_io_sysctrl03_4_ram_ws0 = true; } else { g_io_sysctrl03_4_ram_ws0 = false; }
+			if (value & 0x20) { g_io_sysctrl03_5_ram_ws1 = true; } else { g_io_sysctrl03_5_ram_ws1 = false; }
+			if (value & 0x40) { g_io_sysctrl03_6_unkwn = true; } else { g_io_sysctrl03_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl03_7_unkwn = true; } else { g_io_sysctrl03_7_unkwn = false; }
+			return true;
+			break;
+		case 0x04:
+			if (value & 0x01) { g_io_sysctrl04_0_unkwn = true; } else { g_io_sysctrl04_0_unkwn = false; }
+			if (value & 0x02) { g_io_sysctrl04_1_unkwn = true; } else { g_io_sysctrl04_1_unkwn = false; }
+			if (value & 0x04) { g_io_sysctrl04_2_unkwn = true; } else { g_io_sysctrl04_2_unkwn = false; }
+			if (value & 0x08) { g_io_sysctrl04_3_unkwn = true; } else { g_io_sysctrl04_3_unkwn = false; }
+			if (value & 0x10) { g_io_sysctrl04_4_unkwn = true; } else { g_io_sysctrl04_4_unkwn = false; }
+			if (value & 0x20) { g_io_sysctrl04_5_unkwn = true; } else { g_io_sysctrl04_5_unkwn = false; }
+			if (value & 0x40) { g_io_sysctrl04_6_unkwn = true; } else { g_io_sysctrl04_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl04_7_unkwn = true; } else { g_io_sysctrl04_7_unkwn = false; }
+			return true;
+			break;
+		case 0x05:
+			if (value & 0x01) { g_io_sysctrl05_0_unkwn = true; } else { g_io_sysctrl05_0_unkwn = false; }
+			if (value & 0x02) { g_io_sysctrl05_1_reset_channela = true; } else { g_io_sysctrl05_1_reset_channela = false; }
+			if (value & 0x04) { g_io_sysctrl05_2_reset_channelb = true; } else { g_io_sysctrl05_2_reset_channelb = false; }
+			if (value & 0x08) { g_io_sysctrl05_3_reset_68302 = true; io_68302_core_init(); } else { g_io_sysctrl05_3_reset_68302 = false; }
+			if (value & 0x10) { g_io_sysctrl05_4_unkwn = true; } else { g_io_sysctrl05_4_unkwn = false; }
+			if (value & 0x20) { g_io_sysctrl05_5_unkwn = true; } else { g_io_sysctrl05_5_unkwn = false; }
+			if (value & 0x40) { g_io_sysctrl05_6_unkwn = true; } else { g_io_sysctrl05_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl05_7_unkwn = true; } else { g_io_sysctrl05_7_unkwn = false; }
+			return true;
+			break;
+		case 0x06:
+			if (value & 0x01) { g_io_sysctrl06_0_unkwn = true; } else { g_io_sysctrl06_0_unkwn = false; }
+			if (value & 0x02) { g_io_sysctrl06_1_unkwn = true; } else { g_io_sysctrl06_1_unkwn = false; }
+			if (value & 0x04) { g_io_sysctrl06_2_unkwn = true; } else { g_io_sysctrl06_2_unkwn = false; }
+			if (value & 0x08) { g_io_sysctrl06_3_unkwn = true; } else { g_io_sysctrl06_3_unkwn = false; }
+			if (value & 0x10) { g_io_sysctrl06_4_unkwn = true; } else { g_io_sysctrl06_4_unkwn = false; }
+			if (value & 0x20) { g_io_sysctrl06_5_unkwn = true; } else { g_io_sysctrl06_5_unkwn = false; }
+			if (value & 0x40) { g_io_sysctrl06_6_unkwn = true; } else { g_io_sysctrl06_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl06_7_unkwn = true; } else { g_io_sysctrl06_7_unkwn = false; }
+			return true;
+			break;
+		case 0x07:
+			// Read only?
+			return true;
+			break;
+		case 0x08:
+			if (value & 0x01) { g_io_sysctrl08_0_unkwn = true; } else { g_io_sysctrl08_0_unkwn = false; }
+			if (value & 0x02) { g_io_sysctrl08_1_unkwn = true; } else { g_io_sysctrl08_1_unkwn = false; }
+			if (value & 0x04) { g_io_sysctrl08_2_unkwn = true; } else { g_io_sysctrl08_2_unkwn = false; }
+			if (value & 0x08) { g_io_sysctrl08_3_unkwn = true; } else { g_io_sysctrl08_3_unkwn = false; }
+			if (value & 0x10) { g_io_sysctrl08_4_unkwn = true; } else { g_io_sysctrl08_4_unkwn = false; }
+			if (value & 0x20) { g_io_sysctrl08_5_unkwn = true; } else { g_io_sysctrl08_5_unkwn = false; }
+			if (value & 0x40) { g_io_sysctrl08_6_unkwn = true; } else { g_io_sysctrl08_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl08_7_unkwn = true; } else { g_io_sysctrl08_7_unkwn = false; }
+			return true;
+			break;
+		case 0x09:
+			if (value & 0x01) { g_io_sysctrl09_0_unkwn = true; } else { g_io_sysctrl09_0_unkwn = false; }
+			if (value & 0x02) { g_io_sysctrl09_1_unkwn = true; } else { g_io_sysctrl09_1_unkwn = false; }
+			if (value & 0x04) { g_io_sysctrl09_2_unkwn = true; } else { g_io_sysctrl09_2_unkwn = false; }
+			if (value & 0x08) { g_io_sysctrl09_3_unkwn = true; } else { g_io_sysctrl09_3_unkwn = false; }
+			if (value & 0x10) { g_io_sysctrl09_4_unkwn = true; } else { g_io_sysctrl09_4_unkwn = false; }
+			if (value & 0x20) { g_io_sysctrl09_5_unkwn = true; } else { g_io_sysctrl09_5_unkwn = false; }
+			if (value & 0x40) { g_io_sysctrl09_6_unkwn = true; } else { g_io_sysctrl09_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl09_7_unkwn = true; } else { g_io_sysctrl09_7_unkwn = false; }
+			return true;
+			break;
+		case 0x0a:
+			if (value & 0x01) { g_io_sysctrl0a_0_unkwn = true; } else { g_io_sysctrl0a_0_unkwn = false; }
+			if (value & 0x02) { g_io_sysctrl0a_1_unkwn = true; } else { g_io_sysctrl0a_1_unkwn = false; }
+			if (value & 0x04) { g_io_sysctrl0a_2_unkwn = true; } else { g_io_sysctrl0a_2_unkwn = false; }
+			if (value & 0x08) { g_io_sysctrl0a_3_unkwn = true; } else { g_io_sysctrl0a_3_unkwn = false; }
+			if (value & 0x10) { g_io_sysctrl0a_4_unkwn = true; } else { g_io_sysctrl0a_4_unkwn = false; }
+			if (value & 0x20) { g_io_sysctrl0a_5_unkwn = true; } else { g_io_sysctrl0a_5_unkwn = false; }
+			if (value & 0x40) { g_io_sysctrl0a_6_unkwn = true; } else { g_io_sysctrl0a_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl0a_7_unkwn = true; } else { g_io_sysctrl0a_7_unkwn = false; }
+			return true;
+			break;
+		case 0x0b:
+			if (value & 0x01) { g_io_sysctrl0b_0_unkwn = true; } else { g_io_sysctrl0b_0_unkwn = false; }
+			if (value & 0x02) { g_io_sysctrl0b_1_unkwn = true; } else { g_io_sysctrl0b_1_unkwn = false; }
+			if (value & 0x04) { g_io_sysctrl0b_2_unkwn = true; } else { g_io_sysctrl0b_2_unkwn = false; }
+			if (value & 0x08) { g_io_sysctrl0b_3_unkwn = true; } else { g_io_sysctrl0b_3_unkwn = false; }
+			if (value & 0x10) { g_io_sysctrl0b_4_unkwn = true; } else { g_io_sysctrl0b_4_unkwn = false; }
+			if (value & 0x20) { g_io_sysctrl0b_5_unkwn = true; } else { g_io_sysctrl0b_5_unkwn = false; }
+			if (value & 0x40) { g_io_sysctrl0b_6_unkwn = true; } else { g_io_sysctrl0b_6_unkwn = false; }
+			if (value & 0x80) { g_io_sysctrl0b_7_unkwn = true; } else { g_io_sysctrl0b_7_unkwn = false; }
+			return true;
+			break;
+		default:
+			return false;
+	}
+
+	return false;
 }
 
 bool io_system_read_byte(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
 
-//	// System control register 1
-//	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-//		*value = READ_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
-//		return true;
-//	}
-//	// System control register 2
-//	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-//		*value = READ_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
-//		return true;
-//	}
+	// Main system control registers
+	if ((address >= C2503_IO_SYS_CONTROL_BASE_ADDR) && (address < (C2503_IO_SYS_CONTROL_BASE_ADDR + C2503_IO_SYS_CONTROL_WIN_SIZE))) {
+		unsigned char tmp_val;
+		*value = 0;
+		if (!io_system_cntl_reg_read((address - C2503_IO_SYS_CONTROL_BASE_ADDR), &tmp_val)) return false;
+		*value |= tmp_val;
+		return true;
+	}
+
 	// System ID cookie (Old interface)
 	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
 		*value = READ_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
@@ -264,113 +631,58 @@ bool io_system_read_byte(unsigned int address, unsigned int *value) {
 		*value = (g_io_sysid_cookie2 & 0xfe) | (g_x24c44_shift_reg & 0x0001);
 		return true;
 	}
-//	// System status register
-//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-//		*value = READ_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
-//		return true;
-//	}
 	return false;
 }
 
 bool io_system_read_word(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
 
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		*value = g_io_sys_control1;
-		return true;
-	}
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		// Top byte is hardware revision
-		*value = 0x0e00 | (g_io_sys_control2 & 0x00ff);
-		return true;
-	}
-	// System control register 3
-	if ((address >= C2503_IO_SYS_CONTROL3_ADDR) && (address < (C2503_IO_SYS_CONTROL3_ADDR + C2503_IO_SYS_CONTROL3_SIZE))) {
-		*value = g_io_sys_control3;
-		return true;
-	}
-	// System control register 4
-	if ((address >= C2503_IO_SYS_CONTROL4_ADDR) && (address < (C2503_IO_SYS_CONTROL4_ADDR + C2503_IO_SYS_CONTROL4_SIZE))) {
-		*value = g_io_sys_control4;
-		return true;
-	}
-	// System control register 5
-	if ((address >= C2503_IO_SYS_CONTROL5_ADDR) && (address < (C2503_IO_SYS_CONTROL5_ADDR + C2503_IO_SYS_CONTROL5_SIZE))) {
-		*value = g_io_sys_control5;
-		return true;
-	}
-	// System control register 6
-	if ((address >= C2503_IO_SYS_CONTROL6_ADDR) && (address < (C2503_IO_SYS_CONTROL6_ADDR + C2503_IO_SYS_CONTROL6_SIZE))) {
-		*value = g_io_sys_control6;
+	// Main system control registers
+	if ((address >= C2503_IO_SYS_CONTROL_BASE_ADDR) && (address < (C2503_IO_SYS_CONTROL_BASE_ADDR + C2503_IO_SYS_CONTROL_WIN_SIZE))) {
+		unsigned char tmp_val;
+		*value = 0;
+		if (!io_system_cntl_reg_read((address - C2503_IO_SYS_CONTROL_BASE_ADDR), &tmp_val)) return false;
+		*value |= tmp_val << 8;
+		if (!io_system_cntl_reg_read((address - C2503_IO_SYS_CONTROL_BASE_ADDR) + 1, &tmp_val)) return false;
+		*value |= tmp_val;
 		return true;
 	}
 
-//#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
-//	// System ID cookie
-//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-//		*value = READ_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
-//		return true;
-//	}
-//#endif
-//#if C2503_IO_SYS_STATUS_SIZE >= 2
-//	// System status register
-//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-//		*value = READ_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
-//		return true;
-//	}
-//#endif
 	return false;
 }
 
 bool io_system_read_long(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
 
-//#if C2503_IO_SYS_CONTROL1_SIZE >= 4
-//	// System control register 1
-//	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-//		*value = READ_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR);
-//		return true;
-//	}
-//#endif
-//#if C2503_IO_SYS_CONTROL2_SIZE >= 4
-//	// System control register 2
-//	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-//		*value = READ_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR);
-//		return true;
-//	}
-//#endif
-//#if C2503_IO_SYS_STATUS_SIZE >= 4
-//	// System status register
-//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-//		*value = READ_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR);
-//		return true;
-//	}
-//#endif
-//#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
-//	// System ID cookie
-//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-//		*value = READ_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR);
-//		return true;
-//	}
-//#endif
+	// Main system control registers
+	if ((address >= C2503_IO_SYS_CONTROL_BASE_ADDR) && (address < (C2503_IO_SYS_CONTROL_BASE_ADDR + C2503_IO_SYS_CONTROL_WIN_SIZE))) {
+		unsigned char tmp_val;
+		*value = 0;
+		if (!io_system_cntl_reg_read((address - C2503_IO_SYS_CONTROL_BASE_ADDR), &tmp_val)) return false;
+		*value |= tmp_val << 24;
+		if (!io_system_cntl_reg_read((address - C2503_IO_SYS_CONTROL_BASE_ADDR) + 1, &tmp_val)) return false;
+		*value |= tmp_val << 16;
+		if (!io_system_cntl_reg_read((address - C2503_IO_SYS_CONTROL_BASE_ADDR) + 2, &tmp_val)) return false;
+		*value |= tmp_val << 8;
+		if (!io_system_cntl_reg_read((address - C2503_IO_SYS_CONTROL_BASE_ADDR) + 3, &tmp_val)) return false;
+		*value |= tmp_val;
+		return true;
+	}
+
 	return false;
 }
 
 bool io_system_write_byte(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass write
 
-//	// System control register 1
-//	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-//		WRITE_BYTE(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
-//		return true;
-//	}
-//	// System control register 2
-//	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-//		WRITE_BYTE(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
-//		return true;
-//	}
+	// Main system control registers
+	if ((address >= C2503_IO_SYS_CONTROL_BASE_ADDR) && (address < (C2503_IO_SYS_CONTROL_BASE_ADDR + C2503_IO_SYS_CONTROL_WIN_SIZE))) {
+		unsigned char tmp_val;
+		tmp_val = value & 0x000000ff;
+		if (!io_system_cntl_reg_write((address - C2503_IO_SYS_CONTROL_BASE_ADDR), tmp_val)) return false;
+		return true;
+	}
+
 	// System ID cookie (Old interface)
 	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
 		WRITE_BYTE(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
@@ -409,97 +721,42 @@ bool io_system_write_byte(unsigned int address, unsigned int value) {
 		g_io_sysid_cookie2 = value;
 		return true;
 	}
-//	// System status register
-//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-//		WRITE_BYTE(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-//		return true;
-//	}
 	return false;
 }
 
 bool io_system_write_word(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass write
 
-	// System control register 1
-	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-		g_io_sys_control1 = (short) value;
-		return true;
-	}
-	// System control register 2
-	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-		g_io_sys_control2 = (short) value;
-		return true;
-	}
-	// System control register 3
-	if ((address >= C2503_IO_SYS_CONTROL3_ADDR) && (address < (C2503_IO_SYS_CONTROL3_ADDR + C2503_IO_SYS_CONTROL3_SIZE))) {
-		g_io_sys_control3 = (short) value;
-		if (g_io_sys_control3 & 0x0008) io_68302_core_init();
-		return true;
-	}
-	// System control register 4
-	if ((address >= C2503_IO_SYS_CONTROL4_ADDR) && (address < (C2503_IO_SYS_CONTROL4_ADDR + C2503_IO_SYS_CONTROL4_SIZE))) {
-		g_io_sys_control4 = (short) value;
-		return true;
-	}
-	// System control register 5
-	if ((address >= C2503_IO_SYS_CONTROL5_ADDR) && (address < (C2503_IO_SYS_CONTROL5_ADDR + C2503_IO_SYS_CONTROL5_SIZE))) {
-		g_io_sys_control5 = (short) value;
-		return true;
-	}
-	// System control register 6
-	if ((address >= C2503_IO_SYS_CONTROL6_ADDR) && (address < (C2503_IO_SYS_CONTROL6_ADDR + C2503_IO_SYS_CONTROL6_SIZE))) {
-		g_io_sys_control6 = (short) value;
+	// Main system control registers
+	if ((address >= C2503_IO_SYS_CONTROL_BASE_ADDR) && (address < (C2503_IO_SYS_CONTROL_BASE_ADDR + C2503_IO_SYS_CONTROL_WIN_SIZE))) {
+		unsigned char tmp_val;
+		tmp_val = value & 0x0000ff00;
+		if (!io_system_cntl_reg_write((address - C2503_IO_SYS_CONTROL_BASE_ADDR), tmp_val)) return false;
+		tmp_val = value & 0x000000ff;
+		if (!io_system_cntl_reg_write((address - C2503_IO_SYS_CONTROL_BASE_ADDR) + 1, tmp_val)) return false;
 		return true;
 	}
 
-//#if C2503_IO_SYS_STATUS_SIZE >= 2
-//	// System status register
-//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-//		WRITE_WORD(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-//		return true;
-//	}
-//#endif
-//#if C2503_IO_SYS_ID_COOKIE_SIZE >= 2
-//	// System ID cookie
-//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-//		WRITE_WORD(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
-//		return true;
-//	}
-//#endif
 	return false;
 }
 
 bool io_system_write_long(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass write
 
-//#if C2503_IO_SYS_CONTROL1_SIZE >= 4
-//	// System control register 1
-//	if ((address >= C2503_IO_SYS_CONTROL1_ADDR) && (address < (C2503_IO_SYS_CONTROL1_ADDR + C2503_IO_SYS_CONTROL1_SIZE))) {
-//		WRITE_LONG(g_io_sys_cntl1, address - C2503_IO_SYS_CONTROL1_ADDR, value);
-//		return true;
-//	}
-//#endif
-//#if C2503_IO_SYS_CONTROL2_SIZE >= 4
-//	// System control register 2
-//	if ((address >= C2503_IO_SYS_CONTROL2_ADDR) && (address < (C2503_IO_SYS_CONTROL2_ADDR + C2503_IO_SYS_CONTROL2_SIZE))) {
-//		WRITE_LONG(g_io_sys_cntl2, address - C2503_IO_SYS_CONTROL2_ADDR, value);
-//		return true;
-//	}
-//#endif
-//#if C2503_IO_SYS_STATUS_SIZE >= 4
-//	// System status register
-//	if ((address >= C2503_IO_SYS_STATUS_ADDR) && (address < (C2503_IO_SYS_STATUS_ADDR + C2503_IO_SYS_STATUS_SIZE))) {
-//		WRITE_LONG(g_io_sys_status, address - C2503_IO_SYS_STATUS_ADDR, value);
-//		return true;
-//	}
-//#endif
-//#if C2503_IO_SYS_ID_COOKIE_SIZE >= 4
-//	// System ID cookie
-//	if ((address >= C2503_IO_SYS_ID_COOKIE_ADDR) && (address < (C2503_IO_SYS_ID_COOKIE_ADDR + C2503_IO_SYS_ID_COOKIE_SIZE))) {
-//		WRITE_LONG(g_io_sysid_cookie, address - C2503_IO_SYS_ID_COOKIE_ADDR, value);
-//		return true;
-//	}
-//#endif
+	// Main system control registers
+	if ((address >= C2503_IO_SYS_CONTROL_BASE_ADDR) && (address < (C2503_IO_SYS_CONTROL_BASE_ADDR + C2503_IO_SYS_CONTROL_WIN_SIZE))) {
+		unsigned char tmp_val;
+		tmp_val = value & 0xff000000;
+		if (!io_system_cntl_reg_write((address - C2503_IO_SYS_CONTROL_BASE_ADDR), tmp_val)) return false;
+		tmp_val = value & 0x00ff0000;
+		if (!io_system_cntl_reg_write((address - C2503_IO_SYS_CONTROL_BASE_ADDR) + 1, tmp_val)) return false;
+		tmp_val = value & 0x0000ff00;
+		if (!io_system_cntl_reg_write((address - C2503_IO_SYS_CONTROL_BASE_ADDR) + 2, tmp_val)) return false;
+		tmp_val = value & 0x000000ff;
+		if (!io_system_cntl_reg_write((address - C2503_IO_SYS_CONTROL_BASE_ADDR) + 3, tmp_val)) return false;
+		return true;
+	}
+
 	return false;
 }
 
@@ -555,8 +812,7 @@ bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2) {
 
 bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
 	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \
-							((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) > 0)) {
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
 		*value = READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR1);
 		return true;
 	}
@@ -570,8 +826,7 @@ bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
 
 bool mem_bootrom_read_word(unsigned int address, unsigned int *value) {
 	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \
-							((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) > 0)) {
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
 		*value = READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR1);
 		return true;
 	}
@@ -585,8 +840,7 @@ bool mem_bootrom_read_word(unsigned int address, unsigned int *value) {
 
 bool mem_bootrom_read_long(unsigned int address, unsigned int *value) {
 	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && \
-							((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) > 0)) {
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
 		*value = READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR1);
 		return true;
 	}
@@ -787,8 +1041,7 @@ unsigned char g_ram[C2503_RAM_SIZE];
 
 bool mem_ram_read_byte(unsigned int address, unsigned int *value) {
 	// Handle maximum memory size
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
-						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -800,8 +1053,7 @@ bool mem_ram_read_byte(unsigned int address, unsigned int *value) {
 
 bool mem_ram_read_word(unsigned int address, unsigned int *value) {
 	// Handle maximum memory size
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
-						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -813,8 +1065,7 @@ bool mem_ram_read_word(unsigned int address, unsigned int *value) {
 
 bool mem_ram_read_long(unsigned int address, unsigned int *value) {
 	// Handle maximum memory size
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
-						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -826,8 +1077,7 @@ bool mem_ram_read_long(unsigned int address, unsigned int *value) {
 
 bool mem_ram_write_byte(unsigned int address, unsigned int value) {
 	// Handle maximum memory size
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
-						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -839,8 +1089,7 @@ bool mem_ram_write_byte(unsigned int address, unsigned int value) {
 
 bool mem_ram_write_word(unsigned int address, unsigned int value) {
 	// Handle maximum memory size
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
-						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -852,8 +1101,7 @@ bool mem_ram_write_word(unsigned int address, unsigned int value) {
 
 bool mem_ram_write_long(unsigned int address, unsigned int value) {
 	// Handle maximum memory size
-	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && \
-						((g_io_sys_control1 & C2503_IO_SYS_CONTROL1_BOOTROM_REMAP) == 0)) {
+	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -877,11 +1125,21 @@ unsigned char	g_io_68302_ram1[C2503_IO_68302_RAM1_SIZE];
 unsigned char	g_io_68302_ram2[C2503_IO_68302_RAM2_SIZE];
 unsigned char	g_io_68302_iregs[C2503_IO_68302_REGS_SIZE];
 
+unsigned short	g_io_68302_gimr,
+		g_io_68302_ipr,
+		g_io_68302_imr,
+		g_io_68302_isr;
+
 void io_68302_core_init() {
 	g_io_68302_reg_bar_offset = -1;
 	g_io_68302_reg_bar = 0x0000bfff;
 	g_io_68302_reg_scr = 0x00000f00;
 	g_io_68302_reg_ckcr = 0x00000000;
+
+	g_io_68302_gimr = 0x0;
+	g_io_68302_ipr = 0x0;
+	g_io_68302_imr = 0x0;
+	g_io_68302_isr = 0x0;
 }
 
 void io_68302_core_clock_tick() {
@@ -910,8 +1168,16 @@ void io_68302_core_clock_tick() {
 	g_io_68302_ram2[0x138] = 0xBC;			// Parameter RAM [SCC2]: RxBD7
 }
 
+bool io_68302_isIRQ() {
+	if (g_io_68302_ipr & g_io_68302_imr)
+		return true;
+	else
+		return false;
+}
+
 bool io_68302_read_byte(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_3_reset_68302) return false;		// If device is currently reset, access is not allowed
 
 	// 68302 BAR register
 	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
@@ -995,6 +1261,7 @@ bool io_68302_read_byte(unsigned int address, unsigned int *value) {
 
 bool io_68302_read_word(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_3_reset_68302) return false;		// If device is currently reset, access is not allowed
 
 	// 68302 BAR register
 	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
@@ -1051,6 +1318,7 @@ bool io_68302_read_word(unsigned int address, unsigned int *value) {
 
 bool io_68302_read_long(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_3_reset_68302) return false;		// If device is currently reset, access is not allowed
 
 	// 68302 BAR register
 	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) {
@@ -1092,6 +1360,7 @@ bool io_68302_read_long(unsigned int address, unsigned int *value) {
 
 bool io_68302_write_byte(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_3_reset_68302) return false;		// If device is currently reset, access is not allowed
 
 	// 68302 BAR register
 	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
@@ -1176,6 +1445,7 @@ bool io_68302_write_byte(unsigned int address, unsigned int value) {
 
 bool io_68302_write_word(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_3_reset_68302) return false;		// If device is currently reset, access is not allowed
 
 	// 68302 BAR register
 	if ((address >= (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) && \
@@ -1233,6 +1503,7 @@ bool io_68302_write_word(unsigned int address, unsigned int value) {
 
 bool io_68302_write_long(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_3_reset_68302) return false;		// If device is currently reset, access is not allowed
 
 	// 68302 BAR register
 	if (address == (C2503_IO_68302_BASE_ADDR + C2503_IO_68302_BAR_ADDR)) {
@@ -2420,8 +2691,14 @@ void io_channela_core_clock_tick() {
 	}
 }
 
+bool io_channela_isIRQ() {
+	return g_io_chnla_lance_csr0_babl | g_io_chnla_lance_csr0_miss | g_io_chnla_lance_csr0_merr | \
+				g_io_chnla_lance_csr0_rint | g_io_chnla_lance_csr0_tint | g_io_chnla_lance_csr0_idon;
+}
+
 bool io_channela_read_word(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_1_reset_channela) return false;	// If device is currently reset, access is not allowed
 
 	if (address == C2503_IO_CHANNELA_LANCE_RDP_ADDR) {
 		switch (g_io_chnla_lance_rap) {
@@ -2435,8 +2712,7 @@ bool io_channela_read_word(unsigned int address, unsigned int *value) {
 				if (g_io_chnla_lance_csr0_rint) *value |= 0x0400;
 				if (g_io_chnla_lance_csr0_tint) *value |= 0x0200;
 				if (g_io_chnla_lance_csr0_idon) *value |= 0x0100;
-				if (g_io_chnla_lance_csr0_babl | g_io_chnla_lance_csr0_miss | g_io_chnla_lance_csr0_merr | \
-					g_io_chnla_lance_csr0_rint | g_io_chnla_lance_csr0_tint | g_io_chnla_lance_csr0_idon) *value |= 0x0080;
+				if (io_channela_isIRQ()) *value |= 0x0080;
 				if (g_io_chnla_lance_csr0_inea) *value |= 0x0040;
 				if (g_io_chnla_lance_csr0_rxon) *value |= 0x0020;
 				if (g_io_chnla_lance_csr0_txon) *value |= 0x0010;
@@ -2467,6 +2743,7 @@ bool io_channela_read_word(unsigned int address, unsigned int *value) {
 
 bool io_channela_write_word(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_1_reset_channela) return false;	// If device is currently reset, access is not allowed
 
 	if (address == C2503_IO_CHANNELA_LANCE_RDP_ADDR) {
 		switch (g_io_chnla_lance_rap) {
@@ -2520,8 +2797,13 @@ bool io_channela_write_word(unsigned int address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char g_io_chnlb_serial[C2503_IO_CHANNELB_SERIAL_SIZE];
 
+bool io_channelb_isIRQ() {
+	return false;
+}
+
 bool io_channelb_read_byte(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_2_reset_channelb) return false;	// If device is currently reset, access is not allowed
 
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		*value = READ_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
@@ -2532,6 +2814,7 @@ bool io_channelb_read_byte(unsigned int address, unsigned int *value) {
 
 bool io_channelb_read_word(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_2_reset_channelb) return false;	// If device is currently reset, access is not allowed
 
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		*value = READ_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
@@ -2542,6 +2825,7 @@ bool io_channelb_read_word(unsigned int address, unsigned int *value) {
 
 bool io_channelb_read_long(unsigned int address, unsigned int *value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_2_reset_channelb) return false;	// If device is currently reset, access is not allowed
 
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		*value = READ_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR);
@@ -2552,6 +2836,7 @@ bool io_channelb_read_long(unsigned int address, unsigned int *value) {
 
 bool io_channelb_write_byte(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_2_reset_channelb) return false;	// If device is currently reset, access is not allowed
 
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_BYTE(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
@@ -2562,6 +2847,7 @@ bool io_channelb_write_byte(unsigned int address, unsigned int value) {
 
 bool io_channelb_write_word(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_2_reset_channelb) return false;	// If device is currently reset, access is not allowed
 
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_WORD(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
@@ -2572,6 +2858,7 @@ bool io_channelb_write_word(unsigned int address, unsigned int value) {
 
 bool io_channelb_write_long(unsigned int address, unsigned int value) {
 	if (sri_enabled) return false;				// If SRI enabled, bypass read
+	if (g_io_sysctrl05_2_reset_channelb) return false;	// If device is currently reset, access is not allowed
 
 	if ((address >= C2503_IO_CHANNELB_SERIAL_ADDR) && (address < (C2503_IO_CHANNELB_SERIAL_ADDR + C2503_IO_CHANNELB_SERIAL_SIZE))) {
 		WRITE_LONG(g_io_chnlb_serial, address - C2503_IO_CHANNELB_SERIAL_ADDR, value);
