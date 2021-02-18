@@ -1,0 +1,22 @@
+02110040-0211005F: Dummy/Old space?
+
+02110060: Interface to X24C44
+ 0 - Data In (X24C44 DI)
+ 1 - Command/Data Out (X24C44 DO)
+ 2 - Transition from 0->1 clock data (X24C44 SK)
+ 3 - Enable PROM Cookie interface (X24C44 CE?)
+ 4 - ?
+ 5 - ?
+ 6 - ?
+ 7 - ?
+
+Command sequence:
+	1: 11111101 - RCL - Recall E2PROM Data into RAM
+	2: 10000111 - Read data from 0x0
+	3: 11000111 - Read data from 0x1
+	4: 10100111 - Read data from 0x2
+	5: 11100111 - Read data from 0x3
+		...
+		...
+		...
+		...
