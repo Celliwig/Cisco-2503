@@ -28,6 +28,10 @@ register_tool:
 	jsr	print_str_simple
 	jsr	print_newline
 
+	/* Configure register access type */
+	moveq	#0x5, %d7
+	jsr	register_tool_set_access_type_value
+
 	/* Configure bus error handler */
 	movea.l #8, %a0							/* Address of bus error exception handler in EVT */
 	lea.l   register_tool_bus_error_handler, %a1			/* Address of new bus error exception handler */
@@ -51,6 +55,8 @@ register_tool_action_loop:
 	beq.w	register_tool_and
 	cmp.b	#'O', %d0
 	beq.w	register_tool_or
+	cmp.b	#'T', %d0
+	beq.s	register_tool_set_access_type
 	cmp.b	#'Q', %d0
 	beq.w	register_tool_quit
 	bra.s	register_tool_action_loop
@@ -60,6 +66,50 @@ register_tool_quit:
 	jsr	print_str_simple
 	jsr	print_newline
 	move.l	(%a7)+, %d0						/* Pop 'register_tool_loop' address off stack */
+	rts
+
+# register_tool_set_access_type
+#################################
+register_tool_set_access_type:
+	lea	str_access_type, %a0					/* Print action */
+	jsr	print_str_simple
+	jsr	print_newline
+	lea	str_access_type, %a0					/* Print action */
+	jsr	print_str_simple
+	lea	str_access_types, %a0					/* Print action */
+	jsr	print_str_simple
+	jsr	print_newline
+
+	lea	str_access_type, %a0					/* Request access permissions */
+	jsr	print_str_simple
+	jsr	print_colon_space
+register_tool_set_access_type_read_loop:
+	jsr	console_in
+	cmp.b	#0x1b, %d0						/* Check whether character is escape key */
+	beq.s	register_tool_set_access_type_finish
+	cmp.b	#'1', %d0
+	beq.s	register_tool_set_access_type_registers
+	cmp.b	#'2', %d0
+	beq.s	register_tool_set_access_type_registers
+	cmp.b	#'5', %d0
+	beq.s	register_tool_set_access_type_registers
+	cmp.b	#'6', %d0
+	beq.s	register_tool_set_access_type_registers
+	cmp.b	#'7', %d0
+	beq.s	register_tool_set_access_type_registers
+	jmp.s	register_tool_set_access_type_read_loop
+
+register_tool_set_access_type_registers:
+	jsr	console_out						/* Print character */
+	sub.b	#0x30, %d0						/* Convert from ASCII to integer */
+	move.b	%d0, %d7						/* Save access type */
+	jsr	print_newline
+	jsr	print_newline
+register_tool_set_access_type_value:
+	movec	%d7, %SFC						/* Set access registers */
+	movec	%d7, %DFC
+
+register_tool_set_access_type_finish:
 	rts
 
 # register_tool_abort
@@ -283,7 +333,7 @@ register_tool_read_byte:
 	jsr	print_hex32
 	jsr	print_colon_space
 	move.l	%d4, %a0
-	move.b	(%a0), %d1						/* Print data at address */
+	moves.b	(%a0), %d1						/* Print data at address */
 	move	%sr, %d5						/* Save status flags */
 	lea	flag_bus_error, %a0					/* Get address of bus error flag */
 	tst.b	(%a0)							/* Check flag state */
@@ -304,7 +354,7 @@ register_tool_read_word:
 	jsr	print_hex32
 	jsr	print_colon_space
 	move.l	%d4, %a0
-	move.w	(%a0), %d2						/* Print data at address */
+	moves.w	(%a0), %d2						/* Print data at address */
 	move	%sr, %d5						/* Save status flags */
 	lea	flag_bus_error, %a0					/* Get address of bus error flag */
 	tst.b	(%a0)							/* Check flag state */
@@ -325,7 +375,7 @@ register_tool_read_long:
 	jsr	print_hex32
 	jsr	print_colon_space
 	move.l	%d4, %a0
-	move.l	(%a0), %d3						/* Print data at address */
+	moves.l	(%a0), %d3						/* Print data at address */
 	move	%sr, %d5						/* Save status flags */
 	lea	flag_bus_error, %a0					/* Get address of bus error flag */
 	tst.b	(%a0)							/* Check flag state */
@@ -391,7 +441,7 @@ register_tool_write_byte:
 	jsr	print_hex32
 	jsr	print_colon_space
 	move.l	%d4, %a0
-	move.b	%d5, (%a0)						/* Write data */
+	moves.b	%d5, (%a0)						/* Write data */
 	lea	flag_bus_error, %a0					/* Get address of bus error flag */
 	tst.b	(%a0)							/* Check flag state */
 	bne.w	print_bus_error
@@ -419,7 +469,7 @@ register_tool_write_word:
 	jsr	print_hex32
 	jsr	print_colon_space
 	move.l	%d4, %a0
-	move.w	%d5, (%a0)						/* Write data */
+	moves.w	%d5, (%a0)						/* Write data */
 	lea	flag_bus_error, %a0					/* Get address of bus error flag */
 	tst.b	(%a0)							/* Check flag state */
 	bne.w	print_bus_error
@@ -447,7 +497,7 @@ register_tool_write_long:
 	jsr	print_hex32
 	jsr	print_colon_space
 	move.l	%d4, %a0
-	move.l	%d5, (%a0)						/* Write data */
+	moves.l	%d5, (%a0)						/* Write data */
 	lea	flag_bus_error, %a0					/* Get address of bus error flag */
 	tst.b	(%a0)							/* Check flag state */
 	bne.w	print_bus_error
@@ -697,7 +747,9 @@ register_tool_or_long:
 
 .org	0x800
 flag_bus_error:		dc.b		0x00
-str_action:		.asciz		"Action [(R)ead/(W)rite/(A)nd/(O)r or (Q)uit]: "
+str_access_type:	.asciz		"Access Type"
+str_access_types:	.asciz		"s (1 = User Data / 2 = User Program / 5 = Supervisor Data / 6 = Supervisor Program / 7 = CPU)"
+str_action:		.asciz		"Action [(R)ead/(W)rite/(A)nd/(O)r/Access (T)ype  or (Q)uit]: "
 str_action_read:	.asciz		"Read"
 str_action_write:	.asciz		"Write"
 str_action_and:		.asciz		"AND"
@@ -727,7 +779,7 @@ str_sr_flags:		.asciz		"T1"
 			.asciz		"C"
 str_value:		.asciz		"Value: 0x"
 
-.org	0x920
+.org	0x980
 ######################################################################################################################################################
 # From m68kmon.s
 ######################################################################################################################################################
