@@ -710,15 +710,13 @@ void update_register_display() {
 		sprintf(str_tmp_buf, "%s   MSP: %08x   ISP: %08x", str_tmp_buf, m68k_get_reg(NULL, M68K_REG_MSP), m68k_get_reg(NULL, M68K_REG_ISP));
 	}
 	if (m68k_get_reg(NULL, M68K_REG_CPU_TYPE) > M68K_CPU_TYPE_68000) {
-		sprintf(str_tmp_buf, "%s   VBR: %08x", str_tmp_buf, m68k_get_reg(NULL, M68K_REG_VBR));
+		sprintf(str_tmp_buf, "%s   VBR: %08x   SFC: %08x   DFC: %08x", str_tmp_buf, m68k_get_reg(NULL, M68K_REG_VBR), m68k_get_reg(NULL, M68K_REG_SFC), m68k_get_reg(NULL, M68K_REG_DFC));
 	}
 	mvwprintw(emu_win_reg, 5, 2, "%.*s", (emu_win_reg_cols - 4), str_tmp_buf);
 
 	wnoutrefresh(emu_win_reg);
 
 
-//        M68K_REG_SFC,           /* Source Function Code */
-//        M68K_REG_DFC,           /* Destination Function Code */
 //        M68K_REG_CACR,          /* Cache Control Register */
 //        M68K_REG_CAAR,          /* Cache Address Register */
 //
@@ -1482,6 +1480,8 @@ int main(int argc, char* argv[]) {
 					emu_status_message("SRI enabled");
 				}
 			}
+		} else if (key_press == '~') {
+			m68k_pulse_bus_error();
 		} else if (key_press == '<') {
 			emu_status_message("Step Back");
 			// Rollback instruction
