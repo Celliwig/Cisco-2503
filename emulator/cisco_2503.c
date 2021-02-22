@@ -429,6 +429,7 @@ void cpu_write_byte(unsigned int address, unsigned int value) {
 
 	if (mem_nvram_write_byte(address, value)) return;
 	if (mem_ram_write_byte(address, value)) return;
+	if (mem_bootrom_write_byte(address, value)) return;
 	if (mem_flashrom_write_byte(address, value)) return;
 	if (io_system_write_byte(address, value)) return;
 	if (io_counter_write_byte(address, value)) return;
@@ -455,6 +456,7 @@ void cpu_write_word(unsigned int address, unsigned int value) {
 
 	if (mem_nvram_write_word(address, value)) return;
 	if (mem_ram_write_word(address, value)) return;
+	if (mem_bootrom_write_word(address, value)) return;
 	if (mem_flashrom_write_word(address, value)) return;
 	if (io_system_write_word(address, value)) return;
 	if (io_counter_write_word(address, value)) return;
@@ -481,6 +483,7 @@ void cpu_write_long(unsigned int address, unsigned int value) {
 
 	if (mem_nvram_write_long(address, value)) return;
 	if (mem_ram_write_long(address, value)) return;
+	if (mem_bootrom_write_long(address, value)) return;
 	if (mem_flashrom_write_long(address, value)) return;
 	if (io_system_write_long(address, value)) return;
 	if (io_unknown1_write_long(address, value)) return;
