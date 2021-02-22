@@ -1075,9 +1075,31 @@ bool mem_nvram_write_long(unsigned int address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char g_ram[C2503_RAM_SIZE];
 
+// Returns the configured (if configured) RAM window size
+unsigned int mem_ram_win_size() {
+	if ((g_io_sysctrl03_4_ram_ws0) && (g_io_sysctrl03_5_ram_ws1)) {
+		// RAM window: 8MB
+		return 0x00800000;
+	} else if ((g_io_sysctrl03_4_ram_ws0) || (g_io_sysctrl03_5_ram_ws1)) {
+		if (g_io_sysctrl03_4_ram_ws0) {
+			// RAM window: 4MB
+			return 0x00400000;
+		} else {
+			// RAM window: 2MB
+			return 0x00200000;
+		}
+	} else {
+		// RAM window: 16MB
+		return 0x01000000;
+	}
+}
+
 bool mem_ram_read_byte(unsigned int address, unsigned int *value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
+		// If configured, check if outside RAM window
+		if ((address - C2503_RAM_ADDR) >= mem_ram_win_size()) return false;
+
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -1090,6 +1112,9 @@ bool mem_ram_read_byte(unsigned int address, unsigned int *value) {
 bool mem_ram_read_word(unsigned int address, unsigned int *value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
+		// If configured, check if outside RAM window
+		if ((address - C2503_RAM_ADDR) >= mem_ram_win_size()) return false;
+
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -1102,6 +1127,9 @@ bool mem_ram_read_word(unsigned int address, unsigned int *value) {
 bool mem_ram_read_long(unsigned int address, unsigned int *value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
+		// If configured, check if outside RAM window
+		if ((address - C2503_RAM_ADDR) >= mem_ram_win_size()) return false;
+
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -1114,6 +1142,9 @@ bool mem_ram_read_long(unsigned int address, unsigned int *value) {
 bool mem_ram_write_byte(unsigned int address, unsigned int value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
+		// If configured, check if outside RAM window
+		if ((address - C2503_RAM_ADDR) >= mem_ram_win_size()) return false;
+
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -1126,6 +1157,9 @@ bool mem_ram_write_byte(unsigned int address, unsigned int value) {
 bool mem_ram_write_word(unsigned int address, unsigned int value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
+		// If configured, check if outside RAM window
+		if ((address - C2503_RAM_ADDR) >= mem_ram_win_size()) return false;
+
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);
@@ -1138,6 +1172,9 @@ bool mem_ram_write_word(unsigned int address, unsigned int value) {
 bool mem_ram_write_long(unsigned int address, unsigned int value) {
 	// Handle maximum memory size
 	if ((address >= C2503_RAM_ADDR) && (address < (C2503_RAM_ADDR + C2503_RAM_WIN_SIZE)) && !g_io_sysctrl01_0_remap_rom) {
+		// If configured, check if outside RAM window
+		if ((address - C2503_RAM_ADDR) >= mem_ram_win_size()) return false;
+
 		// Addresses greater than RAM size are wrapped
 		// RAM size must be a power of 2
 		address = address & (C2503_RAM_SIZE - 1);

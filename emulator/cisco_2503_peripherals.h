@@ -70,9 +70,12 @@ bool mem_nvram_write_long(unsigned address, unsigned int value);
 
 // RAM
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define	C2503_RAM_ADDR		0x00000000				// RAM address
-#define	C2503_RAM_SIZE		0x200000				// RAM size (2MB)
-#define	C2503_RAM_WIN_SIZE	0x1000000				// RAM window size (16MB)
+#define	C2503_RAM_ADDR		0x00000000					// RAM address
+#define	C2503_STD_RAM_SIZE	0x200000					// Preinstalled RAM size (2MB)
+//#define	C2503_DIMM_RAM_SIZE	0x200000					// DIMM RAM size (2MB)
+#define	C2503_DIMM_RAM_SIZE	0x0						// DIMM RAM size (0MB)
+#define	C2503_RAM_SIZE		(C2503_STD_RAM_SIZE+C2503_DIMM_RAM_SIZE)	// RAM size (4MB)
+#define	C2503_RAM_WIN_SIZE	0x1000000					// RAM window size (16MB)
 
 bool mem_ram_read_byte(unsigned address, unsigned int *value);
 bool mem_ram_read_word(unsigned address, unsigned int *value);
