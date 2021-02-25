@@ -40,6 +40,10 @@ system_init_delay_loop:
 	move.l  #0x0, %a0
 	movec   %a0, %VBR
 
+	/* Disable & clear instruction/data caches */
+	move.l	#0x808, %d0
+	movec	%d0, %CACR
+
 	/* Swap out boot ROM */
 	movea.l	#0x2110000, %a0
 	move.w	(%a0), %d0
@@ -51,6 +55,10 @@ system_init_delay_loop:
 	mov.l	#0x010003ff, %a1
 	mov.l	#0x00000000, %a2
 	jsr	memory_copy
+
+	/* Turn on Status LED */
+	move.l	#0x2110001, %a0
+	ori.b	#8, (%a0)
 
 	jmp	(%a6)							/* Return address is stored in A7 */
 
