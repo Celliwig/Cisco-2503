@@ -1278,6 +1278,7 @@ int main(int argc, char* argv[]) {
 	FILE		*fh_bootrom1, *fh_bootrom2, *fh_flashrom;
 	int		fd_serial, fd_sri, key_press, tmp_opt, tmp_pc;
 	unsigned int	current_pc, emu_sleep = 800;
+	bool		emu_update_display = true;
 	char		emu_step = 0, *bootrom_filename = NULL, *bootrom_filename_fw1 = NULL, *bootrom_filename_fw2 = NULL, \
 				*flashrom_filename = NULL, *console_devname = NULL, *sri_devname = NULL;
 	struct termios	serial_fd_opts;
@@ -1433,8 +1434,11 @@ int main(int argc, char* argv[]) {
 
 	g_quit = 0;
 	while (!g_quit) {
-		update_code_display();
-		update_memory_display();
+		// Only update main display windows if stopped (takes too much CPU)
+		if (emu_update_display || (emu_step == 0)) {
+			update_code_display();
+			update_memory_display();
+		}
 		update_register_display();
 		if (emu_show_duart) update_duart_display();
 		doupdate();
@@ -1571,11 +1575,19 @@ int main(int argc, char* argv[]) {
 			emu_step = -1;						// Run
 		} else if (key_press == 't') {
 			if (emu_sleep == 800) {
-				emu_sleep = 10;
+				emu_sleep = 0;
 				emu_status_message("Turbo On");
 			} else {
 				emu_sleep = 800;
 				emu_status_message("Turbo Off");
+			}
+		} else if (key_press == 'u') {
+			if (emu_update_display) {
+				emu_update_display = false;
+				emu_status_message("Display Update: Off");
+			} else {
+				emu_update_display = true;
+				emu_status_message("Display Update: On");
 			}
 		} else if (key_press == 'U') {
 			emu_show_duart = emu_show_duart ^ true;			// Toggle DUART window
@@ -1630,7 +1642,7 @@ int main(int argc, char* argv[]) {
 			if (emu_step > 0) emu_step--;
 		}
 
-		usleep(emu_sleep);
+		if (emu_sleep > 0) usleep(emu_sleep);
 	}
 
 	// Destroy ncurses
