@@ -15,6 +15,8 @@
 # Map console routines from monitor to library
 ###########################################################################
 .equiv	console_in, scn2681_in_A
+.equiv	console_in_nonblock, scn2681_in_A_nocheck
+.equiv	console_in_check, scn2681_in_A_check
 .equiv	console_out, scn2681_out_A
 ###########################################################################
 
@@ -139,6 +141,9 @@ exception_handlers_setup_base_loop:
 
 	lea	exception_handler_zero, %a0
 	mov.l	%a0, (EVT_DIVIDE_BY_ZERO)
+
+	lea	trap_0, %a0
+	mov.l	%a0, (EVT_TRAP0_INSTRUCTION)
 
 	rts
 
@@ -320,7 +325,7 @@ char_2_hex_finish:
 string_2_hex32:
 	eor.l	%d1, %d1						/* Clear register */
 string_2_hex32_initialised:
-	jsr	string_2_hex16						/* Read first word */
+	jsr	string_2_hex16_initialised				/* Read first word */
 	bcc.s	string_2_hex_finish					/* Exit on error */
 	bra.s	string_2_hex16_initialised				/* Jump over initialisation */
 # string_2_hex16
@@ -332,7 +337,7 @@ string_2_hex32_initialised:
 string_2_hex16:
 	eor.l	%d1, %d1						/* Clear register */
 string_2_hex16_initialised:
-	jsr	string_2_hex8						/* Read first byte */
+	jsr	string_2_hex8_initialised				/* Read first byte */
 	bcc.s	string_2_hex_finish					/* Exit on error */
 	bra.s	string_2_hex8_initialised				/* Jump over initialisation */
 # string_2_hex8
@@ -1369,6 +1374,51 @@ memory_copy_finish:
 *math_bcd_2_hex_combine:
 *	add	c					; Combine values
 *	ret
+
+# Library routines implemented with TRAPs
+#  D7 selects subroutine
+###########################################################################
+# TRAP0 (console routines)
+#################################
+trap_0:
+# trap_0_0 (Console out)
+#################################
+#  Writes a byte of data to console port
+#	In:	D0 = Byte to write out
+trap_0_0:
+	cmp.b	#0, %d7
+	bne.s	trap_0_1
+	jsr	console_out
+	rte
+# trap_0_1 (Console in, blocking)
+#################################
+#  Reads a byte of data from console port
+#	Out:	D0 = Byte read
+trap_0_1:
+	cmp.b	#1, %d7
+	bne.s	trap_0_2
+	jsr	console_in
+	rte
+# trap_0_2 (Console in, non-blocking)
+#################################
+#  Reads a byte of data from console port
+#	Out:	D0 = Byte read
+trap_0_2:
+	cmp.b	#2, %d7
+	bne.s	trap_0_3
+	jsr	console_in_nonblock
+	rte
+# trap_0_3 (Console in check)
+#################################
+#  Check whether there is a byte of data
+#  available from console port
+#	Out:	Z cleared if byte available
+trap_0_3:
+	cmp.b	#3, %d7
+	bne.s	trap_0_other
+	jsr	console_in_check
+trap_0_other:
+	rte
 
 # Main routines
 ###########################################################################
