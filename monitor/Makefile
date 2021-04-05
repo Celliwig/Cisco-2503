@@ -18,8 +18,8 @@ m68kmon.split: m68kmon.bin
 	srec_cat m68kmon.bin -Binary -split 2 1 -o m68kmon.odd.bin -Binary
 
 m68kmon.c2500: m68kmon.split
-	python2 bin/flip_bits.py m68kmon.odd.bin m68kmon.c2500.fw1
-	python2 bin/flip_bits.py m68kmon.even.bin m68kmon.c2500.fw2
+	python2.7 bin/flip_bits.py m68kmon.odd.bin m68kmon.c2500.fw1
+	python2.7 bin/flip_bits.py m68kmon.even.bin m68kmon.c2500.fw2
 
 clean:
 	$(RM) m68kmon.lst m68kmon.o m68kmon.elf m68kmon.srec m68kmon.bin m68kmon.even.bin m68kmon.odd.bin m68kmon.c2500.fw1 m68kmon.c2500.fw2
