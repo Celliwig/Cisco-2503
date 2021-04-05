@@ -1268,7 +1268,8 @@ void print_usage() {
 	printf("	-b <ROM file>		Initial boot ROM file.\n");
 	printf("	-1/-2 <ROM file>	Use upper/lower bit swapped ROM files.\n");
 	printf("	-f <ROM file>		Main flash ROM file.\n");
-	printf("	-s <serial device>	Device to connect to, to provide serial emulation.\n");
+	printf("	-c <serial device>	Device to connect to, to provide serial emulation.\n");
+	printf("	-s <serial device>	SRI device connection.\n");
 	exit(-1);
 }
 
