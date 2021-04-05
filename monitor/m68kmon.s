@@ -105,7 +105,7 @@ startup_final:
 # get_version
 #################################
 #  Returns the version number of the monitor
-#	Out:	D1 = Minor version number [16] | Major version number [16]
+#	Out:	D1 = Major version number [16] | Minor version number [16]
 get_version:
 	mov.l	#M68KMON_VERSION, %d1
 	rts
@@ -142,7 +142,7 @@ exception_handlers_setup_base_loop:
 	lea	exception_handler_zero, %a0
 	mov.l	%a0, (EVT_DIVIDE_BY_ZERO)
 
-	lea	trap_0, %a0
+	lea	trap_0_handler, %a0
 	mov.l	%a0, (EVT_TRAP0_INSTRUCTION)
 
 	rts
@@ -1375,49 +1375,158 @@ memory_copy_finish:
 *	add	c					; Combine values
 *	ret
 
-# Library routines implemented with TRAPs
+# Library routines implemented with TRAP0
 #  D7 selects subroutine
 ###########################################################################
-# TRAP0 (console routines)
+trap_0_handler:
+	mov.b	%d7, -(%sp)				/* Save routine index */
+	and.b	#0xf0, %d7				/* Extract library index */
+	cmp.b	#TRAP0_CONSOLE, %d7			/* Is this a console routine */
+	beq.s	trap_0_console
+	cmp.b	#TRAP0_PRINT, %d7			/* Is this a print routine */
+	beq.s	trap_0_print
+
+	mov.b	(%sp)+, %d7				/* Unrecognised library, so pop value we saved earlier */
+trap_0_handler_finish:
+	rte
+
+# TRAP 0: Console routines
 #################################
-trap_0:
-# trap_0_0 (Console out)
+trap_0_console:
+	mov.b	(%sp)+, %d7				/* Restore routine index */
+# trap_0_conout (Console out)
 #################################
 #  Writes a byte of data to console port
 #	In:	D0 = Byte to write out
-trap_0_0:
-	cmp.b	#0, %d7
-	bne.s	trap_0_1
+trap_0_conout:
+	cmp.b	#TRAP0_CONOUT, %d7
+	bne.s	trap_0_conin
 	jsr	console_out
 	rte
-# trap_0_1 (Console in, blocking)
+# trap_0_conin (Console in, blocking)
 #################################
 #  Reads a byte of data from console port
 #	Out:	D0 = Byte read
-trap_0_1:
-	cmp.b	#1, %d7
-	bne.s	trap_0_2
+trap_0_conin:
+	cmp.b	#TRAP0_CONIN, %d7
+	bne.s	trap_0_conin_nb
 	jsr	console_in
 	rte
-# trap_0_2 (Console in, non-blocking)
+# trap_0_conin_nb (Console in, non-blocking)
 #################################
 #  Reads a byte of data from console port
 #	Out:	D0 = Byte read
-trap_0_2:
-	cmp.b	#2, %d7
-	bne.s	trap_0_3
+trap_0_conin_nb:
+	cmp.b	#TRAP0_CONIN_NB, %d7
+	bne.s	trap_0_conin_chk
 	jsr	console_in_nonblock
 	rte
-# trap_0_3 (Console in check)
+# trap_0_conin_chk (Console in check)
 #################################
 #  Check whether there is a byte of data
 #  available from console port
 #	Out:	Z cleared if byte available
-trap_0_3:
-	cmp.b	#3, %d7
-	bne.s	trap_0_other
+trap_0_conin_chk:
+	cmp.b	#TRAP0_CONIN_CHK, %d7
+	bne.w	trap_0_handler_finish
 	jsr	console_in_check
-trap_0_other:
+	rte
+
+# Trap 0: Print routines
+#################################
+trap_0_print:
+	mov.b	(%sp)+, %d7				/* Restore routine index */
+# trap_0_prnt_str (Print string)
+#################################
+#  Print a string to console
+#	In:	A0 = Pointer to string
+trap_0_prnt_str:
+	cmp.b	#TRAP0_PRNT_STR, %d7
+	bne.s	trap_0_prnt_rstr
+	jsr	print_str_simple
+	rte
+# trap_0_prnt_rstr (Print repeat string)
+#################################
+#  Print a repeat string to console
+#	In:	A0 = Pointer to string
+trap_0_prnt_rstr:
+	cmp.b	#TRAP0_PRNT_RSTR, %d7
+	bne.s	trap_0_prnt_cstr
+	jsr	print_str_repeat
+	rte
+# trap_0_prnt_cstr (Print compressed string)
+#################################
+#  Print a compressed string to console
+#	In:	A0 = Pointer to string
+trap_0_prnt_cstr:
+	cmp.b	#TRAP0_PRNT_CSTR, %d7
+	bne.s	trap_0_prnt_hexdigit
+	jsr	print_cstr
+	rte
+# trap_0_prnt_hexdigit (Print hex digit)
+#################################
+#  Print a hex digit
+#	In:	D0 = Digit value
+trap_0_prnt_hexdigit:
+	cmp.b	#TRAP0_PRNT_HEX_DIGIT, %d7
+	bne.s	trap_0_prnt_hex8
+	jsr	print_hex_digit
+	rte
+# trap_0_prnt_hex8 (Print hex byte value)
+#################################
+#  Print a hex byte value
+#	In:	D0 = Byte value
+trap_0_prnt_hex8:
+	cmp.b	#TRAP0_PRNT_HEX8, %d7
+	bne.s	trap_0_prnt_hex16
+	mov.b	%d0, %d1
+	jsr	print_hex8
+	rte
+# trap_0_prnt_hex16 (Print hex word value)
+#################################
+#  Print a hex word value
+#	In:	D0 = Word value
+trap_0_prnt_hex16:
+	cmp.b	#TRAP0_PRNT_HEX16, %d7
+	bne.s	trap_0_prnt_hex32
+	mov.w	%d0, %d2
+	jsr	print_hex16
+	rte
+# trap_0_prnt_hex32 (Print hex long value)
+#################################
+#  Print a hex long value
+#	In:	D0 = Long value
+trap_0_prnt_hex32:
+	cmp.b	#TRAP0_PRNT_HEX32, %d7
+	bne.s	trap_0_prnt_newline
+	mov.l	%d0, %d3
+	jsr	print_hex32
+	rte
+# trap_0_prnt_newline (Print newline)
+#################################
+#  Print a newline
+trap_0_prnt_newline:
+	cmp.b	#TRAP0_PRNT_NEWLINE, %d7
+	bne.s	trap_0_prnt_space
+	jsr	print_newline
+	rte
+# trap_0_prnt_space (Print space)
+#################################
+#  Print a space
+trap_0_prnt_space:
+	cmp.b	#TRAP0_PRNT_SPACE, %d7
+	bne.s	trap_0_prnt_version
+	jsr	print_space
+	rte
+# trap_0_prnt_version (Print version)
+#################################
+#  Print a hex long value
+#	In:	D0 = Version
+trap_0_prnt_version:
+	cmp.b	#TRAP0_PRNT_VERSION, %d7
+	bne.w	trap_0_handler_finish
+	mov.l	%d0, %d1
+	jsr	print_version
 	rte
 
 # Main routines
