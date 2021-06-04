@@ -71,6 +71,12 @@ config MCF547x_8x
         select DM_SERIAL
 	bool
 
+config M680x0
+	select OF_CONTROL
+	select DM
+	select DM_SERIAL
+	bool
+
 # processor type
 config M5208
 	bool
@@ -144,6 +150,10 @@ config M547x
 config M548x
 	bool
 	select MCF547x_8x
+
+config M68030
+	bool
+	select M680x0
 
 choice
 	prompt "Target select"
@@ -233,6 +243,10 @@ config TARGET_STMARK2
         bool "Support stmark2"
         select M54418
 
+config TARGET_CISCO_2500
+	bool "Support Cisco 2500 routes"
+	select M68030
+
 endchoice
 
 source "board/BuS/eb_cpu5282/Kconfig"
@@ -256,5 +270,6 @@ source "board/freescale/m547xevb/Kconfig"
 source "board/freescale/m548xevb/Kconfig"
 source "board/sysam/amcore/Kconfig"
 source "board/sysam/stmark2/Kconfig"
+source "board/cisco/2500/Kconfig"
 
 endmenu
