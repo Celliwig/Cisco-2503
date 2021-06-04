@@ -47,6 +47,7 @@ dtb-$(CONFIG_TARGET_M5485EVB) += M5485AFE.dtb \
 	M5485FFE.dtb \
 	M5485GFE.dtb \
 	M5485HFE.dtb
+dtb-$(CONFIG_TARGET_CISCO_2500) += cisco-2500.dtb
 
 targets += $(dtb-y)
 
