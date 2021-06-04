@@ -20,6 +20,7 @@ cpuflags-$(CONFIG_MCF532x)	:= -mcpu=5329 -fPIC
 cpuflags-$(CONFIG_MCF5441x)	:= -mcpu=54418 -fPIC
 cpuflags-$(CONFIG_MCF5445x)	:= -mcpu=54455 -fPIC
 cpuflags-$(CONFIG_MCF547x_8x)	:= -mcpu=5485 -fPIC
+cpuflags-$(CONFIG_M68030)	:= -mcpu=68030
 
 PLATFORM_CPPFLAGS += $(cpuflags-y)
 
