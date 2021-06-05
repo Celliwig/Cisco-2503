@@ -896,6 +896,14 @@ config XEN_SERIAL
 	  If built without DM support, then requires Xen
 	  to be built with CONFIG_VERBOSE_DEBUG.
 
+config SCN2681_SERIAL
+	bool "Philips Semiconductors SCN2681 DUART"
+	depends on DM_SERIAL
+	help
+	  Select this to enable UART support for Philips SCN2681 DUART.
+	  This driver uses driver model and requires a device tree binding
+	  to operate.
+
 choice
 	prompt "Console port"
 	default 8xx_CONS_SMC1
