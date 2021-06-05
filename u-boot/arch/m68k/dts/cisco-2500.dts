@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (C) 2021 Celliwig
+ */
+
+/dts-v1/;
+
+/ {
+	model = "Cisco 2500";
+	compatible = "cisco,2500";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:9600n8";
+	};
+
+	clocks {
+		clk_duart: clk-duart {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <3686400>;
+		};
+	};
+
+	systembus {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		uart0: serial@02120100 {
+			compatible = "philips,scn2681-uart";
+			reg = <0x02120100 0x10>;
+			//interrupts = <38>;
+			clocks = <&clk_duart>;
+			status = "disabled";
+		};
+	};
+};
+
+&uart0 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
