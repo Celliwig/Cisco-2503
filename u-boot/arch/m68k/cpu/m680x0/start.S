@@ -194,9 +194,10 @@ ENTRY(relocate_code)
 	add.l	#(in_ram - CONFIG_SYS_MONITOR_BASE), %a1
 	jmp	(%a1)
 in_ram:
-ENDPROC(relocate_code)
 
-ENTRY(clear_bss)
+/* Removed clear_bss label, which stops it's excution in board_init_f
+ * when it's still in ROM. */
+//clear_bss:
 	/*
 	 * Now clear BSS segment
 	 */
@@ -241,7 +242,7 @@ ENTRY(clear_bss)
 	halt
 #endif
 	jsr	(%a1)
-ENDPROC(clear_bss)
+ENDPROC(relocate_code)
 
 /******************************************************************************/
 
