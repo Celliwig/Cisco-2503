@@ -5,6 +5,13 @@
  * (C) Copyright 2021 Celliwig
  */
 
+/*
+ * Memory layout
+ *---------------
+ * 0x0000-0x03FF = Interrupt vector table
+ * 0x0400-0x0FFF = Early static variables/stack/global data area/malloc
+ */
+
 #ifndef __CISCO2500_CONFIG_H
 #define __CISCO2500_CONFIG_H
 
@@ -36,18 +43,16 @@
 
 #define CONFIG_SYS_CLK			25000000
 #define CONFIG_SYS_CPU_CLK		CONFIG_SYS_CLK
-///* Register Base Addrs */
-//#define CONFIG_SYS_MBAR			0x10000000
 /* Definitions for initial stack pointer and data area */
-#define CONFIG_SYS_INIT_RAM_ADDR	0x00000300
-/* size of initial stack */
-#define CONFIG_SYS_INIT_RAM_SIZE	0x100
+#define CONFIG_SYS_INIT_RAM_ADDR	0x0000400
+/* size of initial stack (minus space for early static variables) */
+#define CONFIG_SYS_INIT_RAM_SIZE	0xC00
 //#define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_INIT_RAM_SIZE - \
 //					 GENERATED_GBL_DATA_SIZE)
 //#define CONFIG_SYS_INIT_SP_OFFSET	CONFIG_SYS_GBL_DATA_OFFSET
 
 #define CONFIG_SYS_SDRAM_BASE		0x00000000
-#define CONFIG_SYS_SDRAM_SIZE		0x400000
+#define CONFIG_SYS_SDRAM_SIZE		0x00400000
 #define CONFIG_SYS_FLASH_BASE		0x01000000
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	1024
@@ -55,9 +60,9 @@
 
 ///* amcore design has flash data bytes wired swapped */
 //#define CONFIG_SYS_WRITE_SWAPPED_DATA
-///* reserve 128-4KB */
+//* reserve 128-2KB */
 #define CONFIG_SYS_MONITOR_BASE		(CONFIG_SYS_FLASH_BASE + 0x400)
-#define CONFIG_SYS_MONITOR_LEN          ((128 - 4) * 1024)
+#define CONFIG_SYS_MONITOR_LEN		((256 - 2) * 1024)
 //#define CONFIG_SYS_MALLOC_LEN		(1 * 1024 * 1024)
 #define CONFIG_SYS_MALLOC_LEN		(256 * 1024)
 #define CONFIG_SYS_BOOTPARAMS_LEN	(64 * 1024)
@@ -77,16 +82,14 @@
  * sdram - single region - no masks
  */
 //#define CONFIG_SYS_CACHELINE_SIZE	16
-//
-//#define ICACHE_STATUS			(CONFIG_SYS_INIT_RAM_ADDR + \
-//					 CONFIG_SYS_INIT_RAM_SIZE - 8)
-//#define DCACHE_STATUS			(CONFIG_SYS_INIT_RAM_ADDR + \
-//					 CONFIG_SYS_INIT_RAM_SIZE - 4)
-//#define CONFIG_SYS_ICACHE_INV           (CF_CACR_CINVA)
-//#define CONFIG_SYS_CACHE_ACR0		(CF_ACR_CM_WT | CF_ACR_SM_ALL | \
-//					 CF_ACR_EN)
-//#define CONFIG_SYS_CACHE_ICACR		(CF_CACR_DCM_P | CF_CACR_ESB | \
-//					 CF_CACR_EC)
+
+#define ICACHE_STATUS			CONFIG_SYS_INIT_RAM_ADDR
+#define DCACHE_STATUS			(ICACHE_STATUS + 4)
+
+#define CONFIG_SYS_CACHE_ICACR		0x0001
+#define	CONFIG_SYS_ICACHE_INV		0x0008
+#define CONFIG_SYS_CACHE_DCACR		0x0100
+#define	CONFIG_SYS_DCACHE_INV		0x0800
 
 ///* CS0 - AMD Flash, address 0xffc00000 */
 //#define	CONFIG_SYS_CS0_BASE		(CONFIG_SYS_FLASH_BASE>>16)
