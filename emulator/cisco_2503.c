@@ -322,6 +322,8 @@ void cpu_pulse_reset(void) {
 //	nmi_device_reset();
 //	output_device_reset();
 //	input_device_reset();
+
+	m68k_pulse_reset();
 }
 
 bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int, bool real_read) {
@@ -1431,7 +1433,6 @@ int main(int argc, char* argv[]) {
 	m68k_init();
 	m68k_set_cpu_type(C2503_CPU);
 	cpu_pulse_reset();							// Resets I/O subsystems
-	m68k_pulse_reset();
 
 	g_quit = 0;
 	while (!g_quit) {
@@ -1564,7 +1565,6 @@ int main(int argc, char* argv[]) {
 		} else if (key_press == 'R') {
 			emu_status_message("Reset");
 			cpu_pulse_reset();					// Resets I/O subsystems
-			m68k_pulse_reset();
 		} else if (key_press == 's') {
 			emu_status_message("Stepped");
 			emu_step = 1;						// Execute one instruction
