@@ -1,0 +1,22 @@
+if TARGET_CISCO_2500
+
+config SYS_CPU
+        string
+        default "m680x0"
+
+config SYS_BOARD
+        string
+        default "2500"
+
+config SYS_VENDOR
+        string
+        default "cisco"
+
+config SYS_CONFIG_NAME
+        string
+        default "cisco-2500"
+
+endif
+
+
+
