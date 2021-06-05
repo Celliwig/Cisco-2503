@@ -459,4 +459,9 @@
 #endif
 #endif				/* CONFIG_M548x */
 
+#ifdef CONFIG_M68030
+#define CONFIG_SYS_NUM_IRQS             (192)
+#endif                          /* CONFIG_M68030 */
+
+
 #endif				/* __IMMAP_H */
