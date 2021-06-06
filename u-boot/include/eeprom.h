@@ -7,7 +7,7 @@
 #ifndef __EEPROM_LEGACY_H
 #define __EEPROM_LEGACY_H
 
-#if defined(CONFIG_CMD_EEPROM) || defined(CONFIG_ENV_IS_IN_EEPROM)
+#if defined(CONFIG_CMD_EEPROM) || defined(CONFIG_CMD_EEPROM_PARALLEL) || defined(CONFIG_ENV_IS_IN_EEPROM)
 void eeprom_init(int bus);
 int eeprom_read(uint dev_addr, uint offset, uchar *buffer, uint cnt);
 int eeprom_write(uint dev_addr, uint offset, uchar *buffer, uint cnt);

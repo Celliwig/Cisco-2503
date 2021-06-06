@@ -574,6 +574,14 @@ config CMD_EEPROM
 	  Programmable Read Only Memory) chips that are connected over an
 	  I2C bus.
 
+config CMD_EEPROM_PARALLEL
+	bool "eeprom - EEPROM subsystem (Parallel)"
+	help
+	  (deprecated, needs conversion to driver model)
+	  Provides commands to read and write EEPROM (Electrically Erasable
+	  Programmable Read Only Memory) chips that are connected over the
+	  system bus.
+
 config CMD_EEPROM_LAYOUT
 	bool "Enable layout-aware eeprom commands"
 	depends on CMD_EEPROM
