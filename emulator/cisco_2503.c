@@ -503,6 +503,7 @@ void system_tick() {
 	io_duart_core_clock_tick();
 	io_channela_core_clock_tick();
 	io_68302_core_clock_tick();
+	mem_nvram_core_tick();
 }
 
 // Debugger

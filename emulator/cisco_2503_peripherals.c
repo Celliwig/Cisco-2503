@@ -954,7 +954,7 @@ bool mem_flashrom_write_long(unsigned int address, unsigned int value) {
 // NVRAM
 //////////////////////////////////////////////////////////////////////////////////////////////
 /* Data extracted from hardware */
-unsigned char g_nvram[C2503_NVRAM_SIZE] = { 0x13,0x15,0x21,0x02,0xF0,0xA5,0xAB,0xCD,0x00,0x01,0x46,0x04,0x0B,0x01,0x00,0x00, \
+unsigned char	g_nvram[C2503_NVRAM_SIZE] = { 0x13,0x15,0x21,0x02,0xF0,0xA5,0xAB,0xCD,0x00,0x01,0x46,0x04,0x0B,0x01,0x00,0x00, \
 						0x00,0x14,0x00,0x0C,0xAC,0xA0,0x00,0x00,0x02,0x40,0x0A,0x21,0x0A,0x76,0x65,0x72, \
 						0x73,0x69,0x6F,0x6E,0x20,0x31,0x31,0x2E,0x31,0x0A,0x73,0x65,0x72,0x76,0x69,0x63, \
 						0x65,0x20,0x70,0x61,0x73,0x73,0x77,0x6F,0x72,0x64,0x2D,0x65,0x6E,0x63,0x72,0x79, \
@@ -1016,10 +1016,60 @@ unsigned char g_nvram[C2503_NVRAM_SIZE] = { 0x13,0x15,0x21,0x02,0xF0,0xA5,0xAB,0
 						0x73,0x77,0x6F,0x72,0x64,0x20,0x6A,0x61,0x72,0x72,0x65,0x74,0x74,0x0A,0x20,0x6C, \
 						0x6F,0x67,0x69,0x6E,0x0A,0x21,0x0A,0x65,0x6E,0x64,0x0A,0x00,0x00,0x00,0x00,0x00 };
 
+unsigned char	g_nvram_last_write_byte = 0;
+unsigned int	g_nvram_last_write_addr = 0;
+unsigned int	g_nvram_last_write_completed = 0;
+
+// Hardware Configuration
+// 3rd/4th byte of NVRAM
+
+// From: https://docstore.mik.ua/univercd/cc/td/doc/product/access/acs_fix/cisigslr/igslrhir/22756.htm
+// Bit Number 	Meaning
+// 00		Boot from ROM*
+// 01-03 	Name of file for Netbooting*
+// 06		Watchdog timer disabled*
+// 07		OEM bit enabled
+// 08		Break Disabled
+// 10		IP broadcast with all zeros
+// 11-12	Console line speed*
+// 13		Boot default ROM software if network boot fails
+// 14		IP broadcasts do not have net numbers
+// 15		Run diagnostic tests and ignore NVM contents*
+
 // Added valid header
 void mem_nvram_init() {
 	g_nvram[2] |= 0x80;		// Print debug messages
 //	g_nvram[3] &= 0xf0;		// Boot monitor
+
+	// Reset write status
+	g_nvram_last_write_byte = 0;
+	g_nvram_last_write_addr = 0;
+	g_nvram_last_write_completed = 0;
+}
+
+// This isn't actually clocked, but needs to update state
+void mem_nvram_core_tick() {
+	if (g_nvram_last_write_completed > 0) {
+		g_nvram_last_write_completed--;
+		if (g_nvram_last_write_completed == 0) {
+			g_nvram[g_nvram_last_write_addr] = g_nvram_last_write_byte;
+		}
+	}
+}
+
+// Update last write data
+void mem_nvram_update_last_write(unsigned int address, unsigned char value) {
+	// Complete any existing byte
+	if (g_nvram_last_write_completed > 0) {
+		g_nvram[g_nvram_last_write_addr] = g_nvram_last_write_byte;
+	}
+	// Save new data
+	g_nvram_last_write_addr = address - C2503_NVRAM_ADDR;
+	g_nvram_last_write_byte = value;
+	// Store inverted value in NVRAM
+	g_nvram[g_nvram_last_write_addr] = ~g_nvram_last_write_byte;
+	// Set time to completion
+	g_nvram_last_write_completed = 600;
 }
 
 bool mem_nvram_read_byte(unsigned int address, unsigned int *value) {
@@ -1048,7 +1098,9 @@ bool mem_nvram_read_long(unsigned int address, unsigned int *value) {
 
 bool mem_nvram_write_byte(unsigned int address, unsigned int value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
-		WRITE_BYTE(g_nvram, address - C2503_NVRAM_ADDR, value);
+		// Don't bother writing data, it'll just get overwritten
+		//WRITE_BYTE(g_nvram, address - C2503_NVRAM_ADDR, value);
+		mem_nvram_update_last_write(address, (value & 0xff));
 		return true;
 	}
 	return false;
@@ -1057,6 +1109,7 @@ bool mem_nvram_write_byte(unsigned int address, unsigned int value) {
 bool mem_nvram_write_word(unsigned int address, unsigned int value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
 		WRITE_WORD(g_nvram, address - C2503_NVRAM_ADDR, value);
+		mem_nvram_update_last_write(address + 1, (value & 0xff));
 		return true;
 	}
 	return false;
@@ -1065,6 +1118,7 @@ bool mem_nvram_write_word(unsigned int address, unsigned int value) {
 bool mem_nvram_write_long(unsigned int address, unsigned int value) {
 	if ((address >= C2503_NVRAM_ADDR) && (address < (C2503_NVRAM_ADDR + C2503_NVRAM_SIZE))) {
 		WRITE_LONG(g_nvram, address - C2503_NVRAM_ADDR, value);
+		mem_nvram_update_last_write(address + 3, (value & 0xff));
 		return true;
 	}
 	return false;
