@@ -582,6 +582,9 @@ config CMD_EEPROM_PARALLEL
 	  Programmable Read Only Memory) chips that are connected over the
 	  system bus.
 
+config SYS_EEPROM_LAST_WRITE_TEST
+	bool
+
 config CMD_EEPROM_LAYOUT
 	bool "Enable layout-aware eeprom commands"
 	depends on CMD_EEPROM

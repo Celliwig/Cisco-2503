@@ -42,6 +42,9 @@
 #define	EEPROM_PAGE_SIZE	(1 << CONFIG_SYS_EEPROM_PAGE_WRITE_BITS)
 #define	EEPROM_PAGE_OFFSET(x)	((x) & (EEPROM_PAGE_SIZE - 1))
 
+/*
+ * Overridable function to enable EEPROM writes (ie. GPIO)
+ */
 __weak int eeprom_write_enable(unsigned dev_addr, int enable)
 {
 	return 0;
@@ -79,6 +82,7 @@ static int eeprom_rw_block(unsigned dev_addr, unsigned offset,
 			   uchar *buffer, unsigned len, bool read)
 {
 	int ret = 0;
+	unsigned int last_write = 0;
 
 	if (read) {
 		// This could probably be simplified with memcpy
@@ -95,10 +99,20 @@ static int eeprom_rw_block(unsigned dev_addr, unsigned offset,
 		if (CONFIG_SYS_EEPROM_BUS_WIDTH == 8) {
 			while (len > 0) {
 				writeb(*buffer, dev_addr + offset);
+				last_write = *buffer;
 				offset++;
 				buffer++;
 				len--;
 			}
+
+#ifdef CONFIG_SYS_EEPROM_LAST_WRITE_TEST
+			// Some EEPROMs implement a system that reading the address of the last byte
+			// written will provide an indication of the write status
+			offset--;							// Undo last increment
+			while (readb(dev_addr + offset) != last_write) {
+				// Should probably implement a timeout here
+			}
+#endif
 		}
 	}
 
@@ -129,6 +143,7 @@ int eeprom_write(unsigned dev_addr, unsigned offset, uchar *buffer, unsigned cnt
 	 * Write data until done.
 	 */
 	while (offset < end) {
+		// Get the largest number of bytes that can be written for this page
 		len = eeprom_write_len(offset, end);
 
 		ret = eeprom_rw_block(dev_addr, offset, buffer, len, 0);
@@ -136,6 +151,7 @@ int eeprom_write(unsigned dev_addr, unsigned offset, uchar *buffer, unsigned cnt
 		buffer += len;
 		offset += len;
 
+		// If there's no way to check the write status, delay
 		if (CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS > 0)
 			udelay(CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS * 1000);
 	}
