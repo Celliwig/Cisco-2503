@@ -25,6 +25,12 @@ struct pt_regs {
 	ulong a4;
 	ulong a5;
 	ulong a6;
+#if defined(CONFIG_M680x0)
+	unsigned short sr;
+	unsigned long pc;
+	unsigned format:4;	/* frame format specifier */
+	unsigned vector:12;	/* vector offset */
+#else
 #if defined(__M68K__)
 	unsigned format:4;	/* frame format specifier */
 	unsigned vector:12;	/* vector offset */
@@ -33,6 +39,7 @@ struct pt_regs {
 #else
 	unsigned short sr;
 	unsigned long pc;
+#endif
 #endif
 };
 
