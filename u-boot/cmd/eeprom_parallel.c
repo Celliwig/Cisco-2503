@@ -42,6 +42,11 @@
 #define	EEPROM_PAGE_SIZE	(1 << CONFIG_SYS_EEPROM_PAGE_WRITE_BITS)
 #define	EEPROM_PAGE_OFFSET(x)	((x) & (EEPROM_PAGE_SIZE - 1))
 
+// Needed by env/eeprom.c
+void eeprom_init(int ignore)
+{
+}
+
 /*
  * Overridable function to enable EEPROM writes (ie. GPIO)
  */
@@ -50,9 +55,33 @@ __weak int eeprom_write_enable(unsigned dev_addr, int enable)
 	return 0;
 }
 
-// Needed by env/eeprom.c
-void eeprom_init(int ignore)
-{
+/*
+ * Software Data Protection
+ *
+ * Write protection mechanism implemented in some devices
+ */
+/*
+ * SDP enable is used to activate protection, and must be called
+ * before a page write (and every following page write).
+ */
+void eeprom_sdp_enable(unsigned dev_addr) {
+	// X28C256 sequence
+	writeb(0xAA, dev_addr + 0x5555);
+	writeb(0x55, dev_addr + 0x2AAA);
+	writeb(0xA0, dev_addr + 0x5555);
+}
+
+/*
+ * Removes SDP protection from device
+ */
+void eeprom_sdp_disable(unsigned dev_addr) {
+	// X28C256 sequence
+	writeb(0xAA, dev_addr + 0x5555);
+	writeb(0x55, dev_addr + 0x2AAA);
+	writeb(0x80, dev_addr + 0x5555);
+	writeb(0xAA, dev_addr + 0x5555);
+	writeb(0x55, dev_addr + 0x2AAA);
+	writeb(0x20, dev_addr + 0x5555);
 }
 
 /*
@@ -182,6 +211,7 @@ static unsigned char eeprom_buf[CONFIG_SYS_EEPROM_SIZE];
 enum eeprom_action {
 	EEPROM_READ,
 	EEPROM_WRITE,
+	EEPROM_DISABLESDP,
 	EEPROM_PRINT,
 	EEPROM_UPDATE,
 	EEPROM_ACTION_INVALID,
@@ -193,6 +223,8 @@ static enum eeprom_action parse_action(char *cmd)
 		return EEPROM_READ;
 	if (!strncmp(cmd, "write", 5))
 		return EEPROM_WRITE;
+	if (!strncmp(cmd, "DisableSDP", 10))
+		return EEPROM_DISABLESDP;
 #ifdef CONFIG_CMD_EEPROM_LAYOUT
 	if (!strncmp(cmd, "print", 5))
 		return EEPROM_PRINT;
@@ -230,6 +262,13 @@ static int eeprom_execute_command(enum eeprom_action action, ulong device_addr, 
 
 		puts("done\n");
 		return rcode;
+	} else if (action == EEPROM_DISABLESDP) {
+		printf("\nEEPROM @0x%lX: Disabling Software Data Protection ... ", device_addr);
+
+		eeprom_sdp_disable(device_addr);
+
+		puts("done\n");
+		return 0;
 	}
 
 #ifdef CONFIG_CMD_EEPROM_LAYOUT
@@ -291,6 +330,9 @@ int do_eeprom(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		off = parse_numeric_param(argv[index]);
 		NEXT_PARAM(argc, index);
 		cnt = parse_numeric_param(argv[index]);
+	} else if (action == EEPROM_DISABLESDP) {
+		device_addr = parse_numeric_param(argv[index]);
+		NEXT_PARAM(argc, index);
 	}
 
 #ifdef CONFIG_CMD_EEPROM_LAYOUT
@@ -313,7 +355,9 @@ U_BOOT_CMD(
 	"EEPROM sub-system (Parallel)",
 	"read  <devaddr> addr off cnt\n"
 	"eeprom write <devaddr> addr off cnt\n"
-	"       - read/write `cnt` bytes from `devaddr` EEPROM, EEPROM offset `off` to/from memory `addr`"
+	"       - read/write `cnt` bytes from/to `devaddr` EEPROM, EEPROM offset `off` to/from memory `addr`\n"
+	"eeprom DisableSDP <devaddr>\n"
+	"	- Disable Software Data Protection on device `devaddr`"
 #ifdef CONFIG_CMD_EEPROM_LAYOUT
 	"\n"
 	"eeprom print [-l <layout_version>] <devaddr>\n"
