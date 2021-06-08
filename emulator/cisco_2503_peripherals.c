@@ -764,8 +764,22 @@ bool io_system_write_long(unsigned int address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Boot ROM
 //////////////////////////////////////////////////////////////////////////////////////////////
+enum flash_mode {
+	FLASHMODE_READ,
+	FLASHMODE_ACCESS1,
+	FLASHMODE_ACCESS2,
+	FLASHMODE_ACCESS3,
+	FLASHMODE_ACCESS4,
+	FLASHMODE_ACCESS5,
+	FLASHMODE_AUTOSELECT,
+	FLASHMODE_PROGRAM,
+	FLASHMODE_WRITING,
+};
+
 unsigned char g_bootrom1[C2503_BOOTROM_SIZE/2];
+enum flash_mode g_bootrom1_mode = FLASHMODE_READ;
 unsigned char g_bootrom2[C2503_BOOTROM_SIZE/2];
+enum flash_mode g_bootrom2_mode = FLASHMODE_READ;
 
 // Initialise boot flash ROM with contents from file
 bool mem_bootrom_init(FILE *fhandle) {
@@ -783,6 +797,8 @@ bool mem_bootrom_init(FILE *fhandle) {
 	}
 	if (ferror(fhandle)) return false;
 
+	g_bootrom1_mode = FLASHMODE_READ;
+	g_bootrom2_mode = FLASHMODE_READ;
 	return true;
 }
 
@@ -821,26 +837,59 @@ bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2) {
 		g_bootrom1[rom_ptr] = tmp_byte;
 	}
 
+	g_bootrom1_mode = FLASHMODE_READ;
+	g_bootrom2_mode = FLASHMODE_READ;
 	return true;
+}
+
+// Simulate sector/chip erase
+void mem_bootrom_erase1(unsigned int sector, bool all) {
+	unsigned int index, size;
+
+	sector &= 0xF0000;
+	if (all) {
+		index = 0;
+		size = C2503_BOOTROM_SIZE/2;
+	} else {
+		index = sector;
+		size = 0x10000;
+	}
+	for (; index < size; index++) {
+		g_bootrom1[index] = 0;
+	}
+}
+
+// Simulate sector/chip erase
+void mem_bootrom_erase2(unsigned int sector, bool all) {
+	unsigned int index, size;
+
+	sector &= 0xF0000;
+	if (all) {
+		index = 0;
+		size = C2503_BOOTROM_SIZE/2;
+	} else {
+		index = sector;
+		size = 0x10000;
+	}
+	for (; index < size; index++) {
+		g_bootrom2[index] = 0;
+	}
 }
 
 bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
 	unsigned int rom_addr;
+	unsigned char chip_select = 0;
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
 		rom_addr = (address - C2503_BOOTROM_ADDR1) / 2;
-		if (address & 0x1) {
-			// Odd addresses
-			*value = g_bootrom1[rom_addr];
-		} else {
-			// Even addresses
-			*value = g_bootrom2[rom_addr];
-		}
-		return true;
+		chip_select = 1;
 	}
 	// Boot ROM Address 2
 	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
 		rom_addr = (address - C2503_BOOTROM_ADDR2) / 2;
+		chip_select = 1;
+	}
+	if (chip_select) {
 		if (address & 0x1) {
 			// Odd addresses
 			*value = g_bootrom1[rom_addr];
@@ -855,21 +904,18 @@ bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
 
 bool mem_bootrom_read_word(unsigned int address, unsigned int *value) {
 	unsigned int rom_addr;
+	unsigned char chip_select = 0;
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
 		rom_addr = (address - C2503_BOOTROM_ADDR1) / 2;
-		if (address & 0x1) {
-			// Odd addresses
-			*value = (g_bootrom1[rom_addr] << 8) | g_bootrom2[rom_addr+1];
-		} else {
-			// Even addresses
-			*value = (g_bootrom2[rom_addr] << 8) | g_bootrom1[rom_addr];
-		}
-		return true;
+		chip_select = 1;
 	}
 	// Boot ROM Address 2
 	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
 		rom_addr = (address - C2503_BOOTROM_ADDR2) / 2;
+		chip_select = 1;
+	}
+	if (chip_select) {
 		if (address & 0x1) {
 			// Odd addresses
 			*value = (g_bootrom1[rom_addr] << 8) | g_bootrom2[rom_addr+1];
@@ -884,24 +930,18 @@ bool mem_bootrom_read_word(unsigned int address, unsigned int *value) {
 
 bool mem_bootrom_read_long(unsigned int address, unsigned int *value) {
 	unsigned int rom_addr;
+	unsigned char chip_select = 0;
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
 		rom_addr = (address - C2503_BOOTROM_ADDR1) / 2;
-		if (address & 0x1) {
-			// Odd addresses
-			*value = (g_bootrom1[rom_addr] << 24) | (g_bootrom2[rom_addr+1] << 16) | \
-					(g_bootrom1[rom_addr+1] << 8) | g_bootrom2[rom_addr+2];
-
-		} else {
-			// Even addresses
-			*value = (g_bootrom2[rom_addr] << 24) | (g_bootrom1[rom_addr] << 16) | \
-					(g_bootrom2[rom_addr+1] << 8) | g_bootrom1[rom_addr+1];
-		}
-		return true;
+		chip_select = 1;
 	}
 	// Boot ROM Address 2
 	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
 		rom_addr = (address - C2503_BOOTROM_ADDR2) / 2;
+		chip_select = 1;
+	}
+	if (chip_select) {
 		if (address & 0x1) {
 			// Odd addresses
 			*value = (g_bootrom1[rom_addr] << 24) | (g_bootrom2[rom_addr+1] << 16) | \
@@ -917,39 +957,245 @@ bool mem_bootrom_read_long(unsigned int address, unsigned int *value) {
 	return false;
 }
 
+void mem_bootrom_write1_cmd(unsigned int address, unsigned char cmd) {
+	// Command values are reversed (as the bus is reversed)
+	switch (g_bootrom1_mode) {
+	case FLASHMODE_READ:
+		if ((address == 0x555) && (cmd == 0x55)) {
+			g_bootrom1_mode = FLASHMODE_ACCESS1;
+			return;
+		}
+		break;
+	case FLASHMODE_ACCESS1:
+		if ((address == 0x2AA) && (cmd == 0xAA)) {
+			g_bootrom1_mode = FLASHMODE_ACCESS2;
+			return;
+		}
+		break;
+	case FLASHMODE_ACCESS2:
+		if (address == 0x555) {
+			switch (cmd) {
+			case 0x01:
+				g_bootrom1_mode = FLASHMODE_ACCESS3;
+				return;
+				break;
+			case 0x05:
+				g_bootrom1_mode = FLASHMODE_PROGRAM;
+				return;
+				break;
+			case 0x09:
+				g_bootrom1_mode = FLASHMODE_AUTOSELECT;
+				return;
+				break;
+			}
+		}
+		break;
+	case FLASHMODE_ACCESS3:
+		if ((address == 0x555) && (cmd == 0x55)) {
+			g_bootrom1_mode = FLASHMODE_ACCESS4;
+			return;
+		}
+		break;
+	case FLASHMODE_ACCESS4:
+		if ((address == 0x2AA) && (cmd == 0xAA)) {
+			g_bootrom1_mode = FLASHMODE_ACCESS5;
+			return;
+		}
+		break;
+	case FLASHMODE_ACCESS5:
+		// Chip erase
+		if ((address == 0x555) && (cmd == 0x08)) {
+			mem_bootrom_erase1(0x0, true);
+			g_bootrom1_mode = FLASHMODE_WRITING;
+			return;
+		}
+		// Sector erase
+		if (cmd == 0x0C) {
+			mem_bootrom_erase1(address, false);
+			g_bootrom1_mode = FLASHMODE_WRITING;
+			return;
+		}
+		break;
+	case FLASHMODE_AUTOSELECT:
+		// Reset to return to read mode
+		if (cmd == 0x0F) {
+			g_bootrom1_mode = FLASHMODE_READ;
+		}
+		return;
+		break;
+	case FLASHMODE_PROGRAM:
+		// Write byte to memory
+		g_bootrom1[address] = cmd;
+		g_bootrom1_mode = FLASHMODE_WRITING;
+		break;
+	case FLASHMODE_WRITING:
+		return;
+		break;
+	}
+	g_bootrom1_mode = FLASHMODE_READ;
+}
+
+void mem_bootrom_write2_cmd(unsigned int address, unsigned char cmd) {
+	// Command values are reversed (as the bus is reversed)
+	switch (g_bootrom2_mode) {
+	case FLASHMODE_READ:
+		if ((address == 0x555) && (cmd == 0x55)) {
+			g_bootrom2_mode = FLASHMODE_ACCESS1;
+			return;
+		}
+		break;
+	case FLASHMODE_ACCESS1:
+		if ((address == 0x2AA) && (cmd == 0xAA)) {
+			g_bootrom2_mode = FLASHMODE_ACCESS2;
+			return;
+		}
+		break;
+	case FLASHMODE_ACCESS2:
+		if (address == 0x555) {
+			switch (cmd) {
+			case 0x01:
+				g_bootrom2_mode = FLASHMODE_ACCESS3;
+				return;
+				break;
+			case 0x05:
+				g_bootrom2_mode = FLASHMODE_PROGRAM;
+				return;
+				break;
+			case 0x09:
+				g_bootrom2_mode = FLASHMODE_AUTOSELECT;
+				return;
+				break;
+			}
+		}
+		break;
+	case FLASHMODE_ACCESS3:
+		if ((address == 0x555) && (cmd == 0x55)) {
+			g_bootrom2_mode = FLASHMODE_ACCESS4;
+			return;
+		}
+		break;
+	case FLASHMODE_ACCESS4:
+		if ((address == 0x2AA) && (cmd == 0xAA)) {
+			g_bootrom2_mode = FLASHMODE_ACCESS5;
+			return;
+		}
+		break;
+	case FLASHMODE_ACCESS5:
+		// Chip erase
+		if ((address == 0x555) && (cmd == 0x08)) {
+			mem_bootrom_erase2(0x0, true);
+			g_bootrom2_mode = FLASHMODE_WRITING;
+			return;
+		}
+		// Sector erase
+		if (cmd == 0x0C) {
+			mem_bootrom_erase2(address, false);
+			g_bootrom2_mode = FLASHMODE_WRITING;
+			return;
+		}
+		break;
+	case FLASHMODE_AUTOSELECT:
+		// Reset to return to read mode
+		if (cmd == 0x0F) {
+			g_bootrom2_mode = FLASHMODE_READ;
+		}
+		return;
+		break;
+	case FLASHMODE_PROGRAM:
+		// Write byte to memory
+		g_bootrom2[address] = cmd;
+		g_bootrom2_mode = FLASHMODE_WRITING;
+		break;
+	case FLASHMODE_WRITING:
+		return;
+		break;
+	}
+	g_bootrom2_mode = FLASHMODE_READ;
+}
+
 bool mem_bootrom_write_byte(unsigned int address, unsigned int value) {
-//	// Boot ROM Address 1
-//	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
-//		return true;
-//	}
-//	// Boot ROM Address 2
-//	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-//		return true;
-//	}
+	unsigned int rom_addr;
+	unsigned char chip_select = 0;
+	// Boot ROM Address 1
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
+		rom_addr = (address - C2503_BOOTROM_ADDR1) / 2;
+		chip_select = 1;
+	}
+	// Boot ROM Address 2
+	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+		rom_addr = (address - C2503_BOOTROM_ADDR2) / 2;
+		chip_select = 1;
+	}
+	if (chip_select) {
+		if (address & 0x1) {
+			// Odd addresses
+			mem_bootrom_write1_cmd(rom_addr, (value & 0xFF));
+		} else {
+			// Even addresses
+			mem_bootrom_write2_cmd(rom_addr, (value & 0xFF));
+		}
+		return true;
+	}
 	return false;
 }
 
 bool mem_bootrom_write_word(unsigned int address, unsigned int value) {
-//	// Boot ROM Address 1
-//	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
-//		return true;
-//	}
-///	// Boot ROM Address 2
-//	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-//		return true;
-//	}
+	unsigned int rom_addr;
+	unsigned char chip_select = 0;
+	// Boot ROM Address 1
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
+		rom_addr = (address - C2503_BOOTROM_ADDR1) / 2;
+		chip_select = 1;
+	}
+	// Boot ROM Address 2
+	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+		rom_addr = (address - C2503_BOOTROM_ADDR2) / 2;
+		chip_select = 1;
+	}
+	if (chip_select) {
+		if (address & 0x1) {
+			// Odd addresses
+			mem_bootrom_write1_cmd(rom_addr, ((value & 0xFF00) >> 8));
+			mem_bootrom_write2_cmd(rom_addr+1, (value & 0xFF));
+		} else {
+			// Even addresses
+			mem_bootrom_write2_cmd(rom_addr, ((value & 0xFF00) >> 8));
+			mem_bootrom_write1_cmd(rom_addr, (value & 0xFF));
+		}
+		return true;
+	}
 	return false;
 }
 
 bool mem_bootrom_write_long(unsigned int address, unsigned int value) {
-//	// Boot ROM Address 1
-//	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
-//		return true;
-//	}
-//	// Boot ROM Address 2
-//	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-//		return true;
-//	}
+	unsigned int rom_addr;
+	unsigned char chip_select = 0;
+	// Boot ROM Address 1
+	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
+		rom_addr = (address - C2503_BOOTROM_ADDR1) / 2;
+		chip_select = 1;
+	}
+	// Boot ROM Address 2
+	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+		rom_addr = (address - C2503_BOOTROM_ADDR2) / 2;
+		chip_select = 1;
+	}
+	if (chip_select) {
+		if (address & 0x1) {
+			// Odd addresses
+			mem_bootrom_write1_cmd(rom_addr, ((value & 0xFF000000) >> 24));
+			mem_bootrom_write2_cmd(rom_addr+1, ((value & 0xFF0000) >> 16));
+			mem_bootrom_write1_cmd(rom_addr+1, ((value & 0xFF00) >> 8));
+			mem_bootrom_write2_cmd(rom_addr+2, (value & 0xFF));
+		} else {
+			// Even addresses
+			mem_bootrom_write2_cmd(rom_addr, ((value & 0xFF000000) >> 24));
+			mem_bootrom_write1_cmd(rom_addr, ((value & 0xFF0000) >> 16));
+			mem_bootrom_write2_cmd(rom_addr+1, ((value & 0xFF00) >> 8));
+			mem_bootrom_write1_cmd(rom_addr+1, (value & 0xFF));
+		}
+		return true;
+	}
 	return false;
 }
 

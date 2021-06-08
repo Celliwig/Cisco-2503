@@ -32,6 +32,8 @@ bool sriWriteLong(unsigned int address, unsigned int value);
 #define C2503_BOOTROM_ADDR1		0x00000000			// Start address of boot ROM
 #define C2503_BOOTROM_ADDR2		0x01000000			// Alternate address of boot ROM
 #define C2503_BOOTROM_SIZE		0x200000			// 2MB Boot ROM
+									// Flash ROMs are only 1MB (2x512) but left at 2MB
+									// so can still run Cisco FW
 
 bool mem_bootrom_init(FILE *fhandle);
 bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2);
