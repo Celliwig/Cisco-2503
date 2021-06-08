@@ -764,11 +764,25 @@ bool io_system_write_long(unsigned int address, unsigned int value) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Boot ROM
 //////////////////////////////////////////////////////////////////////////////////////////////
-unsigned char g_bootrom[C2503_BOOTROM_SIZE];
+unsigned char g_bootrom1[C2503_BOOTROM_SIZE/2];
+unsigned char g_bootrom2[C2503_BOOTROM_SIZE/2];
 
 // Initialise boot flash ROM with contents from file
 bool mem_bootrom_init(FILE *fhandle) {
-	if (fread(g_bootrom, 1, C2503_BOOTROM_SIZE, fhandle) <= 0) return false;
+	unsigned char buffer, toggle = 0;
+	unsigned int rom_addr = 0;
+
+	while (fread(&buffer, 1, 1, fhandle)) {
+		if (toggle) {
+			g_bootrom1[rom_addr] = buffer;
+			rom_addr++;
+		} else {
+			g_bootrom2[rom_addr] = buffer;
+		}
+		toggle = ~toggle;
+	}
+	if (ferror(fhandle)) return false;
+
 	return true;
 }
 
@@ -792,7 +806,7 @@ bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2) {
 		if (tmp_store2[rom_ptr] & 0x20) tmp_byte |= 0x04;
 		if (tmp_store2[rom_ptr] & 0x40) tmp_byte |= 0x02;
 		if (tmp_store2[rom_ptr] & 0x80) tmp_byte |= 0x01;
-		g_bootrom[(rom_ptr * 2)] = tmp_byte;
+		g_bootrom2[rom_ptr] = tmp_byte;
 
 		tmp_byte = 0;						/* Zero byte */
 		// Reverse byte FW1
@@ -804,87 +818,138 @@ bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2) {
 		if (tmp_store1[rom_ptr] & 0x20) tmp_byte |= 0x04;
 		if (tmp_store1[rom_ptr] & 0x40) tmp_byte |= 0x02;
 		if (tmp_store1[rom_ptr] & 0x80) tmp_byte |= 0x01;
-		g_bootrom[(rom_ptr * 2) + 1] = tmp_byte;
+		g_bootrom1[rom_ptr] = tmp_byte;
 	}
 
 	return true;
 }
 
 bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
+	unsigned int rom_addr;
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
-		*value = READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR1);
+		rom_addr = (address - C2503_BOOTROM_ADDR1) / 2;
+		if (address & 0x1) {
+			// Odd addresses
+			*value = g_bootrom1[rom_addr];
+		} else {
+			// Even addresses
+			*value = g_bootrom2[rom_addr];
+		}
 		return true;
 	}
 	// Boot ROM Address 2
 	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-		*value = READ_BYTE(g_bootrom, address - C2503_BOOTROM_ADDR2);
+		rom_addr = (address - C2503_BOOTROM_ADDR2) / 2;
+		if (address & 0x1) {
+			// Odd addresses
+			*value = g_bootrom1[rom_addr];
+		} else {
+			// Even addresses
+			*value = g_bootrom2[rom_addr];
+		}
 		return true;
 	}
 	return false;
 }
 
 bool mem_bootrom_read_word(unsigned int address, unsigned int *value) {
+	unsigned int rom_addr;
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
-		*value = READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR1);
+		rom_addr = (address - C2503_BOOTROM_ADDR1) / 2;
+		if (address & 0x1) {
+			// Odd addresses
+			*value = (g_bootrom1[rom_addr] << 8) | g_bootrom2[rom_addr+1];
+		} else {
+			// Even addresses
+			*value = (g_bootrom2[rom_addr] << 8) | g_bootrom1[rom_addr];
+		}
 		return true;
 	}
 	// Boot ROM Address 2
 	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-		*value = READ_WORD(g_bootrom, address - C2503_BOOTROM_ADDR2);
+		rom_addr = (address - C2503_BOOTROM_ADDR2) / 2;
+		if (address & 0x1) {
+			// Odd addresses
+			*value = (g_bootrom1[rom_addr] << 8) | g_bootrom2[rom_addr+1];
+		} else {
+			// Even addresses
+			*value = (g_bootrom2[rom_addr] << 8) | g_bootrom1[rom_addr];
+		}
 		return true;
 	}
 	return false;
 }
 
 bool mem_bootrom_read_long(unsigned int address, unsigned int *value) {
+	unsigned int rom_addr;
 	// Boot ROM Address 1
 	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
-		*value = READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR1);
+		rom_addr = (address - C2503_BOOTROM_ADDR1) / 2;
+		if (address & 0x1) {
+			// Odd addresses
+			*value = (g_bootrom1[rom_addr] << 24) | (g_bootrom2[rom_addr+1] << 16) | \
+					(g_bootrom1[rom_addr+1] << 8) | g_bootrom2[rom_addr+2];
+
+		} else {
+			// Even addresses
+			*value = (g_bootrom2[rom_addr] << 24) | (g_bootrom1[rom_addr] << 16) | \
+					(g_bootrom2[rom_addr+1] << 8) | g_bootrom1[rom_addr+1];
+		}
 		return true;
 	}
 	// Boot ROM Address 2
 	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-		*value = READ_LONG(g_bootrom, address - C2503_BOOTROM_ADDR2);
+		rom_addr = (address - C2503_BOOTROM_ADDR2) / 2;
+		if (address & 0x1) {
+			// Odd addresses
+			*value = (g_bootrom1[rom_addr] << 24) | (g_bootrom2[rom_addr+1] << 16) | \
+					(g_bootrom1[rom_addr+1] << 8) | g_bootrom2[rom_addr+2];
+
+		} else {
+			// Even addresses
+			*value = (g_bootrom2[rom_addr] << 24) | (g_bootrom1[rom_addr] << 16) | \
+					(g_bootrom2[rom_addr+1] << 8) | g_bootrom1[rom_addr+1];
+		}
 		return true;
 	}
 	return false;
 }
 
 bool mem_bootrom_write_byte(unsigned int address, unsigned int value) {
-	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
-		return true;
-	}
-	// Boot ROM Address 2
-	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-		return true;
-	}
+//	// Boot ROM Address 1
+//	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
+//		return true;
+//	}
+//	// Boot ROM Address 2
+//	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+//		return true;
+//	}
 	return false;
 }
 
 bool mem_bootrom_write_word(unsigned int address, unsigned int value) {
-	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
-		return true;
-	}
-	// Boot ROM Address 2
-	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-		return true;
-	}
+//	// Boot ROM Address 1
+//	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
+//		return true;
+//	}
+///	// Boot ROM Address 2
+//	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+//		return true;
+//	}
 	return false;
 }
 
 bool mem_bootrom_write_long(unsigned int address, unsigned int value) {
-	// Boot ROM Address 1
-	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
-		return true;
-	}
-	// Boot ROM Address 2
-	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
-		return true;
-	}
+//	// Boot ROM Address 1
+//	if ((address >= C2503_BOOTROM_ADDR1) && (address < (C2503_BOOTROM_ADDR1 + C2503_BOOTROM_SIZE)) && g_io_sysctrl01_0_remap_rom) {
+//		return true;
+//	}
+//	// Boot ROM Address 2
+//	if ((address >= C2503_BOOTROM_ADDR2) && (address < (C2503_BOOTROM_ADDR2 + C2503_BOOTROM_SIZE))) {
+//		return true;
+//	}
 	return false;
 }
 
