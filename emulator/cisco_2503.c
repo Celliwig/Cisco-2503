@@ -332,7 +332,7 @@ bool cpu_real_read_byte(unsigned int address, unsigned int *tmp_int, bool real_r
 //		return mem_pgrm_read_byte(address, true);
 //	}
 
-	if (mem_bootrom_read_byte(address, tmp_int)) return true;
+	if (mem_bootrom_read_byte(address, tmp_int, real_read)) return true;
 	if (mem_flashrom_read_byte(address, tmp_int)) return true;
 	if (mem_nvram_read_byte(address, tmp_int)) return true;
 	if (mem_ram_read_byte(address, tmp_int)) return true;

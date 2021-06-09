@@ -932,7 +932,7 @@ unsigned char mem_bootrom_read2_data(unsigned int address) {
 	}
 }
 
-bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
+bool mem_bootrom_read_byte(unsigned int address, unsigned int *value, bool real_read) {
 	unsigned int rom_addr;
 	unsigned char chip_select = 0;
 	// Boot ROM Address 1
@@ -948,10 +948,18 @@ bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
 	if (chip_select) {
 		if (address & 0x1) {
 			// Odd addresses
-			*value = mem_bootrom_read1_data(rom_addr);
+			if (real_read) {
+				*value = mem_bootrom_read1_data(rom_addr);
+			} else {
+				*value = g_bootrom1[rom_addr];
+			}
 		} else {
 			// Even addresses
-			*value = mem_bootrom_read2_data(rom_addr);
+			if (real_read) {
+				*value = mem_bootrom_read2_data(rom_addr);
+			} else {
+				*value = g_bootrom2[rom_addr];
+			}
 		}
 		return true;
 	}

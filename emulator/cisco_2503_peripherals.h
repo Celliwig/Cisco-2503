@@ -37,7 +37,7 @@ bool sriWriteLong(unsigned int address, unsigned int value);
 
 bool mem_bootrom_init(FILE *fhandle);
 bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2);
-bool mem_bootrom_read_byte(unsigned address, unsigned int *value);
+bool mem_bootrom_read_byte(unsigned address, unsigned int *value, bool real_read);
 bool mem_bootrom_read_word(unsigned address, unsigned int *value);
 bool mem_bootrom_read_long(unsigned address, unsigned int *value);
 bool mem_bootrom_write_byte(unsigned int address, unsigned int value);
