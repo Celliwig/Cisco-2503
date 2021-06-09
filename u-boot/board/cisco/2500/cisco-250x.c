@@ -18,6 +18,12 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 void lowlevel_init(void) {
+	/* Don't know if this is necessary */
+	/* Was in the original firmware */
+	__asm__ __volatile__ ("		move.l	#0x3e8, %d0");
+	__asm__ __volatile__ ("1:	subq.l	#0x1, %d0");
+	__asm__ __volatile__ ("		bgt.s	1b");
+
         /* Swap out boot ROM for RAM */
 	__asm__ __volatile__ ("movea.l	#0x2110000, %a0");
 	__asm__ __volatile__ ("move.w	(%a0), %d0");
