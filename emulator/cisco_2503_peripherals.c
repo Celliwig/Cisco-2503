@@ -876,6 +876,62 @@ void mem_bootrom_erase2(unsigned int sector, bool all) {
 	}
 }
 
+unsigned char mem_bootrom_read1_data(unsigned int address) {
+	switch (g_bootrom1_mode) {
+	case FLASHMODE_AUTOSELECT:
+		// Manufacturer ID
+		if (address == 0x0) {
+			return 0x80;
+		}
+		// Device ID
+		if (address == 0x1) {
+			return 0x25;
+		}
+		// Sector unprotected
+		return 0x00;
+		break;
+	case FLASHMODE_WRITING:
+		// Reset to read mode, return fake write operation status
+		g_bootrom1_mode = FLASHMODE_READ;
+		return 0x40;
+		break;
+	case FLASHMODE_READ:
+	default:
+		// If not in a valid mode, reset mode, and read array data
+		g_bootrom1_mode = FLASHMODE_READ;
+		return g_bootrom1[address];
+		break;
+	}
+}
+
+unsigned char mem_bootrom_read2_data(unsigned int address) {
+	switch (g_bootrom2_mode) {
+	case FLASHMODE_AUTOSELECT:
+		// Manufacturer ID
+		if (address == 0x0) {
+			return 0x80;
+		}
+		// Device ID
+		if (address == 0x1) {
+			return 0x25;
+		}
+		// Sector unprotected
+		return 0x00;
+		break;
+	case FLASHMODE_WRITING:
+		// Reset to read mode, return fake write operation status
+		g_bootrom2_mode = FLASHMODE_READ;
+		return 0x40;
+		break;
+	case FLASHMODE_READ:
+	default:
+		// If not in a valid mode, reset mode, and read array data
+		g_bootrom2_mode = FLASHMODE_READ;
+		return g_bootrom2[address];
+		break;
+	}
+}
+
 bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
 	unsigned int rom_addr;
 	unsigned char chip_select = 0;
@@ -892,10 +948,10 @@ bool mem_bootrom_read_byte(unsigned int address, unsigned int *value) {
 	if (chip_select) {
 		if (address & 0x1) {
 			// Odd addresses
-			*value = g_bootrom1[rom_addr];
+			*value = mem_bootrom_read1_data(rom_addr);
 		} else {
 			// Even addresses
-			*value = g_bootrom2[rom_addr];
+			*value = mem_bootrom_read2_data(rom_addr);
 		}
 		return true;
 	}
@@ -918,10 +974,10 @@ bool mem_bootrom_read_word(unsigned int address, unsigned int *value) {
 	if (chip_select) {
 		if (address & 0x1) {
 			// Odd addresses
-			*value = (g_bootrom1[rom_addr] << 8) | g_bootrom2[rom_addr+1];
+			*value = (mem_bootrom_read1_data(rom_addr) << 8) | mem_bootrom_read2_data(rom_addr+1);
 		} else {
 			// Even addresses
-			*value = (g_bootrom2[rom_addr] << 8) | g_bootrom1[rom_addr];
+			*value = (mem_bootrom_read2_data(rom_addr) << 8) | mem_bootrom_read1_data(rom_addr);
 		}
 		return true;
 	}
@@ -944,13 +1000,13 @@ bool mem_bootrom_read_long(unsigned int address, unsigned int *value) {
 	if (chip_select) {
 		if (address & 0x1) {
 			// Odd addresses
-			*value = (g_bootrom1[rom_addr] << 24) | (g_bootrom2[rom_addr+1] << 16) | \
-					(g_bootrom1[rom_addr+1] << 8) | g_bootrom2[rom_addr+2];
+			*value = (mem_bootrom_read1_data(rom_addr) << 24) | (mem_bootrom_read2_data(rom_addr+1) << 16) | \
+					(mem_bootrom_read1_data(rom_addr+1) << 8) | mem_bootrom_read2_data(rom_addr+2);
 
 		} else {
 			// Even addresses
-			*value = (g_bootrom2[rom_addr] << 24) | (g_bootrom1[rom_addr] << 16) | \
-					(g_bootrom2[rom_addr+1] << 8) | g_bootrom1[rom_addr+1];
+			*value = (mem_bootrom_read2_data(rom_addr) << 24) | (mem_bootrom_read1_data(rom_addr) << 16) | \
+					(mem_bootrom_read2_data(rom_addr+1) << 8) | mem_bootrom_read1_data(rom_addr+1);
 		}
 		return true;
 	}
