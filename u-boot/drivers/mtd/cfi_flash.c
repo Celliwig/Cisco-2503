@@ -181,6 +181,21 @@ __maybe_weak u64 flash_read64(void *addr)
 	return *(volatile u64 *)addr;
 }
 
+#if defined(CONFIG_SYS_FLASH_QUIRK_DATA_BUS_REVERSED)
+u8 bits_reverse_u8(u8 value)
+{
+	u8 ret = 0;
+
+	for (char i = 0; i < 8; i++) {
+		ret = ret << 1;
+		if (value & 0x1) ret |= 1;
+		value = value >> 1;
+	}
+
+	return ret;
+}
+#endif
+
 /*-----------------------------------------------------------------------
  */
 #if defined(CONFIG_ENV_IS_IN_FLASH) || defined(CONFIG_ENV_ADDR_REDUND) || \
@@ -248,6 +263,9 @@ static void flash_make_cmd(flash_info_t *info, u32 cmd, void *cmdbuf)
 #else
 		cp_offset = i - 1;
 		val = *((uchar *)&cmd + sizeof(u32) - cword_offset - 1);
+#endif
+#if defined(CONFIG_SYS_FLASH_QUIRK_DATA_BUS_REVERSED)
+		val = bits_reverse_u8(val);
 #endif
 		cp[cp_offset] = (cword_offset >= sizeof(u32)) ? 0x00 : val;
 	}

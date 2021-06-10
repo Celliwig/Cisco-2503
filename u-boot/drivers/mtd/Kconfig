@@ -78,6 +78,10 @@ config SYS_FLASH_CFI
 	  Define if the flash driver uses extra elements in the
 	  common flash structure for storing flash geometry.
 
+config SYS_FLASH_QUIRK_DATA_BUS_REVERSED
+	bool "Data bus is reversed between CPU & Flash ROM."
+	depends on FLASH_CFI_DRIVER
+
 config ALTERA_QSPI
 	bool "Altera Generic Quad SPI Controller"
 	depends on DM_MTD
