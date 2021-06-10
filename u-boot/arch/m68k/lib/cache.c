@@ -29,10 +29,12 @@ int dcache_status(void)
 
 void icache_enable(void)
 {
-	icache_invalid();
+	u32 temp = CONFIG_SYS_CACHE_ICACR;
 
+	icache_invalid();
 	*cf_icache_status = 1;
 
+#if !defined(CONFIG_M68030)
 #if defined(CONFIG_CF_V4) || defined(CONFIG_CF_V4E)
 	__asm__ __volatile__("movec %0, %%acr2"::"r"(CONFIG_SYS_CACHE_ACR2));
 	__asm__ __volatile__("movec %0, %%acr3"::"r"(CONFIG_SYS_CACHE_ACR3));
@@ -44,8 +46,12 @@ void icache_enable(void)
 	__asm__ __volatile__("movec %0, %%acr0"::"r"(CONFIG_SYS_CACHE_ACR0));
 	__asm__ __volatile__("movec %0, %%acr1"::"r"(CONFIG_SYS_CACHE_ACR1));
 #endif
+#endif
 
-	__asm__ __volatile__("movec %0, %%cacr"::"r"(CONFIG_SYS_CACHE_ICACR));
+	if (*cf_dcache_status)
+		temp |= CONFIG_SYS_CACHE_DCACR;
+
+	__asm__ __volatile__("movec %0, %%cacr"::"r"(temp));
 }
 
 void icache_disable(void)
@@ -53,8 +59,10 @@ void icache_disable(void)
 	u32 temp = 0;
 
 	*cf_icache_status = 0;
+	// Invalidate and disable instruction cache
 	icache_invalid();
 
+#if !defined(CONFIG_M68030)
 #if defined(CONFIG_CF_V4) || defined(CONFIG_CF_V4E)
 	__asm__ __volatile__("movec %0, %%acr2"::"r"(temp));
 	__asm__ __volatile__("movec %0, %%acr3"::"r"(temp));
@@ -66,13 +74,15 @@ void icache_disable(void)
 	__asm__ __volatile__("movec %0, %%acr0"::"r"(temp));
 	__asm__ __volatile__("movec %0, %%acr1"::"r"(temp));
 #endif
+#endif
 }
 
 void icache_invalid(void)
 {
-	u32 temp;
+	u32 temp = CONFIG_SYS_ICACHE_INV;
 
-	temp = CONFIG_SYS_ICACHE_INV;
+	if (*cf_dcache_status)
+		temp |= CONFIG_SYS_CACHE_DCACR;
 	if (*cf_icache_status)
 		temp |= CONFIG_SYS_CACHE_ICACR;
 
@@ -85,6 +95,8 @@ void icache_invalid(void)
  */
 void dcache_enable(void)
 {
+	u32 temp = CONFIG_SYS_CACHE_DCACR;
+
 	dcache_invalid();
 	*cf_dcache_status = 1;
 
@@ -97,7 +109,10 @@ void dcache_enable(void)
 #endif
 #endif
 
-	__asm__ __volatile__("movec %0, %%cacr"::"r"(CONFIG_SYS_CACHE_DCACR));
+	if (*cf_icache_status)
+		temp |= CONFIG_SYS_CACHE_ICACR;
+
+	__asm__ __volatile__("movec %0, %%cacr"::"r"(temp));
 }
 
 void dcache_disable(void)
@@ -105,9 +120,8 @@ void dcache_disable(void)
 	u32 temp = 0;
 
 	*cf_dcache_status = 0;
+	// Invalidate and disable data cache
 	dcache_invalid();
-
-	__asm__ __volatile__("movec %0, %%cacr"::"r"(temp));
 
 #if defined(CONFIG_CF_V4) || defined(CONFIG_CF_V4E)
 	__asm__ __volatile__("movec %0, %%acr0"::"r"(temp));
@@ -121,10 +135,9 @@ void dcache_disable(void)
 
 void dcache_invalid(void)
 {
-#if defined(CONFIG_CF_V4) || defined(CONFIG_CF_V4E)
-	u32 temp;
+#if defined(CONFIG_SYS_DCACHE_INV)
+	u32 temp = CONFIG_SYS_DCACHE_INV;
 
-	temp = CONFIG_SYS_DCACHE_INV;
 	if (*cf_dcache_status)
 		temp |= CONFIG_SYS_CACHE_DCACR;
 	if (*cf_icache_status)
