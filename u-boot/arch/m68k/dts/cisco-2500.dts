@@ -29,6 +29,14 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		bootflash: nor@01000000 {
+			compatible = "jedec-flash";
+			reg = <0x01000000 0x00100000>;
+			bank-width = <2>;
+
+			status = "okay";
+		};
+
 		uart0: serial@02120100 {
 			compatible = "philips,scn2681-uart";
 			reg = <0x02120100 0x10>;
