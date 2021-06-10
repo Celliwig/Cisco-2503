@@ -855,7 +855,7 @@ void mem_bootrom_erase1(unsigned int sector, bool all) {
 		size = 0x10000;
 	}
 	for (; index < size; index++) {
-		g_bootrom1[index] = 0;
+		g_bootrom1[index] = 0xff;
 	}
 }
 
@@ -872,7 +872,7 @@ void mem_bootrom_erase2(unsigned int sector, bool all) {
 		size = 0x10000;
 	}
 	for (; index < size; index++) {
-		g_bootrom2[index] = 0;
+		g_bootrom2[index] = 0xff;
 	}
 }
 
