@@ -110,3 +110,52 @@ void m680x0_timer_udelay(unsigned long usec_delay)
 		__asm__ __volatile__("1:	dbf %0, 1b"::"r"(cpu_cycle_delay));
 	}
 }
+
+/*
+ * Define flash to deal with interleaved
+ * boot flash with reversed bus mapping
+ */
+#if defined(CONFIG_FLASH_CFI_LEGACY)
+#include <flash.h>
+#include <mtd/cfi_flash.h>
+ulong board_flash_get_legacy(ulong base, int banknum, flash_info_t * info)
+{
+	if (banknum == 0) {
+//		info->flash_id          = 0x01000000;
+		info->portwidth         = FLASH_CFI_16BIT;
+		info->chipwidth         = FLASH_CFI_BY8;
+//		info->buffer_size       = 1;
+//		info->erase_blk_tout    = 16384;
+//		info->write_tout        = 2;
+//		info->buffer_write_tout = 5;
+		info->vendor            = CFI_CMDSET_AMD_LEGACY;
+//		info->cmd_reset         = 0x00F0;
+		info->interface         = FLASH_CFI_X16;
+		//info->chip_lsb	= 1;
+//		info->legacy_unlock     = 0;
+		info->manufacturer_id   = (u16) AMD_MANUFACT;
+//		info->device_id         = ATM_ID_LV040;
+//		info->device_id2        = 0;
+
+//		info->ext_addr          = 0;
+//		info->cfi_version       = 0x3133;
+//		info->cfi_offset        = 0x0000;
+		info->addr_unlock1      = 0x00000555;
+		info->addr_unlock2      = 0x000002AA;
+		info->name              = "Ganged Am29F040B";
+
+		info->base		= 0x01000000;
+		info->size              = 0x100000;
+		info->sector_count      = 0x08;
+		for (int i = 0; i < info->sector_count; i++) {
+			info->start[i] = info->base + (i * (info->size / info->sector_count));
+			info->protect[i] = 0;
+		}
+
+		return 1;
+	}
+
+	return 0;
+}
+
+#endif				/* CONFIG_SYS_FLASH_CFI */
