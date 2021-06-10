@@ -12,12 +12,15 @@
 #include <asm/io.h>
 
 #ifdef CONFIG_M680x0
+__weak int m680x0_do_reset(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+{
+	printf("Need to implement platform specific reset function.\n");
+	return -1;
+}
+
 int do_reset(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
-	__asm__ __volatile__("reset");
-
-	/* we don't return! */
-	return 0;
+	return m680x0_do_reset(cmdtp, flag, argc, argv);
 }
 
 #if defined(CONFIG_DISPLAY_CPUINFO)

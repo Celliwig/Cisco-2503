@@ -68,14 +68,26 @@ int board_early_init_r(void) {
 }
 #endif
 
+// Implement reset function by using watchdog
+int m680x0_do_reset(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+{
+	printf("Resetting Cisco...\n");
+	writew(0x3e80, CISCO2500_REG_WDOG_RST);			// Counter value?
+	writeb(0x40, CISCO2500_REG_TIMER_CTL);			// Start watchdog
+	while (true) {						// Loop forever
+		__asm__ __volatile__ ("nop");
+	}
+	return -1;
+}
+
 /*
  * Architectural timer functions
  */
 void m680x0_timer_cfg(void)
 {
 	// Set timer value
-	// (4000 - 40MHz clock)
-	writew(0x0FA0, CISCO2500_REG_TIMER_VAL);
+	// (1MHz clock, 1000 -> 1ms -> 1000Hz)
+	writew(0x03E8, CISCO2500_REG_TIMER_VAL);
 
 	// Don't need to configure interrupts,
 	// it's attached to NMI

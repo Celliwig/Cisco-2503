@@ -34,7 +34,7 @@
 
 /* undef to save memory	*/
 
-#define CONFIG_SYS_LOAD_ADDR			0x20000	/* default load address */
+#define CONFIG_SYS_LOAD_ADDR			0x2000	/* default load address */
 
 #define CONFIG_SYS_HZ				1000
 #define CONFIG_SYS_TMRINTR_NO			EVA_INTERRUPT_LEVEL7
