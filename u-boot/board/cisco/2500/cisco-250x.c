@@ -125,8 +125,8 @@ ulong board_flash_get_legacy(ulong base, int banknum, flash_info_t * info)
 		info->portwidth         = FLASH_CFI_16BIT;
 		info->chipwidth         = FLASH_CFI_BY8;
 //		info->buffer_size       = 1;
-//		info->erase_blk_tout    = 16384;
-//		info->write_tout        = 2;
+		info->erase_blk_tout    = 16384;
+		info->write_tout        = 2;
 //		info->buffer_write_tout = 5;
 		info->vendor            = CFI_CMDSET_AMD_LEGACY;
 //		info->cmd_reset         = 0x00F0;
