@@ -17,6 +17,10 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+/*
+ * Low level board init
+ * A7 contains return address as stack not available
+ */
 void lowlevel_init(void) {
 	/* Don't know if this is necessary */
 	/* Was in the original firmware */
@@ -25,11 +29,11 @@ void lowlevel_init(void) {
 	__asm__ __volatile__ ("		bgt.s	1b");
 
         /* Swap out boot ROM for RAM */
-	__asm__ __volatile__ ("movea.l	#0x2110000, %a0");
-	__asm__ __volatile__ ("move.w	(%a0), %d0");
-	__asm__ __volatile__ ("andi.w	#0xfffe, %d0");
-	__asm__ __volatile__ ("move.w	%d0, (%a0)");
-	__asm__ __volatile__ ("jmp	(%a7)");
+	__asm__ __volatile__ ("		movea.l	#0x2110000, %a0");
+	__asm__ __volatile__ ("		move.w	(%a0), %d0");
+	__asm__ __volatile__ ("		andi.w	#0xfffe, %d0");
+	__asm__ __volatile__ ("		move.w	%d0, (%a0)");
+	__asm__ __volatile__ ("		jmp	(%a7)");
 }
 
 int checkboard(void)
@@ -53,6 +57,16 @@ int dram_init(void)
 
 	return 0;
 }
+
+#ifdef CONFIG_BOARD_EARLY_INIT_R
+// U-boot relocated so enable status LED
+int board_early_init_r(void) {
+	// Enable status LED
+	writew((readw(CISCO2500_REG_SYSCTRL0) | CISCO2500_REG_SYSCTRL1_STATUS_LED), CISCO2500_REG_SYSCTRL0);
+
+	return 0;
+}
+#endif
 
 /*
  * Architectural timer functions
