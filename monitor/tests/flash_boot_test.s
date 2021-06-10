@@ -44,9 +44,12 @@
 .equiv	flash_addr1, 0x555<<1						/* Device command register address 1 */
 .equiv	flash_addr2, 0x2AA<<1						/* Device command register address 2 */
 									/* Addresses shifted because line A0 not connected */
-.equiv	flash_cmd1, 0x5555						/* Autoselect Command: #1 (AA reversed) */
-.equiv	flash_cmd2, 0xAAAA						/* Autoselect Command: #2 (55 reversed) */
-.equiv	flash_cmd3, 0x0909						/* Autoselect Command: #3 (90 reversed) */
+.equiv	flash_access_cmd1, 0x5555					/* Access1 Command: #1 (AA reversed) */
+.equiv	flash_access_cmd2, 0xAAAA					/* Access2 Command: #2 (55 reversed) */
+.equiv	flash_autoselect_cmd, 0x0909					/* Autoselect Command (90 reversed) */
+.equiv	flash_erase_cmd, 0x0101						/* Erase Command (80 reversed) */
+.equiv	flash_erase_sector_cmd, 0x0C0C					/* Erase Command (30 reversed) */
+.equiv	flash_erase_chip_cmd, 0x0808					/* Erase Command (10 reversed) */
 
 .org	0x0
 	dc.b	0xA5,0xE5,0xE0,0xA5                                     /* signiture bytes */
@@ -64,10 +67,10 @@ flash_boot_test:
 	movea.l	#0x01000000, %a0					/* Boot Flash ROM base address */
 	move.w	#0x2329, %d2						/* Delay loop value */
 	move.l	#flash_addr1, %d1
-	move.w	#flash_cmd1, (%a0,%d1.l)				/* 1st command */
+	move.w	#flash_access_cmd1, (%a0,%d1.l)				/* 1st command */
 	move.l	#flash_addr2, %d0
-	move.w	#flash_cmd2, (%a0,%d0.l)				/* 2nd command */
-	move.w	#flash_cmd3, (%a0,%d1.l)				/* 3rd command */
+	move.w	#flash_access_cmd2, (%a0,%d0.l)				/* 2nd command */
+	move.w	#flash_autoselect_cmd, (%a0,%d1.l)			/* 3rd command */
 	tst.w	%d2
 	beq.s	flash_boot_test_get_rslt
 flash_boot_test_delay_loop:
@@ -108,6 +111,19 @@ flash_boot_test_get_rslt:
 	jsr	print_hex8
 	jsr	print_newline
 
+flash_boot_erase_sector_test:
+	movea.l	#0x01000000, %a0					/* Boot Flash ROM base address */
+	move.w	#0x2329, %d2						/* Delay loop value */
+	move.l	#flash_addr1, %d1
+	move.w	#flash_access_cmd1, (%a0,%d1.l)				/* 1st command */
+	move.l	#flash_addr2, %d0
+	move.w	#flash_access_cmd2, (%a0,%d0.l)				/* 2nd command */
+	move.w	#flash_erase_cmd, (%a0,%d1.l)				/* Erase */
+	move.w	#flash_access_cmd1, (%a0,%d1.l)				/* 1st command */
+	move.w	#flash_access_cmd2, (%a0,%d0.l)				/* 2nd command */
+#	move.w	#flash_erase_chip_cmd, (%a0,%d1.l)			/* Erase chip */
+	move.w	#flash_erase_sector_cmd, (%a0)				/* Erase sector */
+
 	move.w	#0xffff, %d0
 flash_boot_finish_loop:
 	dbra	%d0, flash_boot_finish_loop
@@ -133,7 +149,7 @@ reverse_byte_bits_loop_check:
 	dbra	%d2, reverse_byte_bits_loop				/* Loop for remaining bits */
 	rts
 
-.org	0x120
+.org	0x180
 str_device:	.asciz	"Device "
 str_flash:	.asciz	"Flash "
 str_id:		.asciz	"ID: "
