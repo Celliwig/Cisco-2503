@@ -32,19 +32,18 @@
 //		"erase 0xfff00000 0xffffffff; "			\
 //		"cp.b 0x20000 0xfff00000 ${filesize}\0"
 
-/* undef to save memory	*/
+#define	CONFIG_SYS_LOAD_ADDR			0x2000			/* default load address */
+#define	CONFIG_STANDALONE_LOAD_ADDR		CONFIG_SYS_LOAD_ADDR
 
-#define CONFIG_SYS_LOAD_ADDR			0x2000	/* default load address */
+#define	CONFIG_SYS_HZ				1000
+#define	CONFIG_SYS_TMRINTR_NO			EVA_INTERRUPT_LEVEL7
 
-#define CONFIG_SYS_HZ				1000
-#define CONFIG_SYS_TMRINTR_NO			EVA_INTERRUPT_LEVEL7
-
-#define CONFIG_SYS_CLK				25000000
-#define CONFIG_SYS_CPU_CLK			CONFIG_SYS_CLK
+#define	CONFIG_SYS_CLK				25000000
+#define	CONFIG_SYS_CPU_CLK			CONFIG_SYS_CLK
 /* Definitions for initial stack pointer and data area */
-#define CONFIG_SYS_INIT_RAM_ADDR		0x0000400
+#define	CONFIG_SYS_INIT_RAM_ADDR		0x0000400
 /* size of initial stack (minus space for early static variables) */
-#define CONFIG_SYS_INIT_RAM_SIZE		0xC00
+#define	CONFIG_SYS_INIT_RAM_SIZE		0xC00
 //#define CONFIG_SYS_GBL_DATA_OFFSET		(CONFIG_SYS_INIT_RAM_SIZE - \
 //						 GENERATED_GBL_DATA_SIZE)
 //#define CONFIG_SYS_INIT_SP_OFFSET		CONFIG_SYS_GBL_DATA_OFFSET
