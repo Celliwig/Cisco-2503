@@ -4,6 +4,7 @@
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 
 extra-y        := hello_world
+extra-y        += LANCE_test
 extra-$(CONFIG_SMC91111)           += smc91111_eeprom
 extra-$(CONFIG_SPI_FLASH_ATMEL)    += atmel_df_pow2
 extra-$(CONFIG_PPC)                += sched
@@ -36,6 +37,12 @@ ELF	:= $(addprefix $(obj)/,$(ELF))
 # inconsistent.
 ifeq ($(CONFIG_PPC),y)
 PLATFORM_CPPFLAGS := $(filter-out $(RELFLAGS),$(PLATFORM_CPPFLAGS))
+endif
+
+# Crude bugfix, code built doesn't know where the data segment is
+# so access variables directly
+ifeq ($(CONFIG_M68K),y)
+PLATFORM_CPPFLAGS := -mpcrel $(PLATFORM_CPPFLAGS)
 endif
 
 # We don't want gcc reordering functions if possible.  This ensures that an
