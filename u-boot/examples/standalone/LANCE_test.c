@@ -33,8 +33,8 @@ int lance_test(int argc, char *const argv[])
 	printf ("LANCE ethernet controller test\n");
 	lance_initialised = 0;
 
-	//// Setup interrupt handler
-	//install_hdlr(EVA_INTERRUPT_LEVEL4, &lance_irq_handler, 0);
+	// Setup interrupt handler
+	install_hdlr(EVA_INTERRUPT_LEVEL4, &lance_irq_handler, 0);
 
 	// Enable LANCE
 	writeb(readb(CISCO2500_REG_SYSCTRL5) & ~CISCO2500_REG_SYSCTRL5_RSTCTRL_LANCE, CISCO2500_REG_SYSCTRL5);
@@ -104,12 +104,12 @@ int lance_test(int argc, char *const argv[])
 	// Initialise LANCE
 	writew(0x0, CISCO2500_LANCE_ADDR_RAP);								/* Select CSR0 */
 	writew(LANCE_AM79C90_CSR0_CTRL_INIT, CISCO2500_LANCE_ADDR_RDP);					/* LANCE initialise */
-	//writew(LANCE_AM79C90_CSR0_CTRL_INEA, CISCO2500_LANCE_ADDR_RDP);					/* Enable interrupts */
+	writew(LANCE_AM79C90_CSR0_CTRL_INEA, CISCO2500_LANCE_ADDR_RDP);					/* Enable interrupts */
 
 	// Wait for interrupt signalling initialisation complete
 	now = get_timer(0);
 	while ((get_timer(now) < 1000) && !lance_initialised) {
-		if (readw(CISCO2500_LANCE_ADDR_RDP) & LANCE_AM79C90_CSR0_STS_IDON) lance_initialised = 1;
+		//if (readw(CISCO2500_LANCE_ADDR_RDP) & LANCE_AM79C90_CSR0_STS_IDON) lance_initialised = 1;
 		udelay(5);
 	}
 
@@ -140,22 +140,19 @@ bool check_addr(void *ptr, unsigned int check_bits) {
 void lance_irq_handler(void *not_used) {
 	u16	flags, lance_status;
 
-	__asm__ __volatile__("nop");
+	//__asm__ __volatile__("nop");
 
-//	/* Check if LANCE is source */
-//	writew(0x0, CISCO2500_LANCE_ADDR_RAP);							/* Select CSR0 */
-//	lance_status = readw(CISCO2500_LANCE_ADDR_RDP);
-//	if (lance_status & LANCE_AM79C90_CSR0_STS_INTR) {
-//		// Check for error
-//		if (lance_status & LANCE_AM79C90_CSR0_STS_ERROR) {
-//		} else {
-//			if (lance_status & LANCE_AM79C90_CSR0_STS_IDON) lance_initialised = 1;
-//
-//			/* Clear interrupt */
-//			flags = LANCE_AM79C90_CSR0_STS_RINT | LANCE_AM79C90_CSR0_STS_TINT | LANCE_AM79C90_CSR0_STS_IDON | LANCE_AM79C90_CSR0_CTRL_INEA;
-//			writew(flags, CISCO2500_LANCE_ADDR_RDP);				/* Clear IDON */
-//		}
-//	}
-
-//	lance_initialised = 1;
+	/* Check if LANCE is source */
+	writew(0x0, CISCO2500_LANCE_ADDR_RAP);							/* Select CSR0 */
+	lance_status = readw(CISCO2500_LANCE_ADDR_RDP);
+	if (lance_status & LANCE_AM79C90_CSR0_STS_INTR) {
+		// Check for error
+		if (lance_status & LANCE_AM79C90_CSR0_STS_ERROR) {
+		} else {
+			if (lance_status & LANCE_AM79C90_CSR0_STS_IDON) lance_initialised = 1;
+		}
+		/* Clear interrupt */
+		flags = LANCE_AM79C90_CSR0_STS_RINT | LANCE_AM79C90_CSR0_STS_TINT | LANCE_AM79C90_CSR0_STS_IDON | LANCE_AM79C90_CSR0_CTRL_INEA;
+		writew(flags, CISCO2500_LANCE_ADDR_RDP);				/* Clear IDON */
+	}
 }
