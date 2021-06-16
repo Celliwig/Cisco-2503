@@ -6,6 +6,19 @@
 #ifndef _NET_LANCE_AM79C90_
 #define _NET_LANCE_AM79C90_
 
+#define	LANCE_AM79C90_NUM_BUFFERS_RX		0x20			/* Number of Rx rings/buffers */
+#define	LANCE_AM79C90_NUM_BUFFERS_TX		0x04			/* Number of Tx rings/buffers */
+
+struct lance_regs {
+	volatile unsigned short rdp;					/* Register Data Port */
+	volatile unsigned short rap;					/* Register Address Port */
+};
+
+#define	LANCE_AM79C90_CSR0			0x0000			/* LANCE Controller Status */
+#define	LANCE_AM79C90_CSR1			0x0001			/* IADR[15:0] */
+#define	LANCE_AM79C90_CSR2			0x0002			/* IADR[23:16] */
+#define	LANCE_AM79C90_CSR3			0x0003			/* Misc */
+
 /* CSR0 - Control & Status Registers 0 */
 #define	LANCE_AM79C90_CSR0_STS_ERROR		1<<15			/* Status: Error */
 #define	LANCE_AM79C90_CSR0_STS_BABBLE		1<<14			/* Status: Babble */
@@ -62,20 +75,20 @@ struct lance_init_block {
 #define LANCE_AM79C90_INIT_MODE_DRX		1<<0			/* Mode: Disable Receiver */
 
 /* Descriptor Ring Size */
-#define	LANCE_AM79C90_DRSIZE_1			0<<29			/* Descriptor Ring: 1 entry */
-#define	LANCE_AM79C90_DRSIZE_2			1<<29			/* Descriptor Ring: 2 entry */
-#define	LANCE_AM79C90_DRSIZE_4			2<<29			/* Descriptor Ring: 4 entry */
-#define	LANCE_AM79C90_DRSIZE_8			3<<29			/* Descriptor Ring: 8 entry */
-#define	LANCE_AM79C90_DRSIZE_16			4<<29			/* Descriptor Ring: 16 entry */
-#define	LANCE_AM79C90_DRSIZE_32			5<<29			/* Descriptor Ring: 32 entry */
-#define	LANCE_AM79C90_DRSIZE_64			6<<29			/* Descriptor Ring: 64 entry */
-#define	LANCE_AM79C90_DRSIZE_128		7<<29			/* Descriptor Ring: 128 entry */
+#define	LANCE_AM79C90_DRSIZE_1			0<<13			/* Descriptor Ring: 1 entry */
+#define	LANCE_AM79C90_DRSIZE_2			1<<13			/* Descriptor Ring: 2 entry */
+#define	LANCE_AM79C90_DRSIZE_4			2<<13			/* Descriptor Ring: 4 entry */
+#define	LANCE_AM79C90_DRSIZE_8			3<<13			/* Descriptor Ring: 8 entry */
+#define	LANCE_AM79C90_DRSIZE_16			4<<13			/* Descriptor Ring: 16 entry */
+#define	LANCE_AM79C90_DRSIZE_32			5<<13			/* Descriptor Ring: 32 entry */
+#define	LANCE_AM79C90_DRSIZE_64			6<<13			/* Descriptor Ring: 64 entry */
+#define	LANCE_AM79C90_DRSIZE_128		7<<13			/* Descriptor Ring: 128 entry */
 
-struct lance_rx_msg_descript {
-	u16	rmd0;
-	u16	rmd1;
-	u16	rmd2;
-	u16	rmd3;
+struct lance_rx_ring_descript {
+	volatile u16	rmd0;
+	volatile u16	rmd1;
+	volatile u16	rmd2;
+	volatile u16	rmd3;
 };
 
 /* Receive Message Descriptor 1 - Status Bits */
@@ -88,11 +101,11 @@ struct lance_rx_msg_descript {
 #define LANCE_AM79C90_RMD1_STP			1<<9			/* Receive Message Descriptor: Start Of Packet */
 #define LANCE_AM79C90_RMD1_ENP			1<<8			/* Receive Message Descriptor: End Of Packet */
 
-struct lance_tx_msg_descript {
-	u16	tmd0;
-	u16	tmd1;
-	u16	tmd2;
-	u16	tmd3;
+struct lance_tx_ring_descript {
+	volatile u16	tmd0;
+	volatile u16	tmd1;
+	volatile u16	tmd2;
+	volatile u16	tmd3;
 };
 
 /* Transmit Message Descriptor 1 - Status Bits */
