@@ -212,9 +212,22 @@ static int lance_am79c92_eth_send(struct udevice *dev, void *packet, int length)
 	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
 	volatile struct lance_am79c92_tx_ring_descript *ringd_ptr;
 	phys_addr_t start, end;
+	unsigned long timeout;
+	int rtn = 0;
 
 	debug("%s\n", __func__);
 
+	/* Check Tx status */
+	priv->regs->rap = LANCE_AM79C90_CSR0;
+	if (!(priv->regs->rdp & LANCE_AM79C90_CSR0_CTRL_TXON)) {
+		printf("%s: Tx stopped!		CSR0: %d\n", __func__, priv->regs->rdp);
+		return -EIO;
+	}
+
+	/* Clear any existing TINT status */
+	if (priv->regs->rdp & LANCE_AM79C90_CSR0_STS_TINT) priv->regs->rdp = LANCE_AM79C90_CSR0_STS_TINT;
+
+	/* Get current Tx ring descriptor */
 	ringd_ptr = &priv->tx_ringd[priv->tx_ringd_index];
 
 	/* Cache: Invalidate descriptor. */
@@ -234,21 +247,85 @@ static int lance_am79c92_eth_send(struct udevice *dev, void *packet, int length)
 	/* Set packet length in ring descriptor */
 	ringd_ptr->tmd2 = ~(length - 1);
 
-	/* Cache: Flush descriptor, Flush buffer. */
-	start = (phys_addr_t) ringd_ptr;
-	end = start + sizeof(struct lance_am79c92_tx_ring_descript);
-	flush_dcache_range(start, end);
+	/* Cache: Flush buffer, Flush descriptor */
 	start = (phys_addr_t) phys_to_virt(((ringd_ptr->tmd1 & 0x00ff) << 16) | ringd_ptr->tmd0);
 	end = start + length;
+	flush_dcache_range(start, end);
+	start = (phys_addr_t) ringd_ptr;
+	end = start + sizeof(struct lance_am79c92_tx_ring_descript);
 	flush_dcache_range(start, end);
 
 	/* Set start/end packet, and release descriptor ownership */
 	ringd_ptr->tmd1 = LANCE_AM79C90_TMD1_OWN | LANCE_AM79C90_TMD1_STP | LANCE_AM79C90_TMD1_ENP | (ringd_ptr->tmd1 & 0x00ff);
 
+	/* Wait for transmission to complete */
+	timeout = get_timer(0) + usec2ticks(50000);
+	while (true) {
+		/* Cache: Flush descriptor */
+		flush_dcache_range(start, end);
+
+		/* Check for timeout */
+		if (get_timer(0) < timeout) {
+			/* Check ring status */
+			if (!(ringd_ptr->tmd1 & LANCE_AM79C90_TMD1_OWN)) break;
+		} else {
+			printf("%s: Timeout sending packet.\n", __func__);
+			rtn = -ETIMEDOUT;
+			break;
+		}
+		udelay(50);
+	}
+
+	/* Check CSR0 for errors */
+	if (priv->regs->rdp & LANCE_AM79C90_CSR0_STS_ERROR) {
+		/* Babble Error */
+		if (priv->regs->rdp & LANCE_AM79C90_CSR0_STS_BABBLE) {
+			printf("%s: Babble error.\n", __func__);
+			priv->regs->rdp = LANCE_AM79C90_CSR0_STS_BABBLE;
+			rtn = -ETIMEDOUT;
+		}
+		/* Collision Error */
+		if (priv->regs->rdp & LANCE_AM79C90_CSR0_STS_CERR) {
+			printf("%s: Collision error.\n", __func__);
+			priv->regs->rdp = LANCE_AM79C90_CSR0_STS_CERR;
+			rtn = -EREMOTEIO;
+		}
+		/* Bus Master Error */
+		if (priv->regs->rdp & LANCE_AM79C90_CSR0_STS_MERR) {
+			printf("%s: Bus Master error.\n", __func__);
+			// No point clearing the error, LANCE needs to be reset
+			rtn = -EIO;
+		}
+	}
+
+	/* Check packet status */
+	if (ringd_ptr->tmd1 & LANCE_AM79C90_TMD1_ERR) {
+		/* Underflow Error */
+		if (ringd_ptr->tmd3 & LANCE_AM79C90_TMD3_UFLO) {
+			printf("%s: Underflow error.\n", __func__);
+			rtn = -EIO;
+		}
+		/* Late Collision Error */
+		if (ringd_ptr->tmd3 & LANCE_AM79C90_TMD3_LCOL) {
+			printf("%s: Late collision error.\n", __func__);
+			rtn = -EREMOTEIO;
+		}
+		/* Loss Of Carrier Error */
+		if (ringd_ptr->tmd3 & LANCE_AM79C90_TMD3_LCAR) {
+			printf("%s: Loss of carrier error.\n", __func__);
+			rtn = -EREMOTEIO;
+		}
+		/* Retry Error */
+		if (ringd_ptr->tmd3 & LANCE_AM79C90_TMD3_RTRY) {
+			printf("%s: Retry error.\n", __func__);
+			rtn = -EREMOTEIO;
+		}
+	}
+
 	/* Switch to next TX descriptor. */
 	priv->tx_ringd_index = (priv->tx_ringd_index + 1) % LANCE_AM79C90_NUM_BUFFERS_TX;
 
-	return 0;
+	return rtn;
 }
 
 static int lance_am79c92_eth_recv(struct udevice *dev, int flags, uchar **packetp)
