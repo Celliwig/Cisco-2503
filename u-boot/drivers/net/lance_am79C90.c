@@ -1,34 +1,22 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2021 Celliwig
+ *
+ * Based on ag7xxx.c
  */
 
 #define	DEBUG	1
 
 #include <common.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <net.h>
 #include <asm/io.h>
+#include <linux/delay.h>
+#include "lance_am79C90.h"
 
 // Need this to enable LANCE
 #include "../../board/cisco/2500/cisco-250x.h"
-
-//#include <clock_legacy.h>
-//#include <cpu_func.h>
-//#include <errno.h>
-//#include <log.h>
-//#include <miiphy.h>
-//#include <malloc.h>
-//#include <asm/cache.h>
-//#include <asm/global_data.h>
-//#include <linux/bitops.h>
-//#include <linux/compiler.h>
-//#include <linux/delay.h>
-//#include <linux/err.h>
-//#include <linux/mii.h>
-//#include <wait_bit.h>
-
-#include "lance_am79C90.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -44,7 +32,7 @@ static void lance_am79c92_print_init_block(struct udevice *dev)
 	printf("Initialisation Block: 0x%p\n", &priv->init_block);
 	printf("	Mode: 0x%04x\n", priv->init_block.mode);
 	ptr = (char *) &priv->init_block.phy_addr1;
-	printf("	MAC: 0x%02x:0x%02x:0x%02x:0x%02x:0x%02x:0x%02x\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5]);
+	printf("	MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", ptr[0] & 0xff, ptr[1] & 0xff, ptr[2] & 0xff, ptr[3] & 0xff, ptr[4] & 0xff, ptr[5] & 0xff);
 	addr = ((priv->init_block.rdr_ptr2 & 0x00ff) << 16) | priv->init_block.rdr_ptr1;
 	size = (priv->init_block.rdr_ptr2 & 0xff00) >> 13;
 	printf("	Rx Ring Ptr: 0x%08x			Rx Ring Size: 0x%02x\n", addr, size);
@@ -134,9 +122,30 @@ static void lance_am79c92_setup_ring_descriptors(struct udevice *dev)
 	}
 }
 
-static void lance_am79c92_reinitialise(struct udevice *dev)
+static void lance_am79c92_print_CSRs(struct udevice *dev)
 {
 	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+	unsigned short csr_addr = priv->regs->rap;
+
+	priv->regs->rap = LANCE_AM79C90_CSR0;
+	printf("LANCE:	CSRO: 0x%04x",  priv->regs->rdp);
+	priv->regs->rap = LANCE_AM79C90_CSR1;
+	printf("	CSR1: 0x%04x",  priv->regs->rdp);
+	priv->regs->rap = LANCE_AM79C90_CSR2;
+	printf("	CSR2: 0x%04x",  priv->regs->rdp);
+	priv->regs->rap = LANCE_AM79C90_CSR3;
+	printf("	CSR3: 0x%04x",  priv->regs->rdp);
+	printf("\n");
+
+	// Restore previous CSR address
+	priv->regs->rap = csr_addr;
+}
+
+static int lance_am79c92_reinitialise(struct udevice *dev)
+{
+	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+	phys_addr_t ib_ptr = (phys_addr_t) &priv->init_block;
+	unsigned long timeout;
 
 	/* Select CSR0 */
 	priv->regs->rap = LANCE_AM79C90_CSR0;
@@ -146,11 +155,53 @@ static void lance_am79c92_reinitialise(struct udevice *dev)
 	lance_am79c92_setup_init_block(dev);
 	lance_am79c92_setup_ring_descriptors(dev);
 
+	/* Set LANCE initialisation address */
+	/* Initialisation Block Lower Address */
+	priv->regs->rap = LANCE_AM79C90_CSR1;
+	priv->regs->rdp = ib_ptr & 0xffff;
+	/* Initialisation Block Upper Address */
+	priv->regs->rap = LANCE_AM79C90_CSR2;
+	priv->regs->rdp = (ib_ptr & 0xff0000) >> 16;
+	/* Bus Master Mode */
+	priv->regs->rap = LANCE_AM79C90_CSR3;
+	priv->regs->rdp = priv->bus_master_mode;
+
 #ifdef DEBUG
 	lance_am79c92_print_init_block(dev);
 	lance_am79c92_print_rx_ring_descriptor(dev);
 	lance_am79c92_print_tx_ring_descriptor(dev);
+	lance_am79c92_print_CSRs(dev);
 #endif
+
+	priv->rx_ringd_index = 0;
+	priv->tx_ringd_index = 0;
+	priv->initialised = false;
+	priv->rxon = false;
+	priv->txon = false;
+
+	// Initialise LANCE
+	priv->regs->rap = LANCE_AM79C90_CSR0;
+	priv->regs->rdp = LANCE_AM79C90_CSR0_CTRL_INIT;
+
+	// Wait for IDON (Initialisation Done)
+	timeout = get_timer(0) + usec2ticks(1000000);
+	while ((get_timer(0) < timeout) && !priv->initialised) {
+		// Poll status
+		if (priv->regs->rdp & LANCE_AM79C90_CSR0_STS_IDON) {
+			// Clear IDON
+			priv->regs->rdp = LANCE_AM79C90_CSR0_STS_IDON;
+			priv->initialised = true;
+		}
+		udelay(50);
+	}
+
+	if (!priv->initialised) {
+		debug("%s: Failed to initialise.\n", __func__);
+		return -ETIMEDOUT;
+	}
+	debug("%s: Initialised.\n", __func__);
+
+	return 0;
 }
 
 /*
@@ -158,114 +209,146 @@ static void lance_am79c92_reinitialise(struct udevice *dev)
  */
 static int lance_am79c92_eth_send(struct udevice *dev, void *packet, int length)
 {
-//	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
-//	struct ag7xxx_dma_desc *curr;
-//	u32 start, end;
-//
-//	curr = &priv->tx_mac_descrtable[priv->tx_currdescnum];
-//
-//	/* Cache: Invalidate descriptor. */
-//	start = (u32)curr;
-//	end = start + sizeof(*curr);
-//	invalidate_dcache_range(start, end);
-//
-//	if (!(curr->config & AG7XXX_DMADESC_IS_EMPTY)) {
-//		printf("ag7xxx: Out of TX DMA descriptors!\n");
-//		return -EPERM;
-//	}
-//
-//	/* Copy the packet into the data buffer. */
-//	memcpy(phys_to_virt(curr->data_addr), packet, length);
-//	curr->config = length & AG7XXX_DMADESC_PKT_SIZE_MASK;
-//
-//	/* Cache: Flush descriptor, Flush buffer. */
-//	start = (u32)curr;
-//	end = start + sizeof(*curr);
-//	flush_dcache_range(start, end);
-//	start = (u32)phys_to_virt(curr->data_addr);
-//	end = start + length;
-//	flush_dcache_range(start, end);
-//
-//	/* Load the DMA descriptor and start TX DMA. */
-//	writel(AG7XXX_ETH_DMA_TX_CTRL_TXE,
-//	       priv->regs + AG7XXX_ETH_DMA_TX_CTRL);
-//
-//	/* Switch to next TX descriptor. */
-//	priv->tx_currdescnum = (priv->tx_currdescnum + 1) % CONFIG_TX_DESCR_NUM;
+	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+	volatile struct lance_am79c92_tx_ring_descript *ringd_ptr;
+	phys_addr_t start, end;
+
+	debug("%s\n", __func__);
+
+	ringd_ptr = &priv->tx_ringd[priv->tx_ringd_index];
+
+	/* Cache: Invalidate descriptor. */
+	start = (phys_addr_t) ringd_ptr;
+	end = start + sizeof(struct lance_am79c92_tx_ring_descript);
+	invalidate_dcache_range(start, end);
+
+	/* Check ring descriptor ownership */
+	if (ringd_ptr->tmd1 & LANCE_AM79C90_TMD1_OWN) {
+		printf("%s: No Tx buffers available.\n", __func__);
+		return -ENOSPC;
+	}
+
+	/* Copy the packet into the data buffer. */
+	start = ((ringd_ptr->tmd1 & 0x00ff) << 16) | ringd_ptr->tmd0;
+	memcpy(phys_to_virt(start), packet, length);
+	/* Set packet length in ring descriptor */
+	ringd_ptr->tmd2 = ~(length - 1);
+
+	/* Cache: Flush descriptor, Flush buffer. */
+	start = (phys_addr_t) ringd_ptr;
+	end = start + sizeof(struct lance_am79c92_tx_ring_descript);
+	flush_dcache_range(start, end);
+	start = (phys_addr_t) phys_to_virt(((ringd_ptr->tmd1 & 0x00ff) << 16) | ringd_ptr->tmd0);
+	end = start + length;
+	flush_dcache_range(start, end);
+
+	/* Set start/end packet, and release descriptor ownership */
+	ringd_ptr->tmd1 = LANCE_AM79C90_TMD1_OWN | LANCE_AM79C90_TMD1_STP | LANCE_AM79C90_TMD1_ENP | (ringd_ptr->tmd1 & 0x00ff);
+
+	/* Switch to next TX descriptor. */
+	priv->tx_ringd_index = (priv->tx_ringd_index + 1) % LANCE_AM79C90_NUM_BUFFERS_TX;
 
 	return 0;
 }
 
 static int lance_am79c92_eth_recv(struct udevice *dev, int flags, uchar **packetp)
 {
-//	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
-//	struct ag7xxx_dma_desc *curr;
-//	u32 start, end, length;
-//
-//	curr = &priv->rx_mac_descrtable[priv->rx_currdescnum];
-//
-//	/* Cache: Invalidate descriptor. */
-//	start = (u32)curr;
-//	end = start + sizeof(*curr);
-//	invalidate_dcache_range(start, end);
-//
-//	/* No packets received. */
-//	if (curr->config & AG7XXX_DMADESC_IS_EMPTY)
-//		return -EAGAIN;
-//
-//	length = curr->config & AG7XXX_DMADESC_PKT_SIZE_MASK;
-//
-//	/* Cache: Invalidate buffer. */
-//	start = (u32)phys_to_virt(curr->data_addr);
-//	end = start + length;
-//	invalidate_dcache_range(start, end);
-//
-//	/* Receive one packet and return length. */
-//	*packetp = phys_to_virt(curr->data_addr);
-//	return length;
+	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+	volatile struct lance_am79c92_rx_ring_descript *ringd_ptr;
+	phys_addr_t start, end;
+	unsigned int length;
 
-	return 0;
+	debug("%s\n", __func__);
+
+	ringd_ptr = &priv->rx_ringd[priv->rx_ringd_index];
+
+	/* Cache: Invalidate descriptor. */
+	start = (phys_addr_t) ringd_ptr;
+	end = start + sizeof(struct lance_am79c92_rx_ring_descript);
+	invalidate_dcache_range(start, end);
+
+	/* No packets received. */
+	if (ringd_ptr->rmd1 & LANCE_AM79C90_RMD1_OWN) {
+		debug("%s: No packet received.\n", __func__);
+		return -EAGAIN;
+	}
+
+	/* Get received packet length */
+	length = ringd_ptr->rmd3;
+
+	/* Cache: Invalidate buffer. */
+	start = (phys_addr_t) phys_to_virt(((ringd_ptr->rmd1 & 0x00ff) << 16) | ringd_ptr->rmd0);
+	end = start + length;
+	invalidate_dcache_range(start, end);
+
+	/* Receive one packet and return length. */
+	*packetp = (uchar *) phys_to_virt(start);
+	return length;
 }
 
 static int lance_am79c92_eth_free_pkt(struct udevice *dev, uchar *packet,
 				   int length)
 {
-//	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
-//	struct ag7xxx_dma_desc *curr;
-//	u32 start, end;
-//
-//	curr = &priv->rx_mac_descrtable[priv->rx_currdescnum];
-//
-//	curr->config = AG7XXX_DMADESC_IS_EMPTY;
-//
-//	/* Cache: Flush descriptor. */
-//	start = (u32)curr;
-//	end = start + sizeof(*curr);
-//	flush_dcache_range(start, end);
-//
-//	/* Switch to next RX descriptor. */
-//	priv->rx_currdescnum = (priv->rx_currdescnum + 1) % CONFIG_RX_DESCR_NUM;
+	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+	volatile struct lance_am79c92_rx_ring_descript *ringd_ptr;
+	phys_addr_t start, end;
+
+	debug("%s\n", __func__);
+
+	ringd_ptr = &priv->rx_ringd[priv->rx_ringd_index];
+
+	/* Clear message length */
+	ringd_ptr->rmd3 = 0x0;
+	/* Release ownership */
+	ringd_ptr->rmd1 = LANCE_AM79C90_RMD1_OWN | (ringd_ptr->rmd1 & 0x00ff);
+
+	/* Cache: Flush descriptor. */
+	start = (phys_addr_t) ringd_ptr;
+	end = start + sizeof(struct lance_am79c92_rx_ring_descript);
+	flush_dcache_range(start, end);
+
+	/* Switch to next RX descriptor. */
+	priv->rx_ringd_index = (priv->rx_ringd_index + 1) % LANCE_AM79C90_NUM_BUFFERS_RX;
 
 	return 0;
 }
 
 static int lance_am79c92_eth_start(struct udevice *dev)
 {
-//	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
-//
-//	/* FIXME: Check if link up */
-//
-//	/* Clear the DMA rings. */
-//	ag7xxx_dma_clean_tx(dev);
-//	ag7xxx_dma_clean_rx(dev);
-//
-//	/* Load DMA descriptors and start the RX DMA. */
-//	writel(virt_to_phys(&priv->tx_mac_descrtable[priv->tx_currdescnum]),
-//	       priv->regs + AG7XXX_ETH_DMA_TX_DESC);
-//	writel(virt_to_phys(&priv->rx_mac_descrtable[priv->rx_currdescnum]),
-//	       priv->regs + AG7XXX_ETH_DMA_RX_DESC);
-//	writel(AG7XXX_ETH_DMA_RX_CTRL_RXE,
-//	       priv->regs + AG7XXX_ETH_DMA_RX_CTRL);
+	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+	unsigned long timeout;
+	int rtn;
+
+	debug("%s\n", __func__);
+
+	/* FIXME: Check if link up */
+
+	rtn = lance_am79c92_reinitialise(dev);
+	if (rtn) return rtn;
+
+	/* Select CSR0 */
+	priv->regs->rap = LANCE_AM79C90_CSR0;
+	/* Set START */
+	priv->regs->rdp = LANCE_AM79C90_CSR0_CTRL_STRT;
+
+	// Wait for RXON & TXON
+	timeout = get_timer(0) + usec2ticks(1000000);
+	while ((get_timer(0) < timeout) && !priv->rxon && !priv->txon) {
+		// Poll status
+		if (priv->regs->rdp & LANCE_AM79C90_CSR0_CTRL_RXON) {
+			priv->rxon = true;
+		}
+		if (priv->regs->rdp & LANCE_AM79C90_CSR0_CTRL_TXON) {
+			priv->txon = true;
+		}
+		udelay(50);
+	}
+
+	if (!priv->rxon && !priv->txon) {
+		debug("%s: Failed to start.\n", __func__);
+		return -ETIMEDOUT;
+	}
+	debug("%s: Started.\n", __func__);
 
 	return 0;
 }
@@ -273,6 +356,8 @@ static int lance_am79c92_eth_start(struct udevice *dev)
 static void lance_am79c92_eth_stop(struct udevice *dev)
 {
 	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+
+	debug("%s\n", __func__);
 
 	/* Select CSR0 */
 	priv->regs->rap = LANCE_AM79C90_CSR0;
@@ -292,20 +377,26 @@ static int lance_am79c92_eth_probe(struct udevice *dev)
 	iobase = map_physmem(pdata->iobase, 0x200, MAP_NOCACHE);
 	priv->regs = iobase;
 
-	debug("%s, iobase=%p, priv=%p, csr3=%d\n", __func__, iobase, priv, priv->bus_master_mode);
+	debug("%s: iobase=%p, priv=%p, csr3=%d\n", __func__, iobase, priv, priv->bus_master_mode);
 
 	// Enable LANCE
 	// Need to move this to a reset control
 	writeb(readb(CISCO2500_REG_SYSCTRL5) & ~CISCO2500_REG_SYSCTRL5_RSTCTRL_LANCE, CISCO2500_REG_SYSCTRL5);
 
-	lance_am79c92_reinitialise(dev);
+	priv->rx_ringd_index = 0;
+	priv->tx_ringd_index = 0;
+	priv->initialised = false;
+	priv->rxon = false;
+	priv->txon = false;
 
-	return 0;
+	return lance_am79c92_reinitialise(dev);
 }
 
 static int lance_am79c92_eth_remove(struct udevice *dev)
 {
 	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+
+	debug("%s\n", __func__);
 
 	/* Select CSR0 */
 	priv->regs->rap = LANCE_AM79C90_CSR0;

@@ -135,21 +135,16 @@ struct lance_am79c92_eth_priv {
 	volatile struct lance_am79c92_init_block	init_block	__aligned(1);
 	volatile struct lance_am79c92_rx_ring_descript	rx_ringd[LANCE_AM79C90_NUM_BUFFERS_RX]	__aligned(8);
 	volatile struct lance_am79c92_tx_ring_descript	tx_ringd[LANCE_AM79C90_NUM_BUFFERS_TX]	__aligned(8);
+	unsigned int rx_ringd_index;
+	unsigned int tx_ringd_index;
 	volatile char rx_buffer[LANCE_AM79C90_NUM_BUFFERS_RX * PKTSIZE];
 	volatile char tx_buffer[LANCE_AM79C90_NUM_BUFFERS_TX * PKTSIZE];
 
 	unsigned short	bus_master_mode;
 
-//      struct ag7xxx_dma_desc  tx_mac_descrtable[CONFIG_TX_DESCR_NUM];
-//      struct ag7xxx_dma_desc  rx_mac_descrtable[CONFIG_RX_DESCR_NUM];
-//      char            txbuffs[TX_TOTAL_BUFSIZE] __aligned(ARCH_DMA_MINALIGN);
-//      char            rxbuffs[RX_TOTAL_BUFSIZE] __aligned(ARCH_DMA_MINALIGN);
-//
-//      struct eth_device       *dev;
-//
-//      u32                     interface;
-//      u32                     tx_currdescnum;
-//      u32                     rx_currdescnum;
+	bool initialised;
+	bool rxon;
+	bool txon;
 };
 
 #endif		/* _NET_LANCE_AM79C90_ */
