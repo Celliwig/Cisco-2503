@@ -207,6 +207,11 @@ static int lance_am79c92_reinitialise(struct udevice *dev)
 /*
  * Ethernet I/O
  */
+/*
+ * lance_am79c92_eth_send
+ * Queues a packet for transmission.
+ * Return: >= 0 is success.
+ */
 static int lance_am79c92_eth_send(struct udevice *dev, void *packet, int length)
 {
 	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
@@ -328,6 +333,13 @@ static int lance_am79c92_eth_send(struct udevice *dev, void *packet, int length)
 	return rtn;
 }
 
+/*
+ * lance_am79c92_eth_recv
+ * Fetches a received packet, if one exists.
+ * Return: >0, it's the packet length.
+ *          0, error and clean up packet.
+ *         <0, error.
+ */
 static int lance_am79c92_eth_recv(struct udevice *dev, int flags, uchar **packetp)
 {
 	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
@@ -337,6 +349,17 @@ static int lance_am79c92_eth_recv(struct udevice *dev, int flags, uchar **packet
 
 	debug("%s\n", __func__);
 
+        /* Check Rx status */
+        priv->regs->rap = LANCE_AM79C90_CSR0;
+        if (!(priv->regs->rdp & LANCE_AM79C90_CSR0_CTRL_RXON)) {
+                printf("%s: Rx stopped!         CSR0: %d\n", __func__, priv->regs->rdp);
+                return -EIO;
+        }
+
+        /* Clear any existing RINT status */
+        if (priv->regs->rdp & LANCE_AM79C90_CSR0_STS_RINT) priv->regs->rdp = LANCE_AM79C90_CSR0_STS_RINT;
+
+	/* Get current Rx ring descriptor */
 	ringd_ptr = &priv->rx_ringd[priv->rx_ringd_index];
 
 	/* Cache: Invalidate descriptor. */
@@ -348,6 +371,30 @@ static int lance_am79c92_eth_recv(struct udevice *dev, int flags, uchar **packet
 	if (ringd_ptr->rmd1 & LANCE_AM79C90_RMD1_OWN) {
 		debug("%s: No packet received.\n", __func__);
 		return -EAGAIN;
+	}
+
+	/* Check packet status */
+	if (ringd_ptr->rmd1 & LANCE_AM79C90_RMD1_ERR) {
+		/* Framing Error */
+		if (ringd_ptr->rmd1 & LANCE_AM79C90_RMD1_FRAM) {
+			printf("%s: Framing Error.\n", __func__);
+			return 0;
+		}
+		/* Overflow Error */
+		if (ringd_ptr->rmd1 & LANCE_AM79C90_RMD1_OFLO) {
+			printf("%s: Overflow Error.\n", __func__);
+			return 0;
+		}
+		/* CRC Error */
+		if (ringd_ptr->rmd1 & LANCE_AM79C90_RMD1_CRC) {
+			printf("%s: CRC Error.\n", __func__);
+			return 0;
+		}
+		/* Buffer Error */
+		if (ringd_ptr->rmd1 & LANCE_AM79C90_RMD1_BUFF) {
+			printf("%s: Buffer Error.\n", __func__);
+			return 0;
+		}
 	}
 
 	/* Get received packet length */
@@ -372,6 +419,14 @@ static int lance_am79c92_eth_free_pkt(struct udevice *dev, uchar *packet,
 
 	debug("%s\n", __func__);
 
+	/* Check MISS status */
+	priv->regs->rap = LANCE_AM79C90_CSR0;
+	if (priv->regs->rdp & LANCE_AM79C90_CSR0_STS_MISS) {
+		priv->regs->rdp = LANCE_AM79C90_CSR0_STS_MISS;
+		printf("%s: Missed Packet.\n", __func__);
+	}
+
+	/* Get current Rx ring descriptor */
 	ringd_ptr = &priv->rx_ringd[priv->rx_ringd_index];
 
 	/* Clear message length */
