@@ -27,6 +27,39 @@
 		};
 	};
 
+	sysctl: syscon@2110000 {
+		compatible = "cisco,c2500-sysctl",
+			     "syscon", "simple-mfd";
+		reg = <0x2110000 0x0C>;
+		reg-io-width = <1>;
+		u-boot,dm-pre-reloc;
+
+		//sysclk: clock-controller {
+		//	#clock-cells = <1>;
+		//	compatible = "kendryte,k210-clk";
+		//	clocks = <&in0>;
+		//	u-boot,dm-pre-reloc;
+		//};
+
+		sysrst: reset-controller {
+			compatible = "cisco,c2500-rst",
+				     "syscon-reset";
+			#reset-cells = <1>;
+			regmap = <&sysctl>;
+			offset = <0x5>;
+			mask = <0xFF>;
+			assert-high = <1>;
+		};
+
+		//reboot {
+		//	compatible = "syscon-reboot";
+		//	regmap = <&sysctl>;
+		//	offset = <K210_SYSCTL_SOFT_RESET>;
+		//	mask = <1>;
+		//	value = <1>;
+		//};
+	};
+
 	bootflash: nor@01000000 {
 		compatible = "jedec-flash";
 		reg = <0x01000000 0x00100000>;
@@ -49,6 +82,7 @@
 		compatible = "amd,79c92";
 		reg = <0x02130000 0x04>;
 		interrupts = <4>;
+		resets = <&sysrst 0x1>;				// Bit(1) controls LANCE reset
 		status = "okay";
 
 		mac-address = [00 e0 1e b9 23 91];
