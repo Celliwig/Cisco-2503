@@ -11,12 +11,10 @@
 #include <cpu_func.h>
 #include <dm.h>
 #include <net.h>
+#include <reset.h>
 #include <asm/io.h>
 #include <linux/delay.h>
 #include "lance_am79C90.h"
-
-// Need this to enable LANCE
-#include "../../board/cisco/2500/cisco-250x.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -552,16 +550,18 @@ static int lance_am79c92_eth_probe(struct udevice *dev)
 {
 	struct eth_pdata *pdata = dev_get_plat(dev);
 	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+	struct reset_ctl reset_lance;
 	void __iomem *iobase;
+	int err;
+
+	err = reset_get_by_index(dev, 0, &reset_lance);
+	if (!err)
+		reset_deassert(&reset_lance);
 
 	iobase = map_physmem(pdata->iobase, 0x200, MAP_NOCACHE);
 	priv->regs = iobase;
 
 	debug("%s: iobase=%p, priv=%p, csr3=%d\n", __func__, iobase, priv, priv->bus_master_mode);
-
-	// Enable LANCE
-	// Need to move this to a reset control
-	writeb(readb(CISCO2500_REG_SYSCTRL5) & ~CISCO2500_REG_SYSCTRL5_RSTCTRL_LANCE, CISCO2500_REG_SYSCTRL5);
 
 	priv->rx_ringd_index = 0;
 	priv->tx_ringd_index = 0;
