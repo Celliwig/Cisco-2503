@@ -393,6 +393,17 @@ config KS8851_MLL
 	help
 	  The Microchip KS8851 parallel bus external ethernet interface chip.
 
+config LANCE_79C92
+	bool "AMD 79C92"
+	help
+	  This driver supports the AMD 79C92 Local Area Network Controller Ethernet.
+
+config LANCE_79C92_QUIRK_CISCO2500
+	bool "AMD 79C92 Quirk (Cisco 2500)"
+	help
+	  The LANCE on the Cisco 2500 doesn't initialise if the various RAM objects
+	  are located below 2MB.
+
 if KS8851_MLL
 if !DM_ETH
 config KS8851_MLL_BASEADDR

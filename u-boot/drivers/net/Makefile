@@ -40,6 +40,7 @@ obj-$(CONFIG_FTMAC100) += ftmac100.o
 obj-$(CONFIG_GMAC_ROCKCHIP) += gmac_rockchip.o
 obj-$(CONFIG_KS8851_MLL) += ks8851_mll.o
 obj-$(CONFIG_LAN91C96) += lan91c96.o
+obj-$(CONFIG_LANCE_79C92) += lance_am79C90.o
 obj-$(CONFIG_LPC32XX_ETH) += lpc32xx_eth.o
 obj-$(CONFIG_MACB) += macb.o
 obj-$(CONFIG_MCFFEC) += mcffec.o mcfmii.o
