@@ -204,6 +204,30 @@ static int lance_am79c92_reinitialise(struct udevice *dev)
 	return 0;
 }
 
+static void lance_am79c92_print_packet(struct udevice *dev)
+{
+	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
+	volatile struct lance_am79c92_tx_ring_descript *ringd_ptr;
+	phys_addr_t packet_addr;
+	char *packet_data;
+	short packet_size;
+	unsigned int i;
+
+	/* Get current Tx ring descriptor */
+	ringd_ptr = &priv->tx_ringd[priv->tx_ringd_index];
+	packet_addr = ((ringd_ptr->tmd1 & 0x00ff) << 16) | ringd_ptr->tmd0;
+	packet_data = (char *) packet_addr;
+	packet_size = -ringd_ptr->tmd2;
+	packet_size = packet_size <= 64 ? packet_size : 64;
+
+	printf("%s: Packet Address: 0x%08X		Packet Size: %u\n	", __func__, packet_addr, packet_size);
+	for (i = 0; i < packet_size; i++) {
+		if ((i % 0x10) == 0) printf("\n	");
+		printf("0x%02X   ", packet_data[i] & 0xff);
+	}
+	printf("\n");
+}
+
 /*
  * Ethernet I/O
  */
@@ -218,6 +242,7 @@ static int lance_am79c92_eth_send(struct udevice *dev, void *packet, int length)
 	volatile struct lance_am79c92_tx_ring_descript *ringd_ptr;
 	phys_addr_t start, end;
 	unsigned long timeout;
+	char *pad_ptr;
 	int rtn = 0;
 
 	debug("%s\n", __func__);
@@ -249,6 +274,13 @@ static int lance_am79c92_eth_send(struct udevice *dev, void *packet, int length)
 	/* Copy the packet into the data buffer. */
 	start = ((ringd_ptr->tmd1 & 0x00ff) << 16) | ringd_ptr->tmd0;
 	memcpy(phys_to_virt(start), packet, length);
+	/* Need to pad buffer to minimum size (erasing previous data) */
+	pad_ptr = (char *) start + length;
+	while (length < MINIMUM_PACKET_LEN) {
+		pad_ptr = '\0';
+		pad_ptr++;
+		length++;
+	}
 	/* Set packet length in ring descriptor */
 	ringd_ptr->tmd2 = ~(length - 1);
 
@@ -259,6 +291,10 @@ static int lance_am79c92_eth_send(struct udevice *dev, void *packet, int length)
 	start = (phys_addr_t) ringd_ptr;
 	end = start + sizeof(struct lance_am79c92_tx_ring_descript);
 	flush_dcache_range(start, end);
+
+#ifdef DEBUG
+	lance_am79c92_print_packet(dev);
+#endif
 
 	/* Set start/end packet, and release descriptor ownership */
 	ringd_ptr->tmd1 = LANCE_AM79C90_TMD1_OWN | LANCE_AM79C90_TMD1_STP | LANCE_AM79C90_TMD1_ENP | (ringd_ptr->tmd1 & 0x00ff);
