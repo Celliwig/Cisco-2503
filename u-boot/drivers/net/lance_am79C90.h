@@ -129,6 +129,8 @@ struct lance_am79c92_tx_ring_descript {
 #define LANCE_AM79C90_NUM_RINGS_TX_LOG2		LANCE_AM79C90_DRING_SZ1			/* Tx value for Initialisation Block */
 #define	LANCE_AM79C90_NUM_BUFFERS_TX		(1 << LANCE_AM79C90_NUM_RINGS_TX_LOG2)	/* Number of Tx rings/buffers */
 
+#define	MINIMUM_PACKET_LEN			60					/* Minimum packet length, pad to this value */
+
 struct lance_am79c92_eth_priv {
 	volatile struct lance_am79c92_regs		*regs;
 

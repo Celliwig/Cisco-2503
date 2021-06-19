@@ -5,7 +5,7 @@
  * Based on ag7xxx.c
  */
 
-#define	DEBUG	1
+//#define	DEBUG	1
 
 #include <common.h>
 #include <cpu_func.h>
@@ -51,9 +51,9 @@ static void lance_am79c92_setup_init_block(struct udevice *dev)
 
 	// Configure initialisation block
 	iblock->mode		= 0x0000;
-	iblock->phy_addr1	= (pdata->enetaddr[0] << 8) | pdata->enetaddr[1];		/* Ethernet Address */
-	iblock->phy_addr2	= (pdata->enetaddr[2] << 8) | pdata->enetaddr[3];
-	iblock->phy_addr3	= (pdata->enetaddr[4] << 8) | pdata->enetaddr[5];
+	iblock->phy_addr1	= (pdata->enetaddr[1] << 8) | pdata->enetaddr[0];		/* Ethernet Address */
+	iblock->phy_addr2	= (pdata->enetaddr[3] << 8) | pdata->enetaddr[2];
+	iblock->phy_addr3	= (pdata->enetaddr[5] << 8) | pdata->enetaddr[4];
 	iblock->laddr_filter1	= 0x0000;                                                       /* Disable Logical Address Filter */
 	iblock->laddr_filter2	= 0x0000;                                                       /* Disables Multicast */
 	iblock->laddr_filter3	= 0x0000;
@@ -204,24 +204,32 @@ static int lance_am79c92_reinitialise(struct udevice *dev)
 	return 0;
 }
 
-static void lance_am79c92_print_packet(struct udevice *dev)
+static void lance_am79c92_print_packet(struct udevice *dev, bool print_tx)
 {
 	struct lance_am79c92_eth_priv *priv = dev_get_priv(dev);
-	volatile struct lance_am79c92_tx_ring_descript *ringd_ptr;
+	volatile struct lance_am79c92_rx_ring_descript *rx_ringd_ptr;
+	volatile struct lance_am79c92_tx_ring_descript *tx_ringd_ptr;
 	phys_addr_t packet_addr;
 	char *packet_data;
-	short packet_size;
+	short packet_size,display_size;
 	unsigned int i;
 
-	/* Get current Tx ring descriptor */
-	ringd_ptr = &priv->tx_ringd[priv->tx_ringd_index];
-	packet_addr = ((ringd_ptr->tmd1 & 0x00ff) << 16) | ringd_ptr->tmd0;
+	if (print_tx) {
+		/* Get current Tx ring descriptor */
+		tx_ringd_ptr = &priv->tx_ringd[priv->tx_ringd_index];
+		packet_addr = ((tx_ringd_ptr->tmd1 & 0x00ff) << 16) | tx_ringd_ptr->tmd0;
+		packet_size = -tx_ringd_ptr->tmd2;
+	} else {
+		/* Get current Rx ring descriptor */
+		rx_ringd_ptr = &priv->rx_ringd[priv->rx_ringd_index];
+		packet_addr = ((rx_ringd_ptr->rmd1 & 0x00ff) << 16) | rx_ringd_ptr->rmd0;
+		packet_size = rx_ringd_ptr->rmd3;
+	}
 	packet_data = (char *) packet_addr;
-	packet_size = -ringd_ptr->tmd2;
-	packet_size = packet_size <= 64 ? packet_size : 64;
+	display_size = packet_size <= 64 ? packet_size : 64;
 
 	printf("%s: Packet Address: 0x%08X		Packet Size: %u\n	", __func__, packet_addr, packet_size);
-	for (i = 0; i < packet_size; i++) {
+	for (i = 0; i < display_size; i++) {
 		if ((i % 0x10) == 0) printf("\n	");
 		printf("0x%02X   ", packet_data[i] & 0xff);
 	}
@@ -293,7 +301,7 @@ static int lance_am79c92_eth_send(struct udevice *dev, void *packet, int length)
 	flush_dcache_range(start, end);
 
 #ifdef DEBUG
-	lance_am79c92_print_packet(dev);
+	lance_am79c92_print_packet(dev, true);
 #endif
 
 	/* Set start/end packet, and release descriptor ownership */
@@ -440,6 +448,10 @@ static int lance_am79c92_eth_recv(struct udevice *dev, int flags, uchar **packet
 	start = (phys_addr_t) phys_to_virt(((ringd_ptr->rmd1 & 0x00ff) << 16) | ringd_ptr->rmd0);
 	end = start + length;
 	invalidate_dcache_range(start, end);
+
+#ifdef DEBUG
+	lance_am79c92_print_packet(dev, false);
+#endif
 
 	/* Receive one packet and return length. */
 	*packetp = (uchar *) phys_to_virt(start);
