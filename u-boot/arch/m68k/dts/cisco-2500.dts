@@ -8,6 +8,8 @@
 / {
 	model = "Cisco 2500";
 	compatible = "cisco,2500";
+	#address-cells = <1>;
+	#size-cells = <1>;
 
 	aliases {
 		serial0 = &uart0;
@@ -25,30 +27,31 @@
 		};
 	};
 
-	systembus {
-		#address-cells = <1>;
-		#size-cells = <1>;
+	bootflash: nor@01000000 {
+		compatible = "jedec-flash";
+		reg = <0x01000000 0x00100000>;
+		bank-width = <2>;
 
-		bootflash: nor@01000000 {
-			compatible = "jedec-flash";
-			reg = <0x01000000 0x00100000>;
-			bank-width = <2>;
+		status = "okay";
+	};
 
-			status = "okay";
-		};
+	uart0: serial@02120100 {
+		compatible = "philips,scn2681-uart";
+		reg = <0x02120100 0x10>;
+		//interrupts = <38>;
+		clocks = <&clk_duart>;
+		status = "okay";
 
-		uart0: serial@02120100 {
-			compatible = "philips,scn2681-uart";
-			reg = <0x02120100 0x10>;
-			//interrupts = <38>;
-			clocks = <&clk_duart>;
-			status = "disabled";
-		};
+		u-boot,dm-pre-reloc;
+	};
+
+	eth0: ethernet@02130000 {
+		compatible = "amd,79c92";
+		reg = <0x02130000 0x04>;
+		interrupts = <4>;
+		status = "okay";
+
+		mac-address = [00 e0 1e b9 23 91];
+		byte-swap;
 	};
 };
-
-&uart0 {
-	u-boot,dm-pre-reloc;
-	status = "okay";
-};
-
