@@ -18,6 +18,15 @@ else
 LOAD_ADDR = 0x80200000
 endif
 endif
+ifeq ($(ARCH),m68k)
+LOAD_ADDR = 0x2000
+endif
+
+# Crude bugfix, code built doesn't know where the data segment is
+# so access variables directly
+ifeq ($(CONFIG_M68K),y)
+PLATFORM_CPPFLAGS := -mpcrel $(PLATFORM_CPPFLAGS)
+endif
 
 # Resulting ELF and binary exectuables will be named demo and demo.bin
 extra-y = demo

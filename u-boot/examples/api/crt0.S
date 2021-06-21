@@ -39,6 +39,23 @@ syscall:
 	ldr	ip, =syscall_ptr
 	ldr	pc, [ip]
 
+#elif defined(CONFIG_M68K)
+
+	.text
+	.globl _start
+_start:
+	move.l	#search_hint, %a0
+	move.l	%sp, (%a0)
+	move.l	#main, %a0
+	jmp	(%a0)
+
+
+	.globl syscall
+syscall:
+	move.l	#syscall_ptr, %a0
+	move.l	(%a0), %a0
+	jmp	(%a0)
+
 #elif defined(CONFIG_MIPS)
 #include <asm/asm.h>
 	.text
