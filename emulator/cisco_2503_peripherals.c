@@ -809,7 +809,7 @@ bool mem_bootrom_split_init(FILE *fhandle1, FILE *fhandle2) {
 
 	if ((tmp_size_1 = fread(tmp_store1, 1, C2503_BOOTROM_SIZE, fhandle1)) <= 0) return false;
 	if ((tmp_size_2 = fread(tmp_store2, 1, C2503_BOOTROM_SIZE, fhandle2)) <= 0) return false;
-	if (tmp_size_1 != tmp_size_2) return false;
+	//if (tmp_size_1 != tmp_size_2) return false;
 
 	for (rom_ptr = 0; rom_ptr < tmp_size_1; rom_ptr++) {
 		tmp_byte = 0;						/* Zero byte */
