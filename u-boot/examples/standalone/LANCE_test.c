@@ -6,6 +6,7 @@
 
 #include <common.h>
 #include <exports.h>
+#include <net.h>
 #include <asm/io.h>
 #include <asm/m680x0.h>
 #include "../../board/cisco/2500/cisco-250x.h"
@@ -20,17 +21,17 @@ void lance_irq_handler(void *not_used);
 
 volatile unsigned char rx_buffer[MAXIMUM_ETHERNET_FRAME_SIZE * LANCE_AM79C90_NUM_BUFFERS_RX];
 volatile unsigned char tx_buffer[MAXIMUM_ETHERNET_FRAME_SIZE * LANCE_AM79C90_NUM_BUFFERS_TX];
-volatile struct lance_rx_ring_descript __attribute__ ((aligned (8))) rx_ringd[LANCE_AM79C90_NUM_BUFFERS_RX];
-volatile struct lance_tx_ring_descript __attribute__ ((aligned (8))) tx_ringd[LANCE_AM79C90_NUM_BUFFERS_TX];
-volatile struct lance_init_block __attribute__ ((aligned (1))) init_block;
+volatile struct lance_am79c92_rx_ring_descript __attribute__ ((aligned (8))) rx_ringd[LANCE_AM79C90_NUM_BUFFERS_RX];
+volatile struct lance_am79c92_tx_ring_descript __attribute__ ((aligned (8))) tx_ringd[LANCE_AM79C90_NUM_BUFFERS_TX];
+volatile struct lance_am79c92_init_block __attribute__ ((aligned (1))) init_block;
 volatile unsigned char lance_initialised;
 
 volatile unsigned char *rx_buffer_ptr;
 volatile unsigned char *tx_buffer_ptr;
-volatile struct lance_rx_ring_descript *rx_ringd_ptr;
-volatile struct lance_tx_ring_descript *tx_ringd_ptr;
-volatile struct lance_init_block *init_block_ptr;
-volatile struct lance_regs *lance_dev;
+volatile struct lance_am79c92_rx_ring_descript *rx_ringd_ptr;
+volatile struct lance_am79c92_tx_ring_descript *tx_ringd_ptr;
+volatile struct lance_am79c92_init_block *init_block_ptr;
+volatile struct lance_am79c92_regs *lance_dev;
 
 int lance_test(int argc, char *const argv[])
 {
@@ -109,12 +110,12 @@ int lance_test(int argc, char *const argv[])
 	init_block_ptr->laddr_filter3	= 0x0000;
 	init_block_ptr->laddr_filter4	= 0x0000;
 	init_block_ptr->rdr_ptr1	= ((u32) rx_ringd_ptr & 0xffff);
-	init_block_ptr->rdr_ptr2	= ((((u32) rx_ringd_ptr & 0xff0000) >> 16) | LANCE_AM79C90_DRSIZE_4);
+	init_block_ptr->rdr_ptr2	= ((((u32) rx_ringd_ptr & 0xff0000) >> 16) | (LANCE_AM79C90_DRING_SZ4 << 13));
 	init_block_ptr->tdr_ptr1	= ((u32) tx_ringd_ptr & 0xffff);
-	init_block_ptr->tdr_ptr2	= ((((u32) tx_ringd_ptr & 0xff0000) >> 16) | LANCE_AM79C90_DRSIZE_4);
+	init_block_ptr->tdr_ptr2	= ((((u32) tx_ringd_ptr & 0xff0000) >> 16) | (LANCE_AM79C90_DRING_SZ4 << 13));
 
 	// Configure Rx Message Descriptor
-	memset(rx_ringd_ptr, 0x00, sizeof(struct lance_rx_ring_descript) * LANCE_AM79C90_NUM_BUFFERS_RX);
+	memset(rx_ringd_ptr, 0x00, sizeof(struct lance_am79c92_rx_ring_descript) * LANCE_AM79C90_NUM_BUFFERS_RX);
 	tmp_ringd_ptr = rx_ringd_ptr;
 	for (i = 0; i < LANCE_AM79C90_NUM_BUFFERS_RX; i++) {
 		//printf("Configuring Rx Ring: %p\n", tmp_ringd_ptr);
@@ -129,7 +130,7 @@ int lance_test(int argc, char *const argv[])
 	}
 
 	// Configure Tx Message Descriptor
-	memset(tx_ringd_ptr, 0x00, sizeof(struct lance_tx_ring_descript) * LANCE_AM79C90_NUM_BUFFERS_TX);
+	memset(tx_ringd_ptr, 0x00, sizeof(struct lance_am79c92_tx_ring_descript) * LANCE_AM79C90_NUM_BUFFERS_TX);
 	tmp_ringd_ptr = tx_ringd_ptr;
 	for (i = 0; i < LANCE_AM79C90_NUM_BUFFERS_TX; i++) {
 		//printf("Configuring Tx Ring: %p\n", tmp_ringd_ptr);
