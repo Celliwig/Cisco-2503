@@ -68,8 +68,11 @@ static void _scn2681_serial_setbrg(fdt_addr_t base,
 	/* Shutdown UART */
 	writeb(SCN2681_CMD_DSB_TX, base + SCN2681_REG_COMMAND);						/* Disable Transmitter */
 	writeb(SCN2681_CMD_DSB_RX, base + SCN2681_REG_COMMAND);						/* Disable Reciever */
-	if (brg_select)
+	if (brg_select) {
 		writeb(0x80, base + SCN2681_REG_AUX_CTRL);						/* Baud Rate set 2 */
+	} else {
+		writeb(0x00, base + SCN2681_REG_AUX_CTRL);						/* Baud Rate set 1 */
+	}
 	writeb(clk_select, base + SCN2681_REG_CLK_SELECT);						/* Set Tx and Rx rates */
 	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND);			/* Enable Transmitter / Receiver */
 }
