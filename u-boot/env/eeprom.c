@@ -233,9 +233,34 @@ static int env_eeprom_save(void)
 	return rc;
 }
 
+#ifdef CONFIG_CMD_EEPROM_PARALLEL
+/*
+ * Initialize Environment use
+ *
+ * We are still running from ROM, so data use is limited
+ */
+static int env_eeprom_init(void)
+{
+	env_t *env_ptr = (env_t *) CONFIG_SYS_DEF_EEPROM_ADDR;
+
+	if (crc32(0, env_ptr->data, CONFIG_SYS_EEPROM_SIZE) == env_ptr->crc) {
+		gd->env_addr	= (ulong) &env_ptr->data;
+		gd->env_valid	= ENV_VALID;
+	} else {
+		gd->env_addr	= (ulong) &default_environment[0];
+		gd->env_valid	= ENV_INVALID;
+	}
+
+	return 0;
+}
+#endif
+
 U_BOOT_ENV_LOCATION(eeprom) = {
 	.location	= ENVL_EEPROM,
 	ENV_NAME("EEPROM")
 	.load		= env_eeprom_load,
 	.save		= env_save_ptr(env_eeprom_save),
+#ifdef CONFIG_CMD_EEPROM_PARALLEL
+	.init		= env_eeprom_init,
+#endif
 };
