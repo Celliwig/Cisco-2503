@@ -8,18 +8,40 @@
 
 /* Information about a serial port */
 struct scn2681_serial_plat {
-	fdt_addr_t base;			/* address of registers in physical memory */
+	fdt_addr_t base;			/* Address of registers in physical memory */
 	unsigned long int clock_rate;
 };
 
+#define SCN2681_DUART_CLK		3686400	/* Main DUART clock frequency */
+
 /* Register definitions */
-#define	SCN2681_REG_MODE		0x0	/* Mode1/Mode2 (R/W) */
-#define	SCN2681_REG_STATUS		0x1	/* Status (R) */
-#define SCN2681_REG_CLK_SELECT		0x1	/* Clock Select (W) */
-#define SCN2681_REG_COMMAND		0x2	/* Command (W) */
-#define SCN2681_REG_RX			0x3	/* Rx (R) */
-#define SCN2681_REG_TX			0x3	/* Tx (W) */
+#define SCN2681_REG_MODE_A		0x0	/* Channel A: Mode1/Mode2 (R/W) */
+#define SCN2681_REG_STATUS_A		0x1	/* Channel A: Status (R) */
+#define SCN2681_REG_CLK_SELECT_A	0x1	/* Channel A: Clock Select (W) */
+#define SCN2681_REG_BRG_TEST		0x2	/* BRG Test (R) */
+#define SCN2681_REG_COMMAND_A		0x2	/* Channel A: Command (W) */
+#define SCN2681_REG_RX_A		0x3	/* Channel A: Rx (R) */
+#define SCN2681_REG_TX_A		0x3	/* Channel A: Tx (W) */
+#define SCN2681_REG_IPORT_CHG		0x4	/* Input Port Change (R) */
 #define SCN2681_REG_AUX_CTRL		0x4	/* Auxiliary Control (W) */
+#define SCN2681_REG_IRQ_STATUS		0x5	/* Interrupt Status (R) */
+#define SCN2681_REG_IRQ_MASK		0x5	/* Interrupt Mask (W) */
+#define SCN2681_REG_CT_UPPER_VAL	0x6	/* Counter/Timer Upper Value (R) */
+#define SCN2681_REG_CT_UPPER_PRESET	0x6	/* Counter/Timer Upper Preset (W) */
+#define SCN2681_REG_CT_LOWER_VAL	0x7	/* Counter/Timer Lower Value (R) */
+#define SCN2681_REG_CT_LOWER_PRESET	0x7	/* Counter/Timer Lower Preset (W) */
+#define SCN2681_REG_MODE_B		0x8	/* Channel B: Mode1/Mode2 (R/W) */
+#define SCN2681_REG_STATUS_B		0x9	/* Channel B: Status (R) */
+#define SCN2681_REG_CLK_SELECT_B	0x9	/* Channel B: Clock Select (W) */
+#define SCN2681_REG_COMMAND_B		0xa	/* Channel B: Command (W) */
+#define SCN2681_REG_RX_B		0xb	/* Channel B: Rx (R) */
+#define SCN2681_REG_TX_B		0xb	/* Channel B: Tx (W) */
+#define SCN2681_REG_IPORT_STATUS	0xd	/* Input Port Status (R) */
+#define SCN2681_REG_OPORT_CFG		0xd	/* Output Port Configuration (W) */
+#define SCN2681_REG_CT_CMD_START	0xe	/* Counter/Timer Start Command (R) */
+#define SCN2681_REG_OPORT_SET		0xe	/* Output Port Set Bits (W) */
+#define SCN2681_REG_CT_CMD_STOP		0xf	/* Counter/Timer Stop Command (R) */
+#define SCN2681_REG_OPORT_RESET		0xf	/* Output Port Reset Bits (W) */
 
 /* Commands */
 #define SCN2681_CMD_EN_RX		0x01	/* Command: Enable Receiver */
@@ -45,6 +67,7 @@ struct scn2681_serial_plat {
 #define SCN2681_BRG0_7200		0x0a
 #define SCN2681_BRG0_9600		0x0b
 #define SCN2681_BRG0_38400		0x0c
+#define SCN2681_BRG0_TIMER		0x0d
 
 /* BRG (ACR[7] = 1) */
 #define SCN2681_BRG1_75			0x00
@@ -60,6 +83,25 @@ struct scn2681_serial_plat {
 #define SCN2681_BRG1_1800		0x0a
 #define SCN2681_BRG1_9600		0x0b
 #define SCN2681_BRG1_19200		0x0c
+#define SCN2681_BRG1_TIMER		0x0d
+
+/* BRG Test */
+#define SCN2681_BRGTST_115200		0x06
+#define SCN2681_BRGTST_57600		0x08
+
+#define SCN2681_ACR_COS_IRQ_EN_IP0	0x01	/* Change Of State Interrupt Enable: IP0 */
+#define SCN2681_ACR_COS_IRQ_EN_IP1	0x02	/* Change Of State Interrupt Enable: IP1 */
+#define SCN2681_ACR_COS_IRQ_EN_IP2	0x04	/* Change Of State Interrupt Enable: IP2 */
+#define SCN2681_ACR_COS_IRQ_EN_IP3	0x08	/* Change Of State Interrupt Enable: IP3 */
+#define SCN2681_ACR_COUNTER_IP2		0x00	/* Counter/Timer Mode[Clock Source]: Counter[IP2] */
+#define SCN2681_ACR_COUNTER_TXCA	0x10	/* Counter/Timer Mode[Clock Source]: Counter[Channel A Tx] */
+#define SCN2681_ACR_COUNTER_TXCB	0x20	/* Counter/Timer Mode[Clock Source]: Counter[Channel B Tx] */
+#define SCN2681_ACR_COUNTER_ECLK_DIV16	0x30	/* Counter/Timer Mode[Clock Source]: Counter[External Clock / 16] */
+#define SCN2681_ACR_TIMER_IP2		0x40	/* Counter/Timer Mode[Clock Source]: Timer[IP2] */
+#define SCN2681_ACR_TIMER_IP2_DIV16	0x50	/* Counter/Timer Mode[Clock Source]: Timer[IP2 / 16] */
+#define SCN2681_ACR_TIMER_ECLK		0x60	/* Counter/Timer Mode[Clock Source]: Timer[External Clock] */
+#define SCN2681_ACR_TIMER_ECLK_DIV16	0x70	/* Counter/Timer Mode[Clock Source]: Timer[External Clock / 16] */
+#define SCN2681_ACR_BRG_SELECT		0x80	/* Baud Rate Generator Select */
 
 #define SCN2681_MODE1_BPC_5		0x00	/* Mode1: Bits Per Character: 5 */
 #define SCN2681_MODE1_BPC_6		0x01	/* Mode1: Bits Per Character: 6 */
