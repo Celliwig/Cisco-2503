@@ -66,15 +66,15 @@ static void _scn2681_serial_setbrg(fdt_addr_t base,
 	}
 
 	/* Shutdown UART */
-	writeb(SCN2681_CMD_DSB_TX, base + SCN2681_REG_COMMAND);						/* Disable Transmitter */
-	writeb(SCN2681_CMD_DSB_RX, base + SCN2681_REG_COMMAND);						/* Disable Reciever */
+	writeb(SCN2681_CMD_DSB_TX, base + SCN2681_REG_COMMAND_A);					/* Disable Transmitter */
+	writeb(SCN2681_CMD_DSB_RX, base + SCN2681_REG_COMMAND_A);					/* Disable Reciever */
 	if (brg_select) {
 		writeb(0x80, base + SCN2681_REG_AUX_CTRL);						/* Baud Rate set 2 */
 	} else {
 		writeb(0x00, base + SCN2681_REG_AUX_CTRL);						/* Baud Rate set 1 */
 	}
-	writeb(clk_select, base + SCN2681_REG_CLK_SELECT);						/* Set Tx and Rx rates */
-	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND);			/* Enable Transmitter / Receiver */
+	writeb(clk_select, base + SCN2681_REG_CLK_SELECT_A);						/* Set Tx and Rx rates */
+	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND_A);			/* Enable Transmitter / Receiver */
 }
 
 static int scn2681_serial_setbrg(struct udevice *dev, int baudrate)
@@ -103,9 +103,9 @@ static int scn2681_serial_setconfig(struct udevice *dev, uint serial_config)
 		return -ENOTSUPP;									/* not supported in driver*/
 
 	/* Shutdown UART */
-	writeb(SCN2681_CMD_DSB_TX, base + SCN2681_REG_COMMAND);						/* Disable Transmitter */
-	writeb(SCN2681_CMD_DSB_RX, base + SCN2681_REG_COMMAND);						/* Disable Reciever */
-	writeb(SCN2681_CMD_RST_MR, base + SCN2681_REG_COMMAND);						/* Reset Mode Register Pointer */
+	writeb(SCN2681_CMD_DSB_TX, base + SCN2681_REG_COMMAND_A);					/* Disable Transmitter */
+	writeb(SCN2681_CMD_DSB_RX, base + SCN2681_REG_COMMAND_A);					/* Disable Reciever */
+	writeb(SCN2681_CMD_RST_MR, base + SCN2681_REG_COMMAND_A);					/* Reset Mode Register Pointer */
 
 	switch (parity) {
 	case SERIAL_PAR_ODD:
@@ -119,8 +119,8 @@ static int scn2681_serial_setconfig(struct udevice *dev, uint serial_config)
 		mode1 |= SCN2681_MODE1_PM_NO;
 		break;
 	}
-	writeb(mode1, base + SCN2681_REG_MODE);								/* Mode 1: 8-bit, No Parity, RTS On */
-	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND);			/* Enable Transmitter / Receiver */
+	writeb(mode1, base + SCN2681_REG_MODE_A);							/* Mode 1: 8-bit, No Parity, RTS On */
+	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND_A);			/* Enable Transmitter / Receiver */
 
 	return 0;
 }
@@ -130,25 +130,25 @@ static int scn2681_serial_getc(struct udevice *dev)
 	struct scn2681_serial_plat *plat = dev_get_plat(dev);
 	fdt_addr_t base = plat->base;
 
-	unsigned char uart_status = readb(base + SCN2681_REG_STATUS);
+	unsigned char uart_status = readb(base + SCN2681_REG_STATUS_A);
 	if ((uart_status & SCN2681_STATUS_RXRDY) == 0)
 		return -EAGAIN;
 
 	if (uart_status & (SCN2681_STATUS_ERR_OVER | SCN2681_STATUS_ERR_PARITY | SCN2681_STATUS_ERR_FRAME)) {
-		writeb(SCN2681_CMD_RST_ERR, base + SCN2681_REG_COMMAND);
+		writeb(SCN2681_CMD_RST_ERR, base + SCN2681_REG_COMMAND_A);
 		return -EIO;
 	}
 
-	return readb(base + SCN2681_REG_RX);
+	return readb(base + SCN2681_REG_RX_A);
 }
 
 static int _scn2681_serial_putc(fdt_addr_t base,
 			      const char c)
 {
-	if ((readb(base + SCN2681_REG_STATUS) & SCN2681_STATUS_TXRDY) == 0)
+	if ((readb(base + SCN2681_REG_STATUS_A) & SCN2681_STATUS_TXRDY) == 0)
 		return -EAGAIN;
 
-	writeb(c, base + SCN2681_REG_TX);
+	writeb(c, base + SCN2681_REG_TX_A);
 
 	return 0;
 }
@@ -166,23 +166,23 @@ static int scn2681_serial_pending(struct udevice *dev, bool input)
 	fdt_addr_t base = plat->base;
 
 	if (input)
-		return readb(base + SCN2681_REG_STATUS) & SCN2681_STATUS_RXRDY ? 1 : 0;
+		return readb(base + SCN2681_REG_STATUS_A) & SCN2681_STATUS_RXRDY ? 1 : 0;
 	else
-		return readb(base + SCN2681_REG_STATUS) & SCN2681_STATUS_TXRDY ? 0 : 1;
+		return readb(base + SCN2681_REG_STATUS_A) & SCN2681_STATUS_TXRDY ? 0 : 1;
 }
 
 static void _scn2681_serial_init(fdt_addr_t base)
 {
-	writeb(SCN2681_CMD_RST_TX, base + SCN2681_REG_COMMAND);						/* Reset Transmitter */
-	writeb(SCN2681_CMD_RST_RX, base + SCN2681_REG_COMMAND);						/* Reset Reciever */
-	writeb(SCN2681_CMD_RST_MR, base + SCN2681_REG_COMMAND);						/* Reset Mode Register Pointer */
+	writeb(SCN2681_CMD_RST_TX, base + SCN2681_REG_COMMAND_A);					/* Reset Transmitter */
+	writeb(SCN2681_CMD_RST_RX, base + SCN2681_REG_COMMAND_A);					/* Reset Reciever */
+	writeb(SCN2681_CMD_RST_MR, base + SCN2681_REG_COMMAND_A);					/* Reset Mode Register Pointer */
 	writeb(0x80, base + SCN2681_REG_AUX_CTRL);							/* Baud Rate Set #2 */
-	writeb(((SCN2681_BRG1_9600 << 4) | SCN2681_BRG1_9600), base + SCN2681_REG_CLK_SELECT);		/* Set Tx and Rx rates to 9600 */
+	writeb(((SCN2681_BRG1_9600 << 4) | SCN2681_BRG1_9600), base + SCN2681_REG_CLK_SELECT_A);	/* Set Tx and Rx rates to 9600 */
 	unsigned char mode1 = SCN2681_MODE1_BPC_8 | SCN2681_MODE1_PM_NO | SCN2681_MODE1_RXRTS_ON;
-	writeb(mode1, base + SCN2681_REG_MODE);								/* Mode 1: 8-bit, No Parity, RTS On */
+	writeb(mode1, base + SCN2681_REG_MODE_A);							/* Mode 1: 8-bit, No Parity, RTS On */
 	unsigned char mode2 = SCN2681_MODE2_CHMODE_NORMAL | SCN2681_MODE2_TXRTS_OFF | SCN2681_MODE2_TXCTS_OFF | SCN2681_MODE2_SBL_1000;
-	writeb(mode2, base + SCN2681_REG_MODE);								/* Mode 2: Normal Mode, Not CTS/RTS, 1 stop bit */
-	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND);			/* Enable Transmitter / Receiver */
+	writeb(mode2, base + SCN2681_REG_MODE_A);							/* Mode 2: Normal Mode, Not CTS/RTS, 1 stop bit */
+	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND_A);			/* Enable Transmitter / Receiver */
 }
 
 static int scn2681_serial_probe(struct udevice *dev)
