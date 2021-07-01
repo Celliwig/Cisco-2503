@@ -202,12 +202,97 @@ static int scn2681_serial_pending(struct udevice *dev, bool input)
 		return readb(base + SCN2681_REG_STATUS_A) & SCN2681_STATUS_TXRDY ? 0 : 1;
 }
 
+static void _scn2681_serial_brgtest_reset(fdt_addr_t base)
+{
+	/*
+	 * To access 57600/115200 baudrates, BRG Test mode must be enabled.
+	 * However BRG Test mode can only be toggled, it's state can't be directly
+	 * read, and only a hardware reset returns it to it's default.
+	 * On the Cisco-2500 a system reset DOES NOT reset the DUART...
+	 * Here be dragons....
+	 *
+	 * Configure Channel A to 9600 (it's the same in all modes)
+	 * Configure Channel B to either 1200/115200
+	 * Configure Channel A & B as local loopback
+	 * Start Channel A/B device's Rx/Tx sections
+	 * Write a character to both Tx holding registers
+	 * Poll ISR, which ever channel finishes first (RxRDY) indicates BRG Test mode state
+	 */
+
+	unsigned char isr = 0, mode1, mode2, tmp;
+	unsigned int loop = CONFIG_SYS_CLK;								/* Timers probably not running at this point,
+													   so need a crude timeout in the order of a
+													   few seconds */
+
+	// Reset Channel A
+	writeb(SCN2681_CMD_RST_TX, base + SCN2681_REG_COMMAND_A);					/* Reset Transmitter */
+	writeb(SCN2681_CMD_RST_RX, base + SCN2681_REG_COMMAND_A);					/* Reset Receiver */
+	writeb(SCN2681_CMD_RST_MR, base + SCN2681_REG_COMMAND_A);					/* Reset Mode Register Pointer */
+
+	// Reset Channel B
+	writeb(SCN2681_CMD_RST_TX, base + SCN2681_REG_COMMAND_B);					/* Reset Transmitter */
+	writeb(SCN2681_CMD_RST_RX, base + SCN2681_REG_COMMAND_B);					/* Reset Receiver */
+	writeb(SCN2681_CMD_RST_MR, base + SCN2681_REG_COMMAND_B);					/* Reset Mode Register Pointer */
+
+	/* Baud Rate Set #2 */
+	writeb(SCN2681_ACR_BRG_SELECT, base + SCN2681_REG_AUX_CTRL);
+
+	// Configure Channel A
+	writeb(((SCN2681_BRG1_9600 << 4) | SCN2681_BRG1_9600), base + SCN2681_REG_CLK_SELECT_A);	/* Set Tx and Rx rates to 9600 */
+	mode1 = SCN2681_MODE1_BPC_8 | SCN2681_MODE1_PM_NO | SCN2681_MODE1_RXINT_RXRDY | SCN2681_MODE1_RXRTS_ON;
+	writeb(mode1, base + SCN2681_REG_MODE_A);							/* Mode 1: 8-bit, No Parity, RTS On */
+	mode2 = SCN2681_MODE2_CHMODE_LLOOP | SCN2681_MODE2_TXRTS_OFF | SCN2681_MODE2_TXCTS_OFF | SCN2681_MODE2_SBL_1000;
+	writeb(mode2, base + SCN2681_REG_MODE_A);							/* Mode 2: Normal Mode, Not CTS/RTS, 1 stop bit */
+	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND_A);			/* Enable Transmitter / Receiver */
+
+	// Configure Channel B
+	writeb(((SCN2681_BRG1_1200 << 4) | SCN2681_BRG1_1200), base + SCN2681_REG_CLK_SELECT_B);	/* Set Tx and Rx rates to 1200/115200 */
+	mode1 = SCN2681_MODE1_BPC_8 | SCN2681_MODE1_PM_NO | SCN2681_MODE1_RXINT_RXRDY | SCN2681_MODE1_RXRTS_ON;
+	writeb(mode1, base + SCN2681_REG_MODE_B);							/* Mode 1: 8-bit, No Parity, RTS On */
+	mode2 = SCN2681_MODE2_CHMODE_LLOOP | SCN2681_MODE2_TXRTS_OFF | SCN2681_MODE2_TXCTS_OFF | SCN2681_MODE2_SBL_1000;
+	writeb(mode2, base + SCN2681_REG_MODE_B);							/* Mode 2: Normal Mode, Not CTS/RTS, 1 stop bit */
+	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND_B);			/* Enable Transmitter / Receiver */
+
+	// Write character to Tx holding registers
+	writeb('G', base + SCN2681_REG_TX_A);
+	writeb('G', base + SCN2681_REG_TX_B);
+
+	// Poll for result
+	while (loop > 0) {
+		// Read ISR status
+		tmp = readb(base + SCN2681_REG_IRQ_STATUS);
+		// Check if there's already a result
+		if (!isr) {
+			// Check if one of the flags is set in the ISR
+			if (tmp & (SCN2681_ISR_RX_RDY_A | SCN2681_ISR_RX_RDY_B)) isr = tmp;
+		}
+		// Make sure the Txs are empty before completing
+		// Don't want garbage being transmitted to the receiver
+		// when they're initialised in _scn2681_serial_init
+		if ((tmp & (SCN2681_ISR_RX_RDY_A | SCN2681_ISR_RX_RDY_B)) == (SCN2681_ISR_RX_RDY_A | SCN2681_ISR_RX_RDY_B)) break;
+		loop--;
+	}
+
+	// If Channel B set, the BRG Test mode is enable, so toggle it
+	if (isr & SCN2681_ISR_RX_RDY_B) readb(base + SCN2681_REG_BRG_TEST);
+}
+
 static void _scn2681_serial_init(fdt_addr_t base)
 {
+	// Reset Channel A
 	writeb(SCN2681_CMD_RST_TX, base + SCN2681_REG_COMMAND_A);					/* Reset Transmitter */
-	writeb(SCN2681_CMD_RST_RX, base + SCN2681_REG_COMMAND_A);					/* Reset Reciever */
+	writeb(SCN2681_CMD_RST_RX, base + SCN2681_REG_COMMAND_A);					/* Reset Receiver */
 	writeb(SCN2681_CMD_RST_MR, base + SCN2681_REG_COMMAND_A);					/* Reset Mode Register Pointer */
-	writeb(SCN2681_ACR_BRG_SELECT, base + SCN2681_REG_AUX_CTRL);					/* Baud Rate Set #2 */
+
+	// Reset Channel B
+	writeb(SCN2681_CMD_RST_TX, base + SCN2681_REG_COMMAND_B);					/* Reset Transmitter */
+	writeb(SCN2681_CMD_RST_RX, base + SCN2681_REG_COMMAND_B);					/* Reset Receiver */
+	writeb(SCN2681_CMD_RST_MR, base + SCN2681_REG_COMMAND_B);					/* Reset Mode Register Pointer */
+
+	/* Baud Rate Set #2 */
+	writeb(SCN2681_ACR_BRG_SELECT, base + SCN2681_REG_AUX_CTRL);
+
+	// Configure Channel A
 	writeb(((SCN2681_BRG1_9600 << 4) | SCN2681_BRG1_9600), base + SCN2681_REG_CLK_SELECT_A);	/* Set Tx and Rx rates to 9600 */
 	unsigned char mode1 = SCN2681_MODE1_BPC_8 | SCN2681_MODE1_PM_NO | SCN2681_MODE1_RXRTS_ON;
 	writeb(mode1, base + SCN2681_REG_MODE_A);							/* Mode 1: 8-bit, No Parity, RTS On */
@@ -238,6 +323,9 @@ static int scn2681_serial_probe(struct udevice *dev)
 //		return -EINVAL;
 //	}
 
+	// Reset BRG Test Mode
+	_scn2681_serial_brgtest_reset(plat->base);
+	// Initialise device
 	_scn2681_serial_init(plat->base);
 
 	return 0;

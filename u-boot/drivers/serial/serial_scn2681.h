@@ -10,6 +10,7 @@
 struct scn2681_serial_plat {
 	fdt_addr_t base;			/* Address of registers in physical memory */
 	unsigned long int clock_rate;
+	bool brg_testmode;			/* BRG Test mode state */
 };
 
 #define SCN2681_DUART_CLK		3686400	/* Main DUART clock frequency */
@@ -153,5 +154,14 @@ struct scn2681_serial_plat {
 #define	SCN2681_STATUS_ERR_PARITY	0x20	/* Status Register: Set if a parity error is detected while receiving a character */
 #define	SCN2681_STATUS_ERR_FRAME	0x40	/* Status Register: Set if no STOP bit deteced while receiving a character */
 #define	SCN2681_STATUS_RCVD_BREAK	0x80	/* Status Register: Set if a BREAK was received */
+
+#define SCN2681_ISR_TX_RDY_A		0x01	/* Interrupt Status Register: Tx Ready A */
+#define SCN2681_ISR_RX_RDY_A		0x02	/* Interrupt Status Register: Rx Ready A */
+#define SCN2681_ISR_DELTA_BREAK_A	0x04	/* Interrupt Status Register: Delta Break A */
+#define SCN2681_ISR_COUNTER_READY	0x08	/* Interrupt Status Register: Counter Ready */
+#define SCN2681_ISR_TX_RDY_B		0x10	/* Interrupt Status Register: Tx Ready B */
+#define SCN2681_ISR_RX_RDY_B		0x20	/* Interrupt Status Register: Rx Ready B */
+#define SCN2681_ISR_DELTA_BREAK_B	0x40	/* Interrupt Status Register: Delta Break B */
+#define SCN2681_ISR_IPORT_CHANGE	0x80	/* Interrupt Status Register: Input Port Change */
 
 #endif
