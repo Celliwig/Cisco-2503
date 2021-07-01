@@ -74,8 +74,8 @@ bool mem_nvram_write_long(unsigned address, unsigned int value);
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define	C2503_RAM_ADDR		0x00000000					// RAM address
 #define	C2503_STD_RAM_SIZE	0x200000					// Preinstalled RAM size (2MB)
-//#define	C2503_DIMM_RAM_SIZE	0x200000					// DIMM RAM size (2MB)
-#define	C2503_DIMM_RAM_SIZE	0x0						// DIMM RAM size (0MB)
+#define	C2503_DIMM_RAM_SIZE	0x200000					// DIMM RAM size (2MB)
+//#define	C2503_DIMM_RAM_SIZE	0x0						// DIMM RAM size (0MB)
 #define	C2503_RAM_SIZE		(C2503_STD_RAM_SIZE+C2503_DIMM_RAM_SIZE)	// RAM size (4MB)
 #define	C2503_RAM_WIN_SIZE	0x1000000					// RAM window size (16MB)
 
@@ -160,7 +160,7 @@ bool io_counter_write_word(unsigned address, unsigned int value);
 // Address & window size
 #define C2503_IO_DUART_ADDR			0x02120100		// DUART address
 #define C2503_IO_DUART_SIZE			0x40			// DUART size
-#define C2503_IO_DUART_CORE_TICKS_PER_BYTE	0x10			// Number of ticks to shift byte through TSR
+#define C2503_IO_DUART_CORE_TICKS_PER_BYTE	0x7f			// Number of ticks to shift byte through TSR
 
 // SCN2681 DUART registers (Read)
 #define SCN2681_REG_RD_MODE_A			0x0			// Channel A: Mode Register 1/2

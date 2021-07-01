@@ -1413,7 +1413,7 @@ unsigned int	g_nvram_last_write_completed = 0;
 
 // Added valid header
 void mem_nvram_init() {
-	g_nvram[2] |= 0x80;		// Print debug messages
+//	g_nvram[2] |= 0x80;		// Print debug messages
 //	g_nvram[3] &= 0xf0;		// Boot monitor
 
 	// Reset write status
@@ -2244,11 +2244,15 @@ unsigned int	\
 		// Channel A
 		scn2681_channelA_rx_fifo[SCN2681_REG_RX_FIFO_SIZE],
 		scn2681_channelA_rx_rsr_ticks, \
+		scn2681_channelA_rx_rsr_ticks_per_symbol, \
 		scn2681_channelA_tx_tsr_ticks, \
+		scn2681_channelA_tx_tsr_ticks_per_symbol, \
 		// Channel B
 		scn2681_channelB_rx_fifo[SCN2681_REG_RX_FIFO_SIZE],
 		scn2681_channelB_rx_rsr_ticks, \
-		scn2681_channelB_tx_tsr_ticks;
+		scn2681_channelB_rx_rsr_ticks_per_symbol, \
+		scn2681_channelB_tx_tsr_ticks, \
+		scn2681_channelB_tx_tsr_ticks_per_symbol;
 
 int		\
 		// Channel A
@@ -2343,15 +2347,13 @@ void io_duart_core_channel_fd_set_mode1(int fd_device, unsigned char register_va
 	}
 }
 
-void io_duart_core_channel_fd_set_baud(int fd_device, unsigned char baud_selection, unsigned int brg_set_select) {
+void io_duart_core_channel_fd_set_baud(int fd_device, unsigned char baud_selection, unsigned int brg_set_select,
+					unsigned int *rx_rsr_ticks_per_symbol, unsigned int *tx_tsr_ticks_per_symbol) {
 	struct termios options;
-	unsigned char ispeed, ospeed, *brg_set;
+	unsigned int ispeed, ospeed, *brg_set;
 
-	unsigned char brg_set0[16] = {B50, B110, B134, B200, B300, B600, B1200, B0, B2400, B4800, B0, B9600, B38400, B0, B0, B0};
-	unsigned char brg_set1[16] = {B75, B110, B134, B150, B300, B600, B1200, B0, B2400, B4800, B1800, B9600, B19200, B0, B0, B0};
-
-	// Check if FD valid
-	if (fd_device == -1) return;
+	unsigned int brg_set0[16] = {B50, B110, B134, B200, B300, B600, B1200, B0, B2400, B4800, B0, B9600, B38400, B0, B0, B0};
+	unsigned int brg_set1[16] = {B75, B110, B134, B150, B300, B600, B1200, B0, B2400, B4800, B1800, B9600, B19200, B0, B0, B0};
 
 	if (brg_set_select) {
 		brg_set = brg_set1;
@@ -2361,6 +2363,69 @@ void io_duart_core_channel_fd_set_baud(int fd_device, unsigned char baud_selecti
 
 	ispeed = brg_set[(baud_selection & 0xF0) >> 4];
 	ospeed = brg_set[(baud_selection & 0x0F)];
+
+	// Update ticks per symbol
+	switch (ispeed) {
+	case B1200:
+		*rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 1;
+		break;
+	case B2400:
+		*rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 2;
+		break;
+	case B4800:
+		*rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 5;
+		break;
+	case B9600:
+		*rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 10;
+		break;
+	case B19200:
+		*rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 20;
+		break;
+	case B38400:
+		*rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 38;
+		break;
+	case B57600:
+		*rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 58;
+		break;
+	case B115200:
+		*rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 115;
+		break;
+	default:
+		*rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE;
+		break;
+	}
+	switch (ospeed) {
+	case B1200:
+		*tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 1;
+		break;
+	case B2400:
+		*tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 2;
+		break;
+	case B4800:
+		*tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 5;
+		break;
+	case B9600:
+		*tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 10;
+		break;
+	case B19200:
+		*tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 20;
+		break;
+	case B38400:
+		*tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 38;
+		break;
+	case B57600:
+		*tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 58;
+		break;
+	case B115200:
+		*tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE - 115;
+		break;
+	default:
+		*tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE;
+		break;
+	}
+
+	// Check if FD valid
+	if (fd_device == -1) return;
 
 	// Get current serial port configuration
 	tcgetattr(fd_device, &options);
@@ -2586,6 +2651,7 @@ void io_duart_core_channelA_rx_reset() {
 	scn2681_channelA_rx_wr_idx = 0;
 	scn2681_channelA_rx_rsr = 0;
 	scn2681_channelA_rx_rsr_ticks = 0;
+	scn2681_channelA_rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE;
 	scn2681_channelA_rx_rsr_empty = true;
 	scn2681_channelA_rx_status_overrun = false;
 	io_duart_core_channel_fd_set_RTS(scn2681_channelA_serial_device_fd);
@@ -2606,6 +2672,7 @@ void io_duart_core_channelA_tx_reset() {
 	scn2681_channelA_tx_tsr = 0;
 	scn2681_channelA_tx_tsr_empty = true;
 	scn2681_channelA_tx_tsr_ticks = 0;
+	scn2681_channelA_tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE;
 }
 
 // Channel B functions
@@ -2635,6 +2702,7 @@ void io_duart_core_channelB_rx_reset() {
 	scn2681_channelB_rx_wr_idx = 0;
 	scn2681_channelB_rx_rsr = 0;
 	scn2681_channelB_rx_rsr_ticks = 0;
+	scn2681_channelB_rx_rsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE;
 	scn2681_channelB_rx_rsr_empty = true;
 	scn2681_channelB_rx_status_overrun = false;
 	io_duart_core_channel_fd_set_RTS(scn2681_channelB_serial_device_fd);
@@ -2655,6 +2723,7 @@ void io_duart_core_channelB_tx_reset() {
 	scn2681_channelB_tx_tsr = 0;
 	scn2681_channelB_tx_tsr_empty = true;
 	scn2681_channelB_tx_tsr_ticks = 0;
+	scn2681_channelB_tx_tsr_ticks_per_symbol = C2503_IO_DUART_CORE_TICKS_PER_BYTE;
 }
 
 // Initialise (reset) DUART core
@@ -2709,21 +2778,24 @@ void io_duart_core_clock_tick() {
 	char	tmp_buffer;
 
 	// Channel A Registers
-	// Read one byte (if available) from serial device
-	if (scn2681_channelA_rx_rsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
-		if (scn2681_channelA_rx_rts_enabled &&
-				(scn2681_channelA_serial_device_fd != -1) && (read(scn2681_channelA_serial_device_fd, &tmp_buffer, 1) > 0)) {
-			// Check if there's already a byte in the receive shift register
-			if (!scn2681_channelA_rx_rsr_empty) {
-				scn2681_channelA_rx_status_overrun = true;
-			}
-			scn2681_channelA_rx_rsr = tmp_buffer;
-			scn2681_channelA_rx_rsr_empty = false;
+	// Check if in normal mode
+	if (!(scn2681_channelA_mode2 & 0xc0)) {
+		// Read one byte (if available) from serial device
+		if (scn2681_channelA_rx_rsr_ticks > scn2681_channelA_rx_rsr_ticks_per_symbol) {
+			if (scn2681_channelA_rx_rts_enabled &&
+					(scn2681_channelA_serial_device_fd != -1) && (read(scn2681_channelA_serial_device_fd, &tmp_buffer, 1) > 0)) {
+				// Check if there's already a byte in the receive shift register
+				if (!scn2681_channelA_rx_rsr_empty) {
+					scn2681_channelA_rx_status_overrun = true;
+				}
+				scn2681_channelA_rx_rsr = tmp_buffer;
+				scn2681_channelA_rx_rsr_empty = false;
 
-			scn2681_channelA_rx_rsr_ticks = 0;
+				scn2681_channelA_rx_rsr_ticks = 0;
+			}
+		} else {
+			scn2681_channelA_rx_rsr_ticks++;
 		}
-	} else {
-		scn2681_channelA_rx_rsr_ticks++;
 	}
 	// Check whether to set RTS signal
 	if (scn2681_channelA_mode1 & SCN2681_REG_MODE1_RX_RTS) {
@@ -2757,11 +2829,23 @@ void io_duart_core_clock_tick() {
 	// Push Tx shift register to serial device
 	if (!scn2681_channelA_tx_tsr_empty) {
 		scn2681_channelA_tx_tsr_ticks++;
-		if (scn2681_channelA_tx_tsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
-			// Finished sending byte serially
-			if (scn2681_channelA_serial_device_fd != -1) {
-				write(scn2681_channelA_serial_device_fd, &scn2681_channelA_tx_tsr, 1);
+		if (scn2681_channelA_tx_tsr_ticks > scn2681_channelA_tx_tsr_ticks_per_symbol) {
+			// Check if in local loopback mode
+			if ((scn2681_channelA_mode2 & 0xc0) == SCN2681_REG_MODE2_MODE_LOCAL_LOOP) {
+				// Check if there's already a byte in the receive shift register
+				if (!scn2681_channelA_rx_rsr_empty) {
+					scn2681_channelA_rx_status_overrun = true;
+				}
+				scn2681_channelA_rx_rsr = scn2681_channelA_tx_tsr;
+				scn2681_channelA_rx_rsr_empty = false;
+				scn2681_channelA_rx_rsr_ticks = scn2681_channelA_tx_tsr_ticks;
+			} else {
+				// Finished sending byte serially
+				if (scn2681_channelA_serial_device_fd != -1) {
+					write(scn2681_channelA_serial_device_fd, &scn2681_channelA_tx_tsr, 1);
+				}
 			}
+
 			scn2681_channelA_tx_tsr_empty = true;
 			scn2681_channelA_tx_tsr_ticks = 0;
 		}
@@ -2776,21 +2860,24 @@ void io_duart_core_clock_tick() {
 	}
 
 	// Channel B Registers
-	// Read one byte (if available) from serial device
-	if (scn2681_channelB_rx_rsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
-		if (scn2681_channelB_rx_rts_enabled &&
-				(scn2681_channelB_serial_device_fd != -1) && (read(scn2681_channelB_serial_device_fd, &tmp_buffer, 1) > 0)) {
-			// Check if there's already a byte in the receive shift register
-			if (!scn2681_channelB_rx_rsr_empty) {
-				scn2681_channelB_rx_status_overrun = true;
-			}
-			scn2681_channelB_rx_rsr = tmp_buffer;
-			scn2681_channelB_rx_rsr_empty = false;
+	// Check if in normal mode
+	if (!(scn2681_channelB_mode2 & 0xc0)) {
+		// Read one byte (if available) from serial device
+		if (scn2681_channelB_rx_rsr_ticks > scn2681_channelB_rx_rsr_ticks_per_symbol) {
+			if (scn2681_channelB_rx_rts_enabled &&
+					(scn2681_channelB_serial_device_fd != -1) && (read(scn2681_channelB_serial_device_fd, &tmp_buffer, 1) > 0)) {
+				// Check if there's already a byte in the receive shift register
+				if (!scn2681_channelB_rx_rsr_empty) {
+					scn2681_channelB_rx_status_overrun = true;
+				}
+				scn2681_channelB_rx_rsr = tmp_buffer;
+				scn2681_channelB_rx_rsr_empty = false;
 
-			scn2681_channelB_rx_rsr_ticks = 0;
+				scn2681_channelB_rx_rsr_ticks = 0;
+			}
+		} else {
+			scn2681_channelB_rx_rsr_ticks++;
 		}
-	} else {
-		scn2681_channelB_rx_rsr_ticks++;
 	}
 	// Check whether to set RTS signal
 	if (scn2681_channelB_mode1 & SCN2681_REG_MODE1_RX_RTS) {
@@ -2811,27 +2898,34 @@ void io_duart_core_clock_tick() {
 	}
 	// Push Rx shift register to FIFO
 	if (!scn2681_channelB_rx_rsr_empty) {
-		scn2681_channelB_rx_rsr_ticks++;
-		if (scn2681_channelB_rx_rsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
-			// Check if there is already a byte in the next buffer
-			if (!(scn2681_channelB_rx_fifo[scn2681_channelB_rx_wr_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE)) {
-				scn2681_channelB_rx_fifo[scn2681_channelB_rx_wr_idx] = scn2681_channelB_rx_rsr | SCN2681_REG_RX_FIFO_VALID_BYTE;
-				// Increment FIFO index
-				scn2681_channelB_rx_wr_idx++;
-				// Reset FIFO index if it overflows
-				if (scn2681_channelB_rx_wr_idx >= SCN2681_REG_RX_FIFO_SIZE) scn2681_channelB_rx_wr_idx = 0;
-				scn2681_channelB_rx_rsr_empty = true;
-				scn2681_channelB_rx_rsr_ticks = 0;
-			}
+		// Check if there is already a byte in the next buffer
+		if (!(scn2681_channelB_rx_fifo[scn2681_channelB_rx_wr_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE)) {
+			scn2681_channelB_rx_fifo[scn2681_channelB_rx_wr_idx] = scn2681_channelB_rx_rsr | SCN2681_REG_RX_FIFO_VALID_BYTE;
+			// Increment FIFO index
+			scn2681_channelB_rx_wr_idx++;
+			// Reset FIFO index if it overflows
+			if (scn2681_channelB_rx_wr_idx >= SCN2681_REG_RX_FIFO_SIZE) scn2681_channelB_rx_wr_idx = 0;
+			scn2681_channelB_rx_rsr_empty = true;
 		}
 	}
 	// Push Tx shift register to serial device
 	if (!scn2681_channelB_tx_tsr_empty) {
 		scn2681_channelB_tx_tsr_ticks++;
-		if (scn2681_channelB_tx_tsr_ticks > C2503_IO_DUART_CORE_TICKS_PER_BYTE) {
-			// Finished sending byte serially
-			if (scn2681_channelB_serial_device_fd != -1) {
-				write(scn2681_channelB_serial_device_fd, &scn2681_channelB_tx_tsr, 1);
+		if (scn2681_channelB_tx_tsr_ticks > scn2681_channelB_tx_tsr_ticks_per_symbol) {
+			// Check if in local loopback mode
+			if ((scn2681_channelB_mode2 & 0xc0) == SCN2681_REG_MODE2_MODE_LOCAL_LOOP) {
+				// Check if there's already a byte in the receive shift register
+				if (!scn2681_channelB_rx_rsr_empty) {
+					scn2681_channelB_rx_status_overrun = true;
+				}
+				scn2681_channelB_rx_rsr = scn2681_channelB_tx_tsr;
+				scn2681_channelB_rx_rsr_empty = false;
+				scn2681_channelB_rx_rsr_ticks = scn2681_channelB_tx_tsr_ticks;
+			} else {
+				// Finished sending byte serially
+				if (scn2681_channelB_serial_device_fd != -1) {
+					write(scn2681_channelB_serial_device_fd, &scn2681_channelB_tx_tsr, 1);
+				}
 			}
 			scn2681_channelB_tx_tsr_empty = true;
 			scn2681_channelB_tx_tsr_ticks = 0;
@@ -2892,6 +2986,8 @@ bool io_duart_read_byte(unsigned int address, unsigned int *value, bool real_rea
 				break;
 			case SCN2681_REG_RD_INTERRUPT_STATUS:		// Interrupt Status Register
 				*value = scn2681_interrupt_status;
+				if (scn2681_channelA_rx_fifo[scn2681_channelA_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE) *value = *value | SCN2681_REG_INTERRUPT_CHANNELA_RX_RDY;
+				if (scn2681_channelB_rx_fifo[scn2681_channelB_rx_rd_idx] & SCN2681_REG_RX_FIFO_VALID_BYTE) *value = *value | SCN2681_REG_INTERRUPT_CHANNELB_RX_RDY;
 				break;
 			case SCN2681_REG_RD_CTR_UPPER_VALUE:		// Counter/Timer Upper Value Register
 				*value = scn2681_counter_timer_upper;
@@ -2973,7 +3069,9 @@ bool io_duart_write_byte(unsigned int address, unsigned int value) {
 				scn2681_channelA_clock_select = value;
 				io_duart_core_channel_fd_set_baud(scn2681_channelA_serial_device_fd,
 									scn2681_channelA_clock_select,
-									scn2681_auxiliary_control & SCN2681_REG_AUX_CONTROL_BRG_SET_SELECT);
+									scn2681_auxiliary_control & SCN2681_REG_AUX_CONTROL_BRG_SET_SELECT,
+									&scn2681_channelA_rx_rsr_ticks_per_symbol,
+									&scn2681_channelA_tx_tsr_ticks_per_symbol);
 				break;
 			case SCN2681_REG_WR_COMMAND_A:			// Channel A: Command Register
 				scn2681_channelA_command = value;
@@ -3024,7 +3122,9 @@ bool io_duart_write_byte(unsigned int address, unsigned int value) {
 				scn2681_channelB_clock_select = value;
 				io_duart_core_channel_fd_set_baud(scn2681_channelB_serial_device_fd,
 									scn2681_channelB_clock_select,
-									scn2681_auxiliary_control & SCN2681_REG_AUX_CONTROL_BRG_SET_SELECT);
+									scn2681_auxiliary_control & SCN2681_REG_AUX_CONTROL_BRG_SET_SELECT,
+									&scn2681_channelB_rx_rsr_ticks_per_symbol,
+									&scn2681_channelB_tx_tsr_ticks_per_symbol);
 				break;
 			case SCN2681_REG_WR_COMMAND_B:			// Channel B: Command Register
 				scn2681_channelB_command = value;
