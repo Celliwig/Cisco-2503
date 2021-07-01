@@ -19,69 +19,100 @@
 #include "serial_scn2681.h"
 #include <dm/device_compat.h>
 
-static void _scn2681_serial_setbrg(fdt_addr_t base,
-				 u32 clock_rate,
-				 int baudrate)
+static void _scn2681_serial_setbrgtest(struct scn2681_serial_plat *plat, bool brg_testmode_wanted)
 {
-	unsigned char clk_select = 0, brg_select = 0;
+	// Check if BRG Test mode state needs updating
+	if (plat->brg_testmode ^ brg_testmode_wanted) {
+		// Update BRG Test mode
+		readb(plat->base + SCN2681_REG_BRG_TEST);
+		// Update saved state
+		plat->brg_testmode = brg_testmode_wanted;
+	}
+}
+
+static void _scn2681_serial_setbrg(struct scn2681_serial_plat *plat, int baudrate)
+{
+	bool brg_select_alt = false, brg_test = false;
+	unsigned char clk_select = 0;
+
+	/* Shutdown UART */
+	writeb(SCN2681_CMD_DSB_TX, plat->base + SCN2681_REG_COMMAND_A);					/* Disable Transmitter */
+	writeb(SCN2681_CMD_DSB_RX, plat->base + SCN2681_REG_COMMAND_A);					/* Disable Reciever */
 
 	switch (baudrate) {
 	case 150:
 		clk_select = (SCN2681_BRG1_150 << 4) | SCN2681_BRG1_150;
-		brg_select = 1;
+		brg_select_alt = true;
+		brg_test = false;
 		break;
 	case 300:
 		clk_select = (SCN2681_BRG1_300 << 4) | SCN2681_BRG1_300;
-		brg_select = 1;
+		brg_select_alt = true;
+		brg_test = false;
 		break;
 	case 600:
 		clk_select = (SCN2681_BRG1_600 << 4) | SCN2681_BRG1_600;
-		brg_select = 1;
+		brg_select_alt = true;
+		brg_test = false;
 		break;
 	case 1200:
 		clk_select = (SCN2681_BRG1_1200 << 4) | SCN2681_BRG1_1200;
-		brg_select = 1;
+		brg_select_alt = true;
+		brg_test = false;
 		break;
 	case 2400:
 		clk_select = (SCN2681_BRG1_2400 << 4) | SCN2681_BRG1_2400;
-		brg_select = 1;
+		brg_select_alt = true;
+		brg_test = false;
 		break;
 	case 4800:
 		clk_select = (SCN2681_BRG1_4800 << 4) | SCN2681_BRG1_4800;
-		brg_select = 1;
+		brg_select_alt = true;
+		brg_test = false;
 		break;
 	default:
 	case 9600:
 		clk_select = (SCN2681_BRG1_9600 << 4) | SCN2681_BRG1_9600;
-		brg_select = 1;
+		brg_select_alt = true;
+		brg_test = false;
 		break;
 	case 19200:
 		clk_select = (SCN2681_BRG1_19200 << 4) | SCN2681_BRG1_19200;
-		brg_select = 1;
+		brg_select_alt = true;
+		brg_test = false;
 		break;
 	case 38400:
 		clk_select = (SCN2681_BRG0_38400 << 4) | SCN2681_BRG0_38400;
-		brg_select = 0;
+		brg_select_alt = false;
+		brg_test = false;
+		break;
+	case 57600:
+		clk_select = (SCN2681_BRGTST_57600 << 4) | SCN2681_BRGTST_57600;
+		brg_select_alt = false;
+		brg_test = true;
+		break;
+	case 115200:
+		clk_select = (SCN2681_BRGTST_115200 << 4) | SCN2681_BRGTST_115200;
+		brg_select_alt = false;
+		brg_test = true;
 		break;
 	}
 
-	/* Shutdown UART */
-	writeb(SCN2681_CMD_DSB_TX, base + SCN2681_REG_COMMAND_A);					/* Disable Transmitter */
-	writeb(SCN2681_CMD_DSB_RX, base + SCN2681_REG_COMMAND_A);					/* Disable Reciever */
-	if (brg_select) {
-		writeb(0x80, base + SCN2681_REG_AUX_CTRL);						/* Baud Rate set 2 */
+	_scn2681_serial_setbrgtest(plat, brg_test);
+	if (brg_select_alt) {
+		writeb(SCN2681_ACR_BRG_SELECT, plat->base + SCN2681_REG_AUX_CTRL);			/* Baud Rate set 2 */
 	} else {
-		writeb(0x00, base + SCN2681_REG_AUX_CTRL);						/* Baud Rate set 1 */
+		writeb(0x00, plat->base + SCN2681_REG_AUX_CTRL);					/* Baud Rate set 1 */
 	}
-	writeb(clk_select, base + SCN2681_REG_CLK_SELECT_A);						/* Set Tx and Rx rates */
-	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), base + SCN2681_REG_COMMAND_A);			/* Enable Transmitter / Receiver */
+	writeb(clk_select, plat->base + SCN2681_REG_CLK_SELECT_A);					/* Set Tx and Rx rates */
+	writeb((SCN2681_CMD_EN_RX | SCN2681_CMD_EN_TX), plat->base + SCN2681_REG_COMMAND_A);		/* Enable Transmitter / Receiver */
 }
 
 static int scn2681_serial_setbrg(struct udevice *dev, int baudrate)
 {
 	struct scn2681_serial_plat *plat = dev_get_plat(dev);
 
-	_scn2681_serial_setbrg(plat->base, plat->clock_rate, baudrate);
+	_scn2681_serial_setbrg(plat, baudrate);
 
 	return 0;
 }
@@ -176,7 +207,7 @@ static void _scn2681_serial_init(fdt_addr_t base)
 	writeb(SCN2681_CMD_RST_TX, base + SCN2681_REG_COMMAND_A);					/* Reset Transmitter */
 	writeb(SCN2681_CMD_RST_RX, base + SCN2681_REG_COMMAND_A);					/* Reset Reciever */
 	writeb(SCN2681_CMD_RST_MR, base + SCN2681_REG_COMMAND_A);					/* Reset Mode Register Pointer */
-	writeb(0x80, base + SCN2681_REG_AUX_CTRL);							/* Baud Rate Set #2 */
+	writeb(SCN2681_ACR_BRG_SELECT, base + SCN2681_REG_AUX_CTRL);					/* Baud Rate Set #2 */
 	writeb(((SCN2681_BRG1_9600 << 4) | SCN2681_BRG1_9600), base + SCN2681_REG_CLK_SELECT_A);	/* Set Tx and Rx rates to 9600 */
 	unsigned char mode1 = SCN2681_MODE1_BPC_8 | SCN2681_MODE1_PM_NO | SCN2681_MODE1_RXRTS_ON;
 	writeb(mode1, base + SCN2681_REG_MODE_A);							/* Mode 1: 8-bit, No Parity, RTS On */
@@ -224,6 +255,8 @@ static int scn2681_serial_of_to_plat(struct udevice *dev)
 	plat->base = dev_read_addr(dev);
 	if (plat->base == FDT_ADDR_T_NONE)
 		return -EINVAL;
+
+	plat->brg_testmode = false;
 
 	return 0;
 }
