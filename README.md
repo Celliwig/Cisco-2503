@@ -2,7 +2,7 @@
 An exploration of the hardware in a Cisco 2503 router.
 
 ### Note
-It turned out that while I was working on this, so was somebody else [1]. Great minds think alike! Now they've done a great job on documentation and there's little point replicating the work unless I see any differences that need mentioning. You will find in this repo that there is an emulator of sorts that was created to help understand the existing code and test new software. A monitor that was developed to test that understanding with the real hardware. There's also a U-Boot port with support for the serial console (obviously), system timer, NVRAM, boot flash, and ethernet port.
+It turned out that while I was working on this, so was somebody else [1]. They've done a great job on documentation and there's little point replicating the work unless I see any differences that need mentioning. You will find in this repo that there is an emulator of sorts that was created to help understand the existing code and test new software. A monitor that was developed to test that understanding with the real hardware, and there's also a U-Boot port with support for the serial console (obviously), system timer, NVRAM, boot flash, and ethernet port.
 
 ## Introduction
 This project started out because I was looking for some hardware which had a Motorola 68k processor for experimentation and as a refresher of 68k assembler. 
